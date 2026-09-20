@@ -3,6 +3,7 @@
 
 pub mod decode;
 pub mod device;
+pub mod effects;
 pub mod mixer;
 pub mod transport;
 

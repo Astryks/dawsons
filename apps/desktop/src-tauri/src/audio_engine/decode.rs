@@ -131,7 +131,12 @@ fn remix_channels(samples: &[f32], from_channels: u16, to_channels: u16) -> Vec<
     out
 }
 
-fn resample_linear(samples: &[f32], channels: u16, from_rate: u32, to_rate: u32) -> Vec<f32> {
+pub(super) fn resample_linear(
+    samples: &[f32],
+    channels: u16,
+    from_rate: u32,
+    to_rate: u32,
+) -> Vec<f32> {
     let channels = channels.max(1) as usize;
     let frame_count = samples.len() / channels;
     if frame_count == 0 || from_rate == 0 {
