@@ -14,6 +14,7 @@ use symphonia::core::io::MediaSourceStream;
 use symphonia::core::meta::MetadataOptions;
 use symphonia::core::probe::Hint;
 
+#[derive(Debug)]
 pub struct DecodedAudio {
     pub sample_rate: u32,
     pub channels: u16,
@@ -189,5 +190,62 @@ mod tests {
         let samples = vec![0.0, 1.0, 0.0, 1.0];
         let out = resample_linear(&samples, 1, 22050, 44100);
         assert_eq!(out.len(), 8);
+    }
+
+    // Bad-file handling: a user will eventually point the upload/import
+    // flow at something that isn't a valid audio file, and this must
+    // return a clean, descriptive `Err` rather than panicking the whole
+    // app (or the audio thread, which would be worse — silent playback
+    // death with no error at all).
+
+    #[test]
+    fn decode_file_of_a_nonexistent_path_returns_a_descriptive_error() {
+        let result = decode_file(std::path::Path::new("/tmp/dawsons-test-does-not-exist.wav"));
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("failed to open"));
+    }
+
+    #[test]
+    fn decode_file_of_random_garbage_bytes_returns_an_error_not_a_panic() {
+        let dir = std::env::temp_dir();
+        let path = dir.join("dawsons-test-garbage.wav");
+        std::fs::write(&path, [0xDEu8, 0xAD, 0xBE, 0xEF, 0x00, 0x01, 0x02, 0x03]).unwrap();
+        let result = decode_file(&path);
+        let _ = std::fs::remove_file(&path);
+        assert!(
+            result.is_err(),
+            "garbage bytes must not decode as valid audio"
+        );
+    }
+
+    #[test]
+    fn decode_file_of_an_empty_file_returns_an_error_not_a_panic() {
+        let dir = std::env::temp_dir();
+        let path = dir.join("dawsons-test-empty.wav");
+        std::fs::write(&path, []).unwrap();
+        let result = decode_file(&path);
+        let _ = std::fs::remove_file(&path);
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn decode_file_of_a_valid_wav_with_a_misleading_extension_still_decodes() {
+        // symphonia probes actual file content, not just the extension —
+        // confirm a real WAV still decodes correctly even with a `.mp3`
+        // name, so the format hint never becomes a hard requirement.
+        let sample_rate = 44100u32;
+        let mut samples = Vec::new();
+        for i in 0..sample_rate {
+            let t = i as f32 / sample_rate as f32;
+            samples.push((2.0 * std::f32::consts::PI * 440.0 * t).sin() * 0.4);
+        }
+        let dir = std::env::temp_dir();
+        let path = dir.join("dawsons-test-tone.mp3");
+        crate::audio_engine::wav_writer::write_wav(&path, &samples, sample_rate, 1).unwrap();
+        let result = decode_file(&path);
+        let _ = std::fs::remove_file(&path);
+        let decoded = result.expect("a real WAV file should decode regardless of its extension");
+        assert_eq!(decoded.sample_rate, sample_rate);
+        assert!(!decoded.samples.is_empty());
     }
 }
