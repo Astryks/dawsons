@@ -4,20 +4,6 @@
 // oscillators + envelopes, the same general technique used by countless
 // original synthesizers; not derived from any specific product.
 
-const INSTRUMENT_ICONS = {
-  keys: "🎹",
-  guitar: "🎸",
-  bass: "🎸",
-  lead: "🎤",
-  pad: "🌫️",
-  brass: "🎺",
-  drums: "🥁",
-  bell: "🔔",
-  flute: "🪈",
-  saxophone: "🎷",
-  clarinet: "🎵",
-};
-
 function midiToFreq(note) {
   return 440 * Math.pow(2, (note - 69) / 12);
 }
@@ -172,4 +158,4 @@ function renderDrumHit(buffer, kind, startSec, sampleRate) {
   }
 }
 
-export { INSTRUMENT_ICONS, renderVoice, renderDrumHit, midiToFreq };
+export { renderVoice, renderDrumHit, midiToFreq };

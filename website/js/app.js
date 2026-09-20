@@ -5,7 +5,7 @@ import { reverseBuffer, pitchShiftBuffer, buildEffectChain } from "./effects.js"
 import { detectNotes, snapNotesToScale, MAJOR_SCALE, MINOR_SCALE } from "./pitch.js";
 import { STARTERS } from "./starter-patterns.js";
 import { paletteFor, soundLabel, createPattern, toggleStep, autoFillEveryBeats } from "./pattern-editor.js";
-import { instrumentIconSvg } from "./instrument-icons.js";
+import { instrumentIconSvg, uiIconSvg } from "./instrument-icons.js";
 
 const engine = new Engine();
 let currentSong = null;
@@ -49,7 +49,7 @@ function renderSongPicker() {
     const div = document.createElement("div");
     div.className = "instrument-track";
     div.innerHTML = `
-      <div class="instrument-track__icon">🎵</div>
+      <div class="instrument-track__icon">${uiIconSvg("note")}</div>
       <div class="instrument-track__body">
         <div class="instrument-track__name">${song.title}</div>
         <div class="daw-note" style="margin:0">${song.genre}</div>
@@ -72,7 +72,7 @@ function renderTrackList() {
   el.innerHTML = "";
   engine.tracks.forEach((track, i) => {
     const family = trackFamily(track, i);
-    const icon = family ? instrumentIconSvg(family, `instrument-icon--${family}`) : "🎵";
+    const icon = family ? instrumentIconSvg(family, `instrument-icon--${family}`) : uiIconSvg("note");
     const div = document.createElement("div");
     div.className = "instrument-track";
     div.innerHTML = `
@@ -682,7 +682,7 @@ voiceRecordBtn.onclick = async () => {
   mediaRecorder.ondataavailable = (e) => recordedChunks.push(e.data);
   mediaRecorder.onstop = async () => {
     stream.getTracks().forEach((t) => t.stop());
-    voiceRecordBtn.textContent = "🎤 Start recording";
+    voiceRecordBtn.innerHTML = `${uiIconSvg("mic")} Start recording`;
     voiceStatus.textContent = "Processing…";
     const blob = new Blob(recordedChunks, { type: "audio/webm" });
     const arrayBuffer = await blob.arrayBuffer();
@@ -695,7 +695,7 @@ voiceRecordBtn.onclick = async () => {
     }
   };
   mediaRecorder.start();
-  voiceRecordBtn.textContent = "⏹ Stop recording";
+  voiceRecordBtn.innerHTML = `${uiIconSvg("stop")} Stop recording`;
   voiceStatus.textContent = "Recording…";
 };
 

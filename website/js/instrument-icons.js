@@ -24,4 +24,23 @@ function instrumentIconSvg(family, extraClass = "") {
   return `<svg class="instrument-icon ${extraClass}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
 }
 
-export { instrumentIconSvg };
+// The same hand-drawn, stroke-based house style, extended to the
+// non-instrument icons the UI needs (mic, any-sound speaker, upload,
+// transport play/stop) — replacing plain keyboard emoji so the whole
+// interface reads as one consistent, custom-drawn icon set rather than
+// instrument icons plus assorted emoji everywhere else.
+const UI_ICON_PATHS = {
+  mic: `<rect x="9" y="2" width="6" height="11" rx="3"/><path d="M9 5.5h6M9 8.5h6" stroke-width="1.2"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5v3.5"/><path d="M8.5 21h7"/>`,
+  speaker: `<path d="M4 9v6h3.5l5 4V5l-5 4z"/><path d="M15.3 8.7a5 5 0 0 1 0 6.6"/><path d="M18 6a8.5 8.5 0 0 1 0 12"/>`,
+  upload: `<path d="M12 3v11"/><path d="M8 7l4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>`,
+  play: `<path d="M6 4.5v15l13-7.5z" fill="currentColor" stroke="none"/>`,
+  stop: `<rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none"/>`,
+  note: `<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>`,
+};
+
+function uiIconSvg(name, extraClass = "") {
+  const paths = UI_ICON_PATHS[name];
+  return `<svg class="ui-icon ${extraClass}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths}</svg>`;
+}
+
+export { instrumentIconSvg, uiIconSvg };

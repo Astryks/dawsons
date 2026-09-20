@@ -56,7 +56,7 @@
 
         <div class="daw-sidebar__section-title">Add a sound</div>
         <div class="instrument-track" id="upload-track" style="cursor: pointer">
-          <div class="instrument-track__icon">📁</div>
+          <div class="instrument-track__icon"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v11"/><path d="M8 7l4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></div>
           <div class="instrument-track__body">
             <div class="instrument-track__name">Upload a clip…</div>
           </div>
@@ -68,7 +68,7 @@
       <main class="daw-main">
         <div class="feature-callouts">
           <div class="feature-callout">
-            <div class="feature-callout__title">🎵 Upload a song, see how it's built</div>
+            <div class="feature-callout__title"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg> Upload a song, see how it's built</div>
             <p class="feature-callout__body">
               The free desktop app splits any song into vocals/drums/bass/guitar/piano and detects its
               tempo, key, and chords — a real breakdown of how the track was made, not a guess. This
@@ -77,7 +77,7 @@
             </p>
           </div>
           <div class="feature-callout">
-            <div class="feature-callout__title">🎤 Sing it, play it back as any instrument</div>
+            <div class="feature-callout__title"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M9 5.5h6M9 8.5h6" stroke-width="1.2"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5v3.5"/><path d="M8.5 21h7"/></svg> Sing it, play it back as any instrument</div>
             <p class="feature-callout__body">
               Hum or sing into your mic and it's pitch-tracked note-by-note, then replayed through any of
               8 instrument voices — auto-tuned into a key if you can't quite hold the note, with Robotic
@@ -88,7 +88,7 @@
         </div>
 
         <div class="daw-transport">
-          <button class="is-primary" id="play-btn">▶ Play</button>
+          <button class="is-primary" id="play-btn"><svg class="icon-inline" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4.5v15l13-7.5z"/></svg> Play</button>
           <button id="pause-btn">Pause</button>
           <button id="stop-btn">Stop</button>
           <span class="daw-preview__time" id="scrubber-time">0:00 / 0:00</span>
@@ -102,9 +102,9 @@
         <div class="daw-timeline">
           <div class="timeline-special" id="special-tracks">
             <div class="timeline-layer timeline-layer--special">
-              <div class="timeline-layer__label">🎤 Voice</div>
+              <div class="timeline-layer__label"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M9 5.5h6M9 8.5h6" stroke-width="1.2"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5v3.5"/><path d="M8.5 21h7"/></svg> Voice</div>
               <div class="timeline-layer__special-body">
-                <button id="voice-record-btn">🎤 Record</button>
+                <button id="voice-record-btn"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M9 5.5h6M9 8.5h6" stroke-width="1.2"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5v3.5"/><path d="M8.5 21h7"/></svg> Record</button>
                 <span id="voice-status" class="daw-note" style="margin: 0"></span>
                 <select id="voice-instrument" title="Instrument">
                   <option value="keys">Piano</option>
@@ -156,9 +156,9 @@
               </div>
             </div>
             <div class="timeline-layer timeline-layer--special">
-              <div class="timeline-layer__label">🔊 Any Sound</div>
+              <div class="timeline-layer__label"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h3.5l5 4V5l-5 4z"/><path d="M15.3 8.7a5 5 0 0 1 0 6.6"/><path d="M18 6a8.5 8.5 0 0 1 0 12"/></svg> Any Sound</div>
               <div class="timeline-layer__special-body">
-                <button id="anysound-upload-btn">📁 Upload a clip</button>
+                <button id="anysound-upload-btn"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v11"/><path d="M8 7l4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg> Upload a clip</button>
                 <input type="url" id="anysound-url-input" placeholder="…or paste a direct file link" />
                 <button id="anysound-url-btn">Fetch</button>
                 <span id="anysound-status" class="daw-note" style="margin: 0"></span>

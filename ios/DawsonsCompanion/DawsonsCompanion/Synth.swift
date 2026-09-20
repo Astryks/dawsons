@@ -27,23 +27,24 @@ enum InstrumentFamily: String, CaseIterable, Codable, Identifiable {
         }
     }
 
-    /// A distinct pastel hue per family, matching the web app's palette
-    /// so the two DAWs feel like the same product despite the native UI.
+    /// A vibrant hue per family, matching the web app's night-stage
+    /// palette (website/css/daw.css) exactly, so the two DAWs feel like
+    /// the same product despite the native UI.
     var colorHex: UInt32 {
         switch self {
-        case .drums: return 0xFFB4A2
-        case .keys: return 0xC9B6E4
-        case .guitar: return 0xA7D8C9
-        case .bass: return 0xF6C6D0
-        case .lead: return 0xA8D0E6
-        case .pad: return 0xFFE0A3
-        case .brass: return 0xE3B7A0
-        case .bell: return 0xB9E0D4
-        case .flute: return 0xD6C9F0
-        case .saxophone: return 0xF3B7C2
-        case .clarinet: return 0xB7CDE0
-        case .voice: return 0xFAD6A5
-        case .anySound: return 0xCDE0D0
+        case .drums: return 0xFF9457
+        case .keys: return 0xB478FF
+        case .guitar: return 0x35E6AE
+        case .bass: return 0xFF5FA8
+        case .lead: return 0x3FC7FF
+        case .pad: return 0xB478FF
+        case .brass: return 0xFF9457
+        case .bell: return 0x35E6AE
+        case .flute: return 0xFF5FA8
+        case .saxophone: return 0xFFAB2E
+        case .clarinet: return 0x2FE0C0
+        case .voice: return 0xFF5C96
+        case .anySound: return 0xC8EA3F
         }
     }
 }

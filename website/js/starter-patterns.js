@@ -9,7 +9,6 @@ const STARTERS = [
   {
     key: "drums",
     label: "Drums",
-    icon: "🥁",
     family: "drums",
     hits: [
       { step: 0, sound: "kick" },
@@ -33,7 +32,6 @@ const STARTERS = [
   {
     key: "keys",
     label: "Keys",
-    icon: "🎹",
     family: "keys",
     hits: [
       { step: 0, sound: "root" },
@@ -45,7 +43,6 @@ const STARTERS = [
   {
     key: "bass",
     label: "Bass",
-    icon: "🎸",
     family: "bass",
     hits: [
       { step: 0, sound: "root" },
@@ -61,7 +58,6 @@ const STARTERS = [
   {
     key: "guitar",
     label: "Guitar",
-    icon: "🪕",
     family: "guitar",
     hits: [
       { step: 0, sound: "root" },
@@ -77,7 +73,6 @@ const STARTERS = [
   {
     key: "lead",
     label: "Lead",
-    icon: "🎤",
     family: "lead",
     hits: [
       { step: 0, sound: "fifth" },

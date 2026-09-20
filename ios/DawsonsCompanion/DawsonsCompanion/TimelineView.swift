@@ -159,8 +159,12 @@ private struct TrackHeaderView: View {
                 .font(.caption).bold()
                 .lineLimit(1)
             HStack(spacing: 6) {
-                Button(track.muted ? "🔇" : "M") { track.muted.toggle() }
-                    .font(.caption2)
+                Button {
+                    track.muted.toggle()
+                } label: {
+                    Image(systemName: track.muted ? "speaker.slash.fill" : "speaker.fill")
+                }
+                .font(.caption2)
                 Button("S") { track.solo.toggle() }
                     .font(.caption2)
                     .foregroundStyle(track.solo ? .orange : .primary)

@@ -1,36 +1,41 @@
-/* Dawsons browser DAW — an original color palette (soft lavender-purple +
-   deep olive-green + muted blue, loosely mood-inspired by color-field
-   painting, not a reproduction of any specific artwork) replacing the
-   earlier neon-green scheme, and a sidebar-plus-timeline layout (the
-   same general structure shared by virtually every DAW — Logic,
-   Ableton, GarageBand, FL Studio — not a copy of any one product's
-   specific icons or visual design). */
+/* Dawsons browser DAW — a vibrant, high-saturation night-stage palette
+   (electric violet, hot pink, neon cyan, citrus orange, acid lime) on a
+   near-black base, replacing the earlier muted lavender/olive scheme.
+   An original color direction, not sampled from any specific artist's
+   footage or artwork — a real attempt to pull color from a piece of
+   research video for this actually turned out to be near-black interview
+   lighting, not the vibrant look it was hoped to carry, so this palette
+   is instead a deliberate "night stage, neon signage" mood built to fit
+   a music-making tool. Layout remains the same sidebar-plus-timeline
+   structure shared by virtually every DAW — Logic, Ableton, GarageBand,
+   FL Studio — not a copy of any one product's specific icons or visual
+   design. */
 
 :root {
-  --bg: #15121e;
-  --panel: #1e1a2e;
-  --panel-alt: #241f38;
-  --border: #332c4a;
-  --text: #ece8f5;
-  --text-dim: #a89bc4;
-  --purple: #b48ee0;
-  --purple-deep: #8a63bd;
-  --olive: #8a9257;
-  --olive-deep: #656d38;
-  --blue: #7a93c9;
-  --rose: #c98aa0;
-  --ochre: #d1a85c;
-  --teal: #5fa8a0;
-  --danger: #e0708a;
+  --bg: #0e0a1a;
+  --panel: #1a1330;
+  --panel-alt: #221a40;
+  --border: #3d2c66;
+  --text: #f5eefe;
+  --text-dim: #b6a4dd;
+  --purple: #c264ff;
+  --purple-deep: #8f2fe0;
+  --olive: #c8ea3f;
+  --olive-deep: #9fc21f;
+  --blue: #39c9ff;
+  --rose: #ff5c96;
+  --ochre: #ffab2e;
+  --teal: #2fe0c0;
+  --danger: #ff4d6d;
 
-  /* Pastel accents for the always-ready default instrument tracks and
-     the "+" add-instrument menu — lighter/softer than the main palette
-     above, so they read clearly as distinct instrument identities. */
-  --pastel-peach: #f5c9a8;
-  --pastel-lilac: #d7c4f0;
-  --pastel-mint: #b9e3d0;
-  --pastel-pink: #f2bfd3;
-  --pastel-sky: #b9d6f0;
+  /* Vibrant accents for the always-ready default instrument tracks and
+     the "+" add-instrument menu — punchier than the main panel colors
+     above, so each instrument reads as a distinct, energetic identity. */
+  --pastel-peach: #ff9457;
+  --pastel-lilac: #b478ff;
+  --pastel-mint: #35e6ae;
+  --pastel-pink: #ff5fa8;
+  --pastel-sky: #3fc7ff;
 }
 
 * {
@@ -656,6 +661,18 @@ body {
   width: 1.3rem;
   height: 1.3rem;
   margin-right: 0;
+}
+
+/* Same hand-drawn stroke style, inlined directly wherever a plain-text
+   emoji used to sit (feature callouts, transport, Voice/Any Sound
+   labels and buttons) — one consistent custom icon set everywhere. */
+.icon-inline {
+  width: 1.05em;
+  height: 1.05em;
+  display: inline-block;
+  vertical-align: -0.15em;
+  margin-right: 0.15rem;
+  flex-shrink: 0;
 }
 
 .instrument-icon--drums {
