@@ -21,8 +21,9 @@ first for what's actually done vs. planned.
 - **Chord starter** — the "press C, hear a C major chord" easy-start feature, generalized across all 128 instruments (major/minor/7th/maj7/min7/sus4/diminished)
 - **Genre-based example songs** — 9 original demo compositions (3 with 5 melodic layers instead of 4) across Pop, Jazz, Hip-Hop, Holiday, Funk/Rock, R&B/Soul, and Folk/Acoustic, filterable by a genre picker on the home screen, paired with a factual (title/artist/year only) inspiration list of real famous songs per genre — see the "Example songs & genre inspiration" section in `docs/UX_DESIGN.md` for why the playable examples are original compositions rather than transcriptions of the real songs referenced
 - **"Pay attention to the layers"** — a home-screen section embedding 5 verified official YouTube videos (Taylor Swift, Michael Jackson, Snoop Dogg, Chet Baker, Wham!) via YouTube's own iframe embed (the officially supported way to show a video from the platform — distinct from extracting/downloading its audio, which this app still never does), each paired with a button to open a similarly-styled original Dawsons example
+- **Chord detector accuracy fix** — found via real-world QA (analyzing a user's own screen-recorded song, then validating with synthesized-chord test fixtures built from publicly documented, uncopyrightable chord progressions): drum/percussive transients were flipping the per-frame chord decision on nearly every hit, producing dozens of spurious chord changes per second. Fixed with HPSS harmonic/percussive separation before chroma extraction plus a majority-vote smoothing pass on the discrete chord decisions — cut a real 335-segment/0.26s-avg result down to 64 segments/2.8s-avg on the same audio. 5 new tests in `test_chords.py`, including a documented, tested limitation: the detector only classifies major/minor triads, so 7th/sus chords (e.g. the commonly-published Em7–G–Dsus4–A7sus4 voicing for "Wonderwall") come back as their closest triad, not verbatim — a real accuracy gap worth a follow-up (7th/sus/dim templates), not silently hidden.
 
-41 Rust unit tests + 10 Python tests (including real end-to-end runs — Demucs inference, the full M5 pipeline, and clip classification, not mocked) passing. Everything above runs 100% locally — no server, no cloud cost, per the project's core constraint.
+41 Rust unit tests + 15 Python tests (including real end-to-end runs — Demucs inference, the full M5 pipeline, and clip classification, not mocked) passing. Everything above runs 100% locally — no server, no cloud cost, per the project's core constraint.
 
 ## Open-source model inventory (what's actually integrated vs. discussed)
 
@@ -38,6 +39,9 @@ first for what's actually done vs. planned.
 - M9 — Hardening (crash/restart testing, bad-file handling)
 - Cloud-generation Pro tier (needs a backend, billing, accounts — see `docs/MONETIZATION.md`; not built)
 - Local profile (name + picture, "your songs" list) — designed, not built; explicitly *not* a multi-user social network (that needs a paid server/hosting decision first, see `docs/UX_DESIGN.md`)
+- Chord vocabulary expansion (7th/sus/diminished templates, not just major/minor triads) — the accuracy gap this exposed on real audio
+- EQ/compression/delay effects (reverb/reverse/pitch already shipped) — next items in the Ableton/Logic-inspired effects queue
+- M6's full draggable multi-region timeline (current home-screen "layers" view is a static colored-lane summary, not yet editable)
 
 ## Known issues / notes for next session
 
