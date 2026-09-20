@@ -5,8 +5,11 @@
 pub mod analysis;
 pub mod demo_songs;
 pub mod export;
+pub mod generate;
+pub mod pitch_crepe;
 pub mod project;
 pub mod sidecar;
+pub mod smart_upload;
 pub mod transport;
 pub mod voice_notes;
 

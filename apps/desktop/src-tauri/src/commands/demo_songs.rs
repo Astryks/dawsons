@@ -12,6 +12,7 @@ use crate::state::AppState;
 pub struct DemoSongInfo {
     pub index: usize,
     pub title: String,
+    pub genre: String,
     pub description: String,
 }
 
@@ -23,6 +24,7 @@ pub fn list_demo_songs() -> Vec<DemoSongInfo> {
         .map(|(index, song)| DemoSongInfo {
             index,
             title: song.title.to_string(),
+            genre: song.genre.to_string(),
             description: song.description.to_string(),
         })
         .collect()

@@ -34,6 +34,8 @@ this list is checked before adding any new dependency.
 | librosa | ISC | Tempo, key, and chroma feature extraction |
 | soundfile | BSD-3-Clause | Audio file I/O |
 | numpy / scipy | BSD-3-Clause | Numerical computing |
+| ACE-Step | Apache-2.0 (code **and** published model weights — verified directly against the LICENSE file and the Hugging Face model card, not just a description) | Text-prompt-to-original-instrumental generation |
+| diffusers / transformers / accelerate | Apache-2.0 | ACE-Step's inference stack |
 
 ## Reserved for later phases (not yet integrated)
 
@@ -51,6 +53,9 @@ this list is checked before adding any new dependency.
 | Essentia | AGPL-3.0 (commercial license required otherwise) | Closed-source commercial use requires a paid license from MTG/UPF |
 | Chordino / NNLS Chroma | GPL-2.0 | Copyleft — would obligate open-sourcing dependent code |
 | JUCE | GPL-3.0 (commercial license required otherwise) | Free tier is copyleft; commercial tier is paid |
+| MusicGen (Meta AudioCraft) | Code is MIT, but the published pretrained **weights** are CC-BY-NC 4.0 | Weights are non-commercial only — the same "code is free, weights aren't" trap the project has watched for since Essentia |
+| Stable Audio Open | Stability AI Community License | Free only under $1M annual revenue, then requires a paid Enterprise license and mandatory registration — exactly the kind of scaling-cost dependency this project avoids, even though small-scale use is currently free |
+| YuE2 | Weights require a separately negotiated commercial license | The original YuE (v1) remains Apache-2.0 including weights and was considered, but its 7B-parameter LLM-based architecture is too heavy for this project's target hardware (a 16GB M1 Pro); ACE-Step's diffusion-based approach was chosen instead for being both properly licensed and lightweight enough to actually run here |
 
 ## Bundled assets (not code, but redistributed)
 

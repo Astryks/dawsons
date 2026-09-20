@@ -46,6 +46,53 @@ without a reload — another point in favor of Rust holding the Scene Graph
 as an in-memory struct it can hot-swap (see ADR 0001), rather than the UI
 re-deriving state from scratch per project.
 
+## Example songs & genre inspiration (home screen)
+
+The home screen shows a genre picker (Pop, Jazz, Hip-Hop, Holiday, R&B /
+Soul, Folk / Acoustic) with two things per genre, kept deliberately
+separate:
+
+1. **Inspiration list** — real, famous songs and artists (title, artist,
+   year only — e.g. "My Funny Valentine — Chet Baker, 1954"). This is
+   factual reference data, not copyrightable expression, so it's fine to
+   show.
+2. **Example songs** — original Dawsons compositions written *in that
+   genre's style* (see `apps/desktop/src-tauri/src/audio_engine/
+   demo_songs.rs`), each with real chord progressions/turnarounds
+   (uncopyrightable) and original melodies, rendered as a full layered
+   project (piano, bass, lead, drums) so a new user immediately sees what
+   a finished, editable multi-track project looks like.
+
+What's deliberately *not* done: transcribing the actual chords or
+reconstructing the actual instrumental arrangement of a specific real
+recording (e.g. Taylor Swift's "Love Story," Michael Jackson's "Beat It,"
+Dr. Dre's "Still D.R.E.," Chet Baker's recordings) and bundling that as
+shipped product content. That's a materially different, real copyright
+exposure than a user privately analyzing their own copy of a song — the
+company would be distributing a derivative reconstruction of protected
+commercial works at scale, across many artists and labels, as a product
+feature. A disclaimer doesn't change that; it only affects user liability,
+not whether the app itself is infringing. (This came up concretely twice:
+once considering a real Taylor Swift track as demo content, and again
+when asked to build a whole cross-genre library of famous-song
+breakdowns — both times the resolution was the same split above: real
+facts for inspiration, original compositions for anything actually
+playable.)
+
+A third piece sits alongside these two: a "Pay attention to the layers"
+section that embeds a handful of official YouTube videos (via YouTube's
+own iframe embed player — the feature YouTube provides specifically for
+showing its videos on other sites, not the same thing as extracting or
+downloading the audio, which this app doesn't do) for real songs named
+above, each paired with a button to open the corresponding original
+example. Embedding is fine because nothing is copied, hosted, or
+distributed by Dawsons — the video plays from YouTube's own servers under
+YouTube's own terms, same as any blog or tutorial site embedding a video.
+Video IDs are pinned to verified official artist/label channel uploads
+rather than a specific song's first search result, and picked to be
+embeddable (some official uploads, e.g. one "Beat It" upload, disable
+embedding — a different one from the same rights holder was used instead).
+
 ## Multiple projects & export (concrete requirement for M6)
 
 Storage: a `projects` table in the existing local SQLite DB (`id`, `name`,

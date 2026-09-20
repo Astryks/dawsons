@@ -230,6 +230,30 @@ pub fn render_note(
     Ok(interleave(&left, &right, config.channels))
 }
 
+/// Renders a full chord (several simultaneous pitches) through the chosen
+/// GM instrument — the "press C, hear a C major chord" easy-start
+/// feature, generalized across all 128 instruments the way a guitar's
+/// open C shape always plays a C major chord. The frontend works out
+/// which pitches make up the chord; this just plays them together.
+pub fn render_chord(
+    config: &EngineConfig,
+    program: u8,
+    pitches: &[i32],
+    velocity: i32,
+    duration_sec: f32,
+) -> Result<Vec<f32>, String> {
+    let mut synthesizer = load_synthesizer(config, MELODY_CHANNEL, program)?;
+    let (left, right) = render_one_event(
+        &mut synthesizer,
+        MELODY_CHANNEL,
+        config,
+        pitches,
+        velocity,
+        duration_sec,
+    );
+    Ok(interleave(&left, &right, config.channels))
+}
+
 /// Renders a detected melody (see pitch::extract_notes) as a sequence of
 /// notes through the chosen GM instrument — the actual voice-to-instrument
 /// feature. Notes are rendered back-to-back (relative note lengths are
@@ -297,6 +321,23 @@ mod tests {
             channels: 2,
         };
         let samples = render_note(&config, 0, 60, 100, 1.0).expect("render should succeed");
+        let peak = samples.iter().fold(0f32, |a, &b| a.max(b.abs()));
+        assert!(peak > 0.01, "expected audible output, got peak={peak}");
+    }
+
+    #[test]
+    fn renders_nonsilent_chord_when_soundfont_present() {
+        if !is_soundfont_available() {
+            eprintln!("skipping: soundfont not downloaded in this environment");
+            return;
+        }
+        let config = EngineConfig {
+            sample_rate: 44100,
+            channels: 2,
+        };
+        // C major triad: C4, E4, G4.
+        let samples =
+            render_chord(&config, 0, &[60, 64, 67], 100, 1.0).expect("render should succeed");
         let peak = samples.iter().fold(0f32, |a, &b| a.max(b.abs()));
         assert!(peak > 0.01, "expected audible output, got peak={peak}");
     }

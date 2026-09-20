@@ -1,7 +1,7 @@
+use serde::{Deserialize, Serialize};
 use tauri::State;
 
-use crate::audio_engine::mixer::TrackInfo;
-use crate::audio_engine::{synth, transport};
+use crate::audio_engine::{effects, synth, transport};
 use crate::state::AppState;
 
 fn require_audio(
@@ -55,6 +55,83 @@ pub fn debug_play_reversed_pitched_tone(
     transport::play(&handle.mixer)
 }
 
+/// The full clip-tools effect chain, sent as one struct rather than a
+/// growing list of positional args. The frontend always sends every
+/// field (with sensible values even for a disabled effect) rather than
+/// relying on server-side defaults, so what you hear always matches
+/// exactly what the UI's sliders say.
+#[derive(Debug, Clone, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EffectParams {
+    pub reverse: bool,
+    pub semitones: f64,
+    pub eq_freq_hz: f64,
+    pub eq_gain_db: f64,
+    pub eq_q: f64,
+    pub compress_enabled: bool,
+    pub compress_threshold_db: f64,
+    pub compress_ratio: f64,
+    pub compress_attack_ms: f64,
+    pub compress_release_ms: f64,
+    pub compress_makeup_db: f64,
+    pub delay_ms: f64,
+    pub delay_feedback: f64,
+    pub delay_wet: f64,
+    pub reverb_wet: f64,
+    pub reverb_room: f64,
+    pub robotic_hz: f64,
+    pub muffle_cutoff_hz: f64,
+}
+
+impl EffectParams {
+    fn to_chain(&self) -> effects::EffectChain {
+        effects::EffectChain {
+            reverse: self.reverse,
+            semitones: self.semitones as f32,
+            eq_freq_hz: self.eq_freq_hz as f32,
+            eq_gain_db: self.eq_gain_db as f32,
+            eq_q: self.eq_q as f32,
+            compress_enabled: self.compress_enabled,
+            compress_threshold_db: self.compress_threshold_db as f32,
+            compress_ratio: self.compress_ratio as f32,
+            compress_attack_ms: self.compress_attack_ms as f32,
+            compress_release_ms: self.compress_release_ms as f32,
+            compress_makeup_db: self.compress_makeup_db as f32,
+            delay_ms: self.delay_ms as f32,
+            delay_feedback: self.delay_feedback as f32,
+            delay_wet: self.delay_wet as f32,
+            reverb_wet: self.reverb_wet as f32,
+            reverb_room: self.reverb_room as f32,
+            robotic_hz: self.robotic_hz as f32,
+            muffle_cutoff_hz: self.muffle_cutoff_hz as f32,
+        }
+    }
+}
+
+/// The real clip-tools command: applies reverse, pitch, EQ, compression,
+/// delay, and/or reverb to *any* file the user points at — including a
+/// stem Demucs just isolated from an uploaded clip — not just the bundled
+/// demo tone.
+#[tauri::command]
+pub fn apply_effects_to_file(
+    state: State<AppState>,
+    file_path: String,
+    effects: EffectParams,
+) -> Result<(), String> {
+    let audio = state
+        .audio
+        .lock()
+        .map_err(|_| "audio state poisoned".to_string())?;
+    let handle = require_audio(&audio)?;
+    transport::load_file_with_effects(
+        &handle.mixer,
+        &handle.engine_config,
+        std::path::Path::new(&file_path),
+        &effects.to_chain(),
+    )?;
+    transport::play(&handle.mixer)
+}
+
 #[tauri::command]
 pub fn transport_play(state: State<AppState>) -> Result<(), String> {
     let audio = state
@@ -82,8 +159,19 @@ pub fn transport_stop(state: State<AppState>) -> Result<(), String> {
     transport::stop(&require_audio(&audio)?.mixer)
 }
 
+/// A track's mixer info plus its duration in seconds (computed here,
+/// where the engine's sample rate/channel count is available — the
+/// mixer itself only knows raw sample counts) — what the timeline UI
+/// actually needs to draw proportionally-sized layers.
+#[derive(Debug, Clone, Serialize)]
+pub struct TrackSummary {
+    pub name: String,
+    pub muted: bool,
+    pub duration_sec: f64,
+}
+
 #[tauri::command]
-pub fn list_tracks(state: State<AppState>) -> Result<Vec<TrackInfo>, String> {
+pub fn list_tracks(state: State<AppState>) -> Result<Vec<TrackSummary>, String> {
     let audio = state
         .audio
         .lock()
@@ -93,7 +181,17 @@ pub fn list_tracks(state: State<AppState>) -> Result<Vec<TrackInfo>, String> {
         .mixer
         .lock()
         .map_err(|_| "mixer lock poisoned".to_string())?;
-    Ok(mixer.track_info())
+    let channels = handle.engine_config.channels.max(1) as f64;
+    let sample_rate = handle.engine_config.sample_rate.max(1) as f64;
+    Ok(mixer
+        .track_info()
+        .into_iter()
+        .map(|t| TrackSummary {
+            name: t.name,
+            muted: t.muted,
+            duration_sec: (t.len_samples as f64 / channels) / sample_rate,
+        })
+        .collect())
 }
 
 #[tauri::command]
@@ -108,6 +206,70 @@ pub fn set_track_muted(state: State<AppState>, index: usize, muted: bool) -> Res
         .lock()
         .map_err(|_| "mixer lock poisoned".to_string())?;
     mixer.set_muted(index, muted)
+}
+
+/// Moves a layer to a new position in the stack — the backing for
+/// reordering tracks in the timeline UI.
+#[tauri::command]
+pub fn move_track(state: State<AppState>, from: usize, to: usize) -> Result<(), String> {
+    let audio = state
+        .audio
+        .lock()
+        .map_err(|_| "audio state poisoned".to_string())?;
+    let handle = require_audio(&audio)?;
+    let mut mixer = handle
+        .mixer
+        .lock()
+        .map_err(|_| "mixer lock poisoned".to_string())?;
+    mixer.move_track(from, to)
+}
+
+/// Deletes a layer entirely — the backing for a "remove this layer"
+/// button in the timeline UI.
+#[tauri::command]
+pub fn remove_track(state: State<AppState>, index: usize) -> Result<(), String> {
+    let audio = state
+        .audio
+        .lock()
+        .map_err(|_| "audio state poisoned".to_string())?;
+    let handle = require_audio(&audio)?;
+    let mut mixer = handle
+        .mixer
+        .lock()
+        .map_err(|_| "mixer lock poisoned".to_string())?;
+    mixer.remove_track(index)
+}
+
+/// Playhead position plus whether the mixer is still actually playing —
+/// bundled together (rather than a bare position) so the frontend can
+/// tell a genuine pause/stop apart from playback finishing naturally
+/// (which also resets position to 0, per `MixerState::render`), and stop
+/// polling in both cases instead of only the ones it triggered itself.
+#[derive(Debug, Clone, Serialize)]
+pub struct TransportStatus {
+    pub position_sec: f64,
+    pub playing: bool,
+}
+
+/// Polled by the frontend during playback to animate a moving playhead
+/// over the timeline and detect when playback has ended.
+#[tauri::command]
+pub fn transport_status(state: State<AppState>) -> Result<TransportStatus, String> {
+    let audio = state
+        .audio
+        .lock()
+        .map_err(|_| "audio state poisoned".to_string())?;
+    let handle = require_audio(&audio)?;
+    let mixer = handle
+        .mixer
+        .lock()
+        .map_err(|_| "mixer lock poisoned".to_string())?;
+    let channels = handle.engine_config.channels.max(1) as f64;
+    let sample_rate = handle.engine_config.sample_rate.max(1) as f64;
+    Ok(TransportStatus {
+        position_sec: (mixer.position as f64 / channels) / sample_rate,
+        playing: mixer.playing,
+    })
 }
 
 #[tauri::command]
@@ -132,6 +294,60 @@ pub fn play_instrument_note(state: State<AppState>, program: u8, note: i32) -> R
         .map_err(|_| "mixer lock poisoned".to_string())?;
     mixer.tracks = vec![crate::audio_engine::mixer::TrackBuffer {
         name: format!("instrument-{program}"),
+        samples: std::sync::Arc::new(samples),
+        gain: 1.0,
+        muted: false,
+    }];
+    mixer.position = 0;
+    mixer.playing = true;
+    Ok(())
+}
+
+/// Semitone offsets from the root for each supported chord quality — the
+/// same idea as a guitar's open chord shapes (a C shape always plays a C
+/// major triad no matter the instrument), generalized to any of the 128
+/// GM instruments. Unrecognized qualities fall back to major so the
+/// easy-start feature never silently does nothing.
+pub(crate) fn chord_intervals(quality: &str) -> &'static [i32] {
+    match quality {
+        "minor" => &[0, 3, 7],
+        "dominant7" => &[0, 4, 7, 10],
+        "major7" => &[0, 4, 7, 11],
+        "minor7" => &[0, 3, 7, 10],
+        "sus4" => &[0, 5, 7],
+        "diminished" => &[0, 3, 6],
+        _ => &[0, 4, 7], // major
+    }
+}
+
+/// The easy-start "press a note, hear a chord" tool: builds the chord for
+/// `root_note` + `quality` and plays it through the chosen GM instrument —
+/// so a brand new user gets a full, in-key chord out of piano, sax, synth,
+/// or anything else, the same way pressing C on a guitar always gives a
+/// full C major chord.
+#[tauri::command]
+pub fn play_instrument_chord(
+    state: State<AppState>,
+    program: u8,
+    root_note: i32,
+    quality: String,
+) -> Result<(), String> {
+    let audio = state
+        .audio
+        .lock()
+        .map_err(|_| "audio state poisoned".to_string())?;
+    let handle = require_audio(&audio)?;
+    let pitches: Vec<i32> = chord_intervals(&quality)
+        .iter()
+        .map(|offset| root_note + offset)
+        .collect();
+    let samples = synth::render_chord(&handle.engine_config, program, &pitches, 100, 1.5)?;
+    let mut mixer = handle
+        .mixer
+        .lock()
+        .map_err(|_| "mixer lock poisoned".to_string())?;
+    mixer.tracks = vec![crate::audio_engine::mixer::TrackBuffer {
+        name: format!("chord-{program}-{quality}"),
         samples: std::sync::Arc::new(samples),
         gain: 1.0,
         muted: false,

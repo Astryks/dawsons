@@ -76,6 +76,51 @@ pub struct DetectedNote {
     pub duration_sec: f32,
 }
 
+/// Semitone offsets from the tonic for the two most common scales — the
+/// same music-theory facts already used for chord qualities elsewhere in
+/// this project, not anyone's copyrightable expression.
+pub const MAJOR_SCALE: [u8; 7] = [0, 2, 4, 5, 7, 9, 11];
+pub const MINOR_SCALE: [u8; 7] = [0, 2, 3, 5, 7, 8, 10];
+
+/// Snaps a MIDI note to the nearest pitch in a given key/scale — the
+/// "auto-tune" correction for singing that isn't quite in tune. `tonic`
+/// is a pitch class 0-11 (C=0); `scale` is semitone offsets from the
+/// tonic (see `MAJOR_SCALE`/`MINOR_SCALE`). Searches the target octave
+/// plus one above/below so a note near an octave boundary still finds
+/// its true nearest neighbor.
+pub fn snap_to_scale(note: u8, tonic: u8, scale: &[u8]) -> u8 {
+    let note_i = note as i32;
+    let mut best = note;
+    let mut best_dist = i32::MAX;
+    for octave in -1..=1 {
+        let octave_base = (note_i / 12 + octave) * 12;
+        for &interval in scale {
+            let candidate = octave_base + tonic as i32 + interval as i32;
+            if !(0..=127).contains(&candidate) {
+                continue;
+            }
+            let dist = (candidate - note_i).abs();
+            if dist < best_dist {
+                best_dist = dist;
+                best = candidate as u8;
+            }
+        }
+    }
+    best
+}
+
+/// Applies `snap_to_scale` to every note in a detected melody — the
+/// auto-tune pass for voice-to-instrument.
+pub fn snap_notes_to_scale(notes: &[DetectedNote], tonic: u8, scale: &[u8]) -> Vec<DetectedNote> {
+    notes
+        .iter()
+        .map(|n| DetectedNote {
+            note: snap_to_scale(n.note, tonic, scale),
+            ..*n
+        })
+        .collect()
+}
+
 /// Extracts a monophonic melody as quantized MIDI notes from raw
 /// interleaved samples (downmixed to mono internally): frame-by-frame YIN
 /// pitch tracking, quantized to the nearest semitone, consecutive
@@ -209,5 +254,63 @@ mod tests {
         assert_eq!(notes.len(), 1);
         assert_eq!(notes[0].note, 69); // A4
         assert!(notes[0].duration_sec > 0.3);
+    }
+
+    #[test]
+    fn snap_to_scale_leaves_an_in_scale_note_unchanged() {
+        // C4 (60) is in C major (tonic 0).
+        assert_eq!(snap_to_scale(60, 0, &MAJOR_SCALE), 60);
+    }
+
+    #[test]
+    fn snap_to_scale_corrects_a_flat_note_to_the_nearest_in_key_pitch() {
+        // C#4 (61) is a semitone flat of D4 (62, in C major) and a
+        // semitone sharp of C4 (60, also in C major) — tied distance, so
+        // this just checks the result actually lands in the scale.
+        let snapped = snap_to_scale(61, 0, &MAJOR_SCALE);
+        assert!(MAJOR_SCALE.contains(&(snapped % 12)));
+    }
+
+    #[test]
+    fn snap_to_scale_corrects_a_clearly_off_pitch_note() {
+        // D#4 (63) is far from D4 (62) or E4 (64)'s neighbors in C major;
+        // the nearest in-key note is E4 (64, 1 semitone away) beating
+        // D4 (62, 1 semitone away) — both equally close, so check it's
+        // one of the two nearest scale tones, not some distant note.
+        let snapped = snap_to_scale(63, 0, &MAJOR_SCALE);
+        assert!((61..=65).contains(&snapped));
+        assert!(MAJOR_SCALE.contains(&(snapped % 12)));
+    }
+
+    #[test]
+    fn snap_to_scale_respects_a_different_tonic() {
+        // A#4 (70) is not in D major (tonic 2; pitch classes 2,4,6,7,9,11,1)
+        // — nearest in-key notes are A4 (69) or B4 (71); should move off A#.
+        let snapped = snap_to_scale(70, 2, &MAJOR_SCALE);
+        assert_ne!(snapped, 70);
+        assert!(MAJOR_SCALE
+            .iter()
+            .any(|&interval| (2 + interval) % 12 == snapped % 12));
+    }
+
+    #[test]
+    fn snap_notes_to_scale_corrects_every_note_in_a_melody() {
+        let notes = vec![
+            DetectedNote {
+                note: 61,
+                start_sec: 0.0,
+                duration_sec: 0.5,
+            },
+            DetectedNote {
+                note: 63,
+                start_sec: 0.5,
+                duration_sec: 0.5,
+            },
+        ];
+        let corrected = snap_notes_to_scale(&notes, 0, &MAJOR_SCALE);
+        assert_eq!(corrected.len(), 2);
+        for n in &corrected {
+            assert!(MAJOR_SCALE.contains(&(n.note % 12)));
+        }
     }
 }

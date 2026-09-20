@@ -1,0 +1,140 @@
+// Original, from-scratch Web Audio synthesis engine for the browser DAW.
+// No SoundFont here (148MB isn't reasonable to ship on a marketing
+// page) — instead a small set of instrument "voices" built from basic
+// oscillators + envelopes, the same general technique used by countless
+// original synthesizers; not derived from any specific product.
+
+const INSTRUMENT_ICONS = {
+  keys: "🎹",
+  guitar: "🎸",
+  bass: "🎸",
+  lead: "🎤",
+  pad: "🌫️",
+  brass: "🎺",
+  drums: "🥁",
+  bell: "🔔",
+  flute: "🪈",
+};
+
+function midiToFreq(note) {
+  return 440 * Math.pow(2, (note - 69) / 12);
+}
+
+// Renders one note/chord event into an existing AudioBuffer at a given
+// offset, using a simple oscillator + ADSR-style gain envelope shaped by
+// the instrument "family". Additive: multiple pitches (a chord) just
+// call this once per pitch.
+function renderVoice(ctx, buffer, family, pitches, startSec, durationSec, sampleRate) {
+  const shapes = {
+    keys: { wave: "triangle", attack: 0.005, decay: 0.15, sustain: 0.5, release: 0.2, gain: 0.22 },
+    guitar: { wave: "sawtooth", attack: 0.005, decay: 0.25, sustain: 0.25, release: 0.15, gain: 0.16 },
+    bass: { wave: "sine", attack: 0.01, decay: 0.08, sustain: 0.85, release: 0.1, gain: 0.35 },
+    lead: { wave: "triangle", attack: 0.02, decay: 0.1, sustain: 0.7, release: 0.15, gain: 0.2 },
+    pad: { wave: "sawtooth", attack: 0.25, decay: 0.2, sustain: 0.8, release: 0.4, gain: 0.14 },
+    brass: { wave: "sawtooth", attack: 0.03, decay: 0.1, sustain: 0.7, release: 0.12, gain: 0.18 },
+    bell: { wave: "sine", attack: 0.002, decay: 0.6, sustain: 0.2, release: 0.4, gain: 0.18 },
+    flute: { wave: "sine", attack: 0.04, decay: 0.1, sustain: 0.75, release: 0.15, gain: 0.2 },
+  };
+  const shape = shapes[family] || shapes.keys;
+
+  for (const pitch of pitches) {
+    const freq = midiToFreq(pitch);
+    const startSample = Math.floor(startSec * sampleRate);
+    const totalSamples = Math.floor(durationSec * sampleRate);
+    const data0 = buffer.getChannelData(0);
+    const data1 = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : data0;
+
+    const attackSamples = Math.floor(shape.attack * sampleRate);
+    const decaySamples = Math.floor(shape.decay * sampleRate);
+    const releaseSamples = Math.floor(shape.release * sampleRate);
+    const sustainSamples = Math.max(0, totalSamples - attackSamples - decaySamples - releaseSamples);
+
+    for (let i = 0; i < totalSamples; i++) {
+      const t = i / sampleRate;
+      let envelope;
+      if (i < attackSamples) {
+        envelope = i / Math.max(1, attackSamples);
+      } else if (i < attackSamples + decaySamples) {
+        const p = (i - attackSamples) / Math.max(1, decaySamples);
+        envelope = 1.0 - p * (1.0 - shape.sustain);
+      } else if (i < attackSamples + decaySamples + sustainSamples) {
+        envelope = shape.sustain;
+      } else {
+        const p = (i - attackSamples - decaySamples - sustainSamples) / Math.max(1, releaseSamples);
+        envelope = shape.sustain * Math.max(0, 1.0 - p);
+      }
+
+      let sample;
+      const phase = 2 * Math.PI * freq * t;
+      if (shape.wave === "sine") {
+        sample = Math.sin(phase);
+      } else if (shape.wave === "triangle") {
+        sample = (2 / Math.PI) * Math.asin(Math.sin(phase));
+      } else {
+        // sawtooth
+        const cycles = freq * t;
+        sample = 2 * (cycles - Math.floor(cycles + 0.5));
+      }
+
+      const value = sample * envelope * shape.gain;
+      const idx = startSample + i;
+      if (idx >= 0 && idx < data0.length) {
+        data0[idx] += value;
+        data1[idx] += value;
+      }
+    }
+  }
+}
+
+// Renders a simple drum hit (kick/snare/hihat) as noise/pitch-drop
+// bursts, since there's no sample library here — good enough for demo
+// songs, not a full drum-machine emulation.
+function renderDrumHit(buffer, kind, startSec, sampleRate) {
+  const data0 = buffer.getChannelData(0);
+  const data1 = buffer.numberOfChannels > 1 ? buffer.getChannelData(1) : data0;
+  const startSample = Math.floor(startSec * sampleRate);
+
+  if (kind === "kick") {
+    const dur = 0.15;
+    const n = Math.floor(dur * sampleRate);
+    for (let i = 0; i < n; i++) {
+      const t = i / sampleRate;
+      const freq = 120 * Math.exp(-t * 18);
+      const env = Math.exp(-t * 14);
+      const value = Math.sin(2 * Math.PI * freq * t) * env * 0.6;
+      const idx = startSample + i;
+      if (idx >= 0 && idx < data0.length) {
+        data0[idx] += value;
+        data1[idx] += value;
+      }
+    }
+  } else if (kind === "snare") {
+    const dur = 0.12;
+    const n = Math.floor(dur * sampleRate);
+    for (let i = 0; i < n; i++) {
+      const t = i / sampleRate;
+      const env = Math.exp(-t * 22);
+      const value = (Math.random() * 2 - 1) * env * 0.35;
+      const idx = startSample + i;
+      if (idx >= 0 && idx < data0.length) {
+        data0[idx] += value;
+        data1[idx] += value;
+      }
+    }
+  } else if (kind === "hihat") {
+    const dur = 0.05;
+    const n = Math.floor(dur * sampleRate);
+    for (let i = 0; i < n; i++) {
+      const t = i / sampleRate;
+      const env = Math.exp(-t * 60);
+      const value = (Math.random() * 2 - 1) * env * 0.18;
+      const idx = startSample + i;
+      if (idx >= 0 && idx < data0.length) {
+        data0[idx] += value;
+        data1[idx] += value;
+      }
+    }
+  }
+}
+
+export { INSTRUMENT_ICONS, renderVoice, renderDrumHit, midiToFreq };

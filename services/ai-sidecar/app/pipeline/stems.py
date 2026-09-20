@@ -12,14 +12,13 @@ download logic needed here for this specific dependency.
 """
 
 from pathlib import Path
-from typing import Optional
 
 from demucs.api import Separator, save_audio
 
 _MODEL = "htdemucs_6s"
 
-_separator: Optional[Separator] = None
-_separator_device: Optional[str] = None
+_separator: Separator | None = None
+_separator_device: str | None = None
 
 
 def _get_separator(device: str) -> Separator:

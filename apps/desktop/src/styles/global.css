@@ -90,6 +90,24 @@ body {
   background: #303540;
 }
 
+.spotlight-embed {
+  position: relative;
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  margin-bottom: 0.6rem;
+  border-radius: 6px;
+  overflow: hidden;
+  background: #000;
+}
+
+.spotlight-embed iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
 .layered-tracks {
   margin-bottom: 2rem;
   background: #191c21;
@@ -118,14 +136,23 @@ body {
 .layer__header {
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  width: 140px;
+  gap: 0.6rem;
+  width: 230px;
   flex-shrink: 0;
   font-size: 0.85rem;
 }
 
 .layer__name {
   font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.layer__duration {
+  color: #9aa0a8;
+  font-size: 0.75rem;
+  flex-shrink: 0;
 }
 
 .layer__mute {
@@ -134,23 +161,85 @@ body {
   gap: 0.3rem;
   color: #9aa0a8;
   font-size: 0.75rem;
+  flex-shrink: 0;
+}
+
+.layer__reorder {
+  display: flex;
+  gap: 0.2rem;
+  margin-left: auto;
+  flex-shrink: 0;
+}
+
+.layer__reorder button {
+  width: 1.5rem;
+  height: 1.5rem;
+  padding: 0;
+  line-height: 1;
+  border-radius: 4px;
+  border: 1px solid #3a3d44;
+  background: #1e2126;
+  color: inherit;
+  cursor: pointer;
+  font-size: 0.75rem;
+}
+
+.layer__reorder button:hover:not(:disabled) {
+  background: #262a31;
+}
+
+.layer__reorder button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.layer__track {
+  flex: 1;
+  position: relative;
 }
 
 .layer__bar {
-  flex: 1;
   height: 28px;
-  border-radius: 6px;
-  opacity: 0.85;
+  border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -6px 10px rgba(0, 0, 0, 0.15);
 }
 
-/* A small fixed palette cycling per track index — GarageBand-style
-   colored lanes, without needing per-instrument color logic. */
-.layer--0 .layer__bar { background: #6ee0b8; }
-.layer--1 .layer__bar { background: #7c9bff; }
-.layer--2 .layer__bar { background: #e0c368; }
-.layer--3 .layer__bar { background: #e08a6e; }
-.layer--4 .layer__bar { background: #c88ee0; }
-.layer--5 .layer__bar { background: #6ec8e0; }
+.layer__playhead {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: #fff;
+  box-shadow: 0 0 6px 1px rgba(255, 255, 255, 0.8);
+  pointer-events: none;
+}
+
+.layer__bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 0px,
+    rgba(255, 255, 255, 0.05) 1px,
+    transparent 1px,
+    transparent 10px
+  );
+}
+
+/* A curated, saturated palette cycling per track index — each a subtle
+   diagonal gradient with a soft outer glow, rather than GarageBand's flat
+   fills, so the layered view reads as more premium at a glance. */
+.layer--0 .layer__bar { background: linear-gradient(135deg, #4ee8a8, #1fb37d); box-shadow: 0 0 14px -4px #4ee8a8aa, inset 0 1px 0 rgba(255,255,255,.18); }
+.layer--1 .layer__bar { background: linear-gradient(135deg, #6f8dff, #3d5ce0); box-shadow: 0 0 14px -4px #6f8dffaa, inset 0 1px 0 rgba(255,255,255,.18); }
+.layer--2 .layer__bar { background: linear-gradient(135deg, #ffcf5c, #f0a030); box-shadow: 0 0 14px -4px #ffcf5caa, inset 0 1px 0 rgba(255,255,255,.18); }
+.layer--3 .layer__bar { background: linear-gradient(135deg, #ff8f70, #e8563a); box-shadow: 0 0 14px -4px #ff8f70aa, inset 0 1px 0 rgba(255,255,255,.18); }
+.layer--4 .layer__bar { background: linear-gradient(135deg, #d68bff, #a84fe0); box-shadow: 0 0 14px -4px #d68bffaa, inset 0 1px 0 rgba(255,255,255,.18); }
+.layer--5 .layer__bar { background: linear-gradient(135deg, #5cd8ff, #2ea8d8); box-shadow: 0 0 14px -4px #5cd8ffaa, inset 0 1px 0 rgba(255,255,255,.18); }
 
 .sidecar-badge {
   font-size: 0.8rem;
@@ -255,4 +344,84 @@ body {
   color: inherit;
   cursor: pointer;
   font-size: 0.8rem;
+}
+
+.confidence-badge {
+  display: inline-block;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin-left: 0.3rem;
+}
+
+.confidence-badge--high {
+  background: #1f3a26;
+  color: #6ee08a;
+}
+
+.confidence-badge--medium {
+  background: #3a3320;
+  color: #e0c368;
+}
+
+.confidence-badge--low {
+  background: #3a1f1f;
+  color: #e06e6e;
+}
+
+.analysis-summary {
+  margin: 0.75rem 0;
+  padding: 0.6rem 0.75rem;
+  background: #1a1d22;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+}
+
+.analysis-summary__row {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.analysis-summary__row--wrap {
+  flex-wrap: wrap;
+}
+
+.analysis-summary__label {
+  color: #9aa0a8;
+  margin-right: 0.2rem;
+}
+
+.chord-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  background: #23262c;
+  border-radius: 6px;
+  font-size: 0.8rem;
+}
+
+.lyrics-track {
+  margin-top: 0.3rem;
+  max-height: 10rem;
+  overflow-y: auto;
+  background: #14161a;
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+}
+
+.lyrics-track__line {
+  margin: 0.3rem 0;
+  color: #9aa0a8;
+  font-size: 0.85rem;
+  transition: color 0.15s ease;
+}
+
+.lyrics-track__line--active {
+  color: #e6e6e6;
+  font-weight: 600;
 }

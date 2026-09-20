@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel
 
@@ -18,7 +18,7 @@ class JobStatus(str, Enum):
 class JobRecord(BaseModel):
     job_id: str
     status: JobStatus = JobStatus.PENDING
-    stage: Optional[str] = None
+    stage: str | None = None
     progress: float = 0.0
-    result: Optional[dict[str, Any]] = None
-    error: Optional[str] = None
+    result: dict[str, Any] | None = None
+    error: str | None = None

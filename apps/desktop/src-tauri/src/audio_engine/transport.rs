@@ -52,25 +52,61 @@ pub fn load_test_track_with_effects(
     reverse: bool,
     semitones: f32,
 ) -> Result<(), String> {
-    let decoded = decode::decode_file(path)?;
-    let mut converted = decode::to_engine_format(&decoded, config.sample_rate, config.channels);
-    if reverse {
-        converted = effects::reverse(&converted, config.channels);
-    }
-    if semitones != 0.0 {
-        converted = effects::pitch_shift_by_resampling(
-            &converted,
-            config.channels,
-            config.sample_rate,
+    load_file_with_effects(
+        mixer,
+        config,
+        path,
+        &effects::EffectChain {
+            reverse,
             semitones,
-        );
-    }
+            ..Default::default()
+        },
+    )
+}
+
+/// Loads a file with the given effect chain applied — the full "isolate a
+/// sound, then reshape it" clip-tools pipeline (reverse, pitch, EQ,
+/// compression, delay, reverb). See `EffectChain::apply` for the order
+/// and for why each stage is free when left at its default.
+pub fn load_file_with_effects(
+    mixer: &SharedMixer,
+    config: &EngineConfig,
+    path: &Path,
+    chain: &effects::EffectChain,
+) -> Result<(), String> {
+    let decoded = decode::decode_file(path)?;
+    let converted = decode::to_engine_format(&decoded, config.sample_rate, config.channels);
+    let processed = chain.apply(&converted, config.channels, config.sample_rate);
     let name = path
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("track")
         .to_string();
-    load_samples(mixer, vec![(name, converted)]);
+    load_samples(mixer, vec![(name, processed)]);
+    Ok(())
+}
+
+/// Adds one file as a new track alongside whatever's already loaded,
+/// rather than replacing the whole mixer state — the "smart upload" tool
+/// drops a classified clip into its own layer without disturbing the
+/// tracks already on the timeline.
+pub fn add_track(
+    mixer: &SharedMixer,
+    config: &EngineConfig,
+    path: &Path,
+    name: String,
+) -> Result<(), String> {
+    let decoded = decode::decode_file(path)?;
+    let converted = decode::to_engine_format(&decoded, config.sample_rate, config.channels);
+    let mut state = mixer
+        .lock()
+        .map_err(|_| "mixer lock poisoned".to_string())?;
+    state.tracks.push(TrackBuffer {
+        name,
+        samples: Arc::new(converted),
+        gain: 1.0,
+        muted: false,
+    });
     Ok(())
 }
 

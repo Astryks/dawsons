@@ -30,6 +30,10 @@ pub type SharedMixer = Arc<Mutex<MixerState>>;
 pub struct TrackInfo {
     pub name: String,
     pub muted: bool,
+    /// Interleaved sample count — left as raw samples here since
+    /// `MixerState` doesn't know the engine's sample rate/channel count;
+    /// callers with an `EngineConfig` convert this to seconds.
+    pub len_samples: usize,
 }
 
 impl MixerState {
@@ -69,6 +73,7 @@ impl MixerState {
             .map(|t| TrackInfo {
                 name: t.name.clone(),
                 muted: t.muted,
+                len_samples: t.samples.len(),
             })
             .collect()
     }
@@ -79,6 +84,33 @@ impl MixerState {
             .get_mut(index)
             .ok_or_else(|| format!("no track at index {index}"))?;
         track.muted = muted;
+        Ok(())
+    }
+
+    /// Moves the track at `from` to sit at `to` in the layer order — the
+    /// backing for a "reorder layers" UI (up/down, or a future drag).
+    pub fn move_track(&mut self, from: usize, to: usize) -> Result<(), String> {
+        if from >= self.tracks.len() || to >= self.tracks.len() {
+            return Err(format!(
+                "track index out of range (from={from}, to={to}, len={})",
+                self.tracks.len()
+            ));
+        }
+        let track = self.tracks.remove(from);
+        self.tracks.insert(to, track);
+        Ok(())
+    }
+
+    /// Removes a layer entirely — the backing for a "delete this layer"
+    /// button, resetting playback since sample positions may no longer
+    /// line up meaningfully once a layer's gone.
+    pub fn remove_track(&mut self, index: usize) -> Result<(), String> {
+        if index >= self.tracks.len() {
+            return Err(format!("no track at index {index}"));
+        }
+        self.tracks.remove(index);
+        self.playing = false;
+        self.position = 0;
         Ok(())
     }
 
@@ -199,5 +231,70 @@ mod tests {
             playing: false,
         };
         assert_eq!(state.render_full_mix(), vec![0.3, 0.3]);
+    }
+
+    fn named_track(name: &str) -> TrackBuffer {
+        TrackBuffer {
+            name: name.to_string(),
+            samples: Arc::new(vec![0.0]),
+            gain: 1.0,
+            muted: false,
+        }
+    }
+
+    #[test]
+    fn move_track_reorders_layers() {
+        let mut state = MixerState {
+            tracks: vec![named_track("a"), named_track("b"), named_track("c")],
+            position: 0,
+            playing: false,
+        };
+        state.move_track(0, 2).unwrap();
+        let names: Vec<_> = state.tracks.iter().map(|t| t.name.as_str()).collect();
+        assert_eq!(names, ["b", "c", "a"]);
+    }
+
+    #[test]
+    fn move_track_out_of_range_errors() {
+        let mut state = MixerState {
+            tracks: vec![named_track("a")],
+            position: 0,
+            playing: false,
+        };
+        assert!(state.move_track(0, 5).is_err());
+    }
+
+    #[test]
+    fn remove_track_drops_it_and_resets_playback() {
+        let mut state = MixerState {
+            tracks: vec![named_track("a"), named_track("b")],
+            position: 10,
+            playing: true,
+        };
+        state.remove_track(0).unwrap();
+        let names: Vec<_> = state.tracks.iter().map(|t| t.name.as_str()).collect();
+        assert_eq!(names, ["b"]);
+        assert!(!state.playing);
+        assert_eq!(state.position, 0);
+    }
+
+    #[test]
+    fn remove_track_out_of_range_errors() {
+        let mut state = MixerState {
+            tracks: vec![named_track("a")],
+            position: 0,
+            playing: false,
+        };
+        assert!(state.remove_track(5).is_err());
+    }
+
+    #[test]
+    fn track_info_reports_sample_length() {
+        let state = MixerState {
+            tracks: vec![track(vec![0.1, 0.2, 0.3])],
+            position: 0,
+            playing: false,
+        };
+        assert_eq!(state.track_info()[0].len_samples, 3);
     }
 }
