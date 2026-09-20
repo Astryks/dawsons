@@ -2,6 +2,7 @@
 // Split by concern as they're implemented: project.rs (M1/M5), transport.rs (M2),
 // analysis.rs (M4), mixer.rs (M4).
 
+pub mod analysis;
 pub mod export;
 pub mod project;
 pub mod sidecar;

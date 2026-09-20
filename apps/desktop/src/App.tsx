@@ -20,6 +20,20 @@ interface VoiceNote {
   file_path: string;
 }
 
+interface TrackInfo {
+  name: string;
+  muted: boolean;
+}
+
+interface AnalysisStatus {
+  job_id: string;
+  status: "pending" | "running" | "done" | "failed";
+  stage: string | null;
+  progress: number;
+  result: { stems: Record<string, string> } | null;
+  error: string | null;
+}
+
 export default function App() {
   const [sidecarStatus, setSidecarStatus] = useState<SidecarStatus>("starting");
   const [audioError, setAudioError] = useState<string | null>(null);
@@ -32,6 +46,9 @@ export default function App() {
   const [voiceNotes, setVoiceNotes] = useState<VoiceNote[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [voiceNoteError, setVoiceNoteError] = useState<string | null>(null);
+  const [tracks, setTracks] = useState<TrackInfo[]>([]);
+  const [analysis, setAnalysis] = useState<AnalysisStatus | null>(null);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
 
   useEffect(() => {
     // M3 wires this up to a real `sidecar:status` Tauri event; until then
@@ -39,6 +56,7 @@ export default function App() {
     setSidecarStatus("starting");
     refreshProjects();
     refreshVoiceNotes();
+    refreshTracks();
   }, []);
 
   async function runCommand(command: string, args?: Record<string, unknown>) {
@@ -114,6 +132,58 @@ export default function App() {
     } catch (err) {
       setExportStatus(String(err));
     }
+  }
+
+  async function refreshTracks() {
+    try {
+      setTracks(await invoke<TrackInfo[]>("list_tracks"));
+    } catch (err) {
+      setAnalysisError(String(err));
+    }
+  }
+
+  async function handleToggleMute(index: number, muted: boolean) {
+    try {
+      await invoke("set_track_muted", { index, muted });
+      await refreshTracks();
+    } catch (err) {
+      setAnalysisError(String(err));
+    }
+  }
+
+  async function handleUploadSong() {
+    const path = await open({
+      filters: [{ name: "Audio", extensions: ["mp3", "wav", "flac", "m4a", "ogg"] }],
+    });
+    if (!path || Array.isArray(path)) return;
+
+    setAnalysisError(null);
+    try {
+      const jobId = await invoke<string>("start_analysis", { filePath: path });
+      pollAnalysis(jobId);
+    } catch (err) {
+      setAnalysisError(String(err));
+    }
+  }
+
+  function pollAnalysis(jobId: string) {
+    const interval = setInterval(async () => {
+      try {
+        const status = await invoke<AnalysisStatus>("analysis_status", { jobId });
+        setAnalysis(status);
+        if (status.status === "done" && status.result) {
+          clearInterval(interval);
+          await invoke("load_stems", { stems: status.result.stems });
+          await refreshTracks();
+        } else if (status.status === "failed") {
+          clearInterval(interval);
+          setAnalysisError(status.error ?? "analysis failed");
+        }
+      } catch (err) {
+        clearInterval(interval);
+        setAnalysisError(String(err));
+      }
+    }, 1000);
   }
 
   async function refreshVoiceNotes() {
@@ -207,6 +277,38 @@ export default function App() {
               <button onClick={() => handleDeleteProject(currentProjectId)}>Delete</button>
             </div>
           )}
+        </section>
+
+        <section className="debug-panel">
+          <h2>Song analysis (M4)</h2>
+          <p className="debug-panel__hint">
+            Uploads a song to the local AI sidecar, which runs Demucs stem separation on your own
+            machine — no server, no upload anywhere.
+          </p>
+          <div className="debug-panel__buttons">
+            <button onClick={handleUploadSong}>Upload song…</button>
+          </div>
+          {analysis && analysis.status !== "done" && (
+            <p className="debug-panel__hint">
+              {analysis.status}
+              {analysis.stage ? ` — ${analysis.stage}` : ""} ({Math.round(analysis.progress * 100)}%)
+            </p>
+          )}
+          {analysisError && <p className="debug-panel__error">{analysisError}</p>}
+          <ul className="voice-note-list">
+            {tracks.map((t, i) => (
+              <li key={t.name + i} className="voice-note-list__item">
+                <span>{t.name}</span>
+                <span className="voice-note-list__actions">
+                  <label>
+                    <input type="checkbox" checked={t.muted} onChange={(e) => handleToggleMute(i, e.target.checked)} />
+                    Mute
+                  </label>
+                </span>
+              </li>
+            ))}
+            {tracks.length === 0 && <li className="debug-panel__hint">No tracks loaded yet.</li>}
+          </ul>
         </section>
 
         <section className="debug-panel">

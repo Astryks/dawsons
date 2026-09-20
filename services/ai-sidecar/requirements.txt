@@ -1,6 +1,10 @@
-# Pinned runtime dependencies for the M1-M3 sidecar skeleton (health check +
-# process lifecycle only). Regenerate with `pip-compile pyproject.toml` once
-# the M4/M5 pipeline dependencies (demucs, torch, librosa, ...) are added.
+# Pinned runtime dependencies. Regenerate with `pip freeze` after updating
+# pyproject.toml's dependencies and testing the result.
 fastapi==0.115.5
 uvicorn[standard]==0.32.1
 pydantic==2.9.2
+demucs==4.1.0
+torch==2.14.0
+torchaudio==2.11.0
+numpy==2.4.6
+soundfile==0.14.0

@@ -14,6 +14,7 @@ __pycache__/
 .venv/
 venv/
 services/ai-sidecar/.pytest_cache/
+services/ai-sidecar/.dawsons-work/
 *.egg-info/
 
 # Model weights and caches — never commit; see services/ai-sidecar/models/download_weights.py

@@ -1,6 +1,9 @@
-"""Per-job working directory layout under app.config.WORK_DIR.
+"""Per-job working directory layout under app.config.WORK_DIR."""
 
-Implemented at M4:
-    def job_dir(project_id: str, job_id: str) -> Path:
-        # WORK_DIR / "projects" / project_id / "analysis" / job_id
-"""
+from pathlib import Path
+
+from app.config import WORK_DIR
+
+
+def job_dir(job_id: str) -> Path:
+    return WORK_DIR / "analysis" / job_id

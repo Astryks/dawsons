@@ -53,8 +53,8 @@ pub fn export_stems(state: State<AppState>, dir: String) -> Result<Vec<String>, 
         .lock()
         .map_err(|_| "mixer lock poisoned".to_string())?;
     let mut written = Vec::with_capacity(mixer.tracks.len());
-    for (i, track) in mixer.tracks.iter().enumerate() {
-        let file_path = dir_path.join(format!("track_{}.wav", i + 1));
+    for track in mixer.tracks.iter() {
+        let file_path = dir_path.join(format!("{}.wav", track.name));
         wav_writer::write_wav(
             &file_path,
             &track.samples,

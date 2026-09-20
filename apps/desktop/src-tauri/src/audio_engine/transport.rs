@@ -17,7 +17,29 @@ pub fn load_test_track(
 ) -> Result<(), String> {
     let decoded = decode::decode_file(path)?;
     let converted = decode::to_engine_format(&decoded, config.sample_rate, config.channels);
-    load_samples(mixer, converted);
+    let name = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("track")
+        .to_string();
+    load_samples(mixer, vec![(name, converted)]);
+    Ok(())
+}
+
+/// Loads several files as separate simultaneous tracks — e.g. the stems a
+/// Demucs analysis job produced — replacing whatever was previously loaded.
+pub fn load_stems(
+    mixer: &SharedMixer,
+    config: &EngineConfig,
+    stems: &[(String, std::path::PathBuf)],
+) -> Result<(), String> {
+    let mut loaded = Vec::with_capacity(stems.len());
+    for (name, path) in stems {
+        let decoded = decode::decode_file(path)?;
+        let converted = decode::to_engine_format(&decoded, config.sample_rate, config.channels);
+        loaded.push((name.clone(), converted));
+    }
+    load_samples(mixer, loaded);
     Ok(())
 }
 
@@ -43,17 +65,26 @@ pub fn load_test_track_with_effects(
             semitones,
         );
     }
-    load_samples(mixer, converted);
+    let name = path
+        .file_stem()
+        .and_then(|s| s.to_str())
+        .unwrap_or("track")
+        .to_string();
+    load_samples(mixer, vec![(name, converted)]);
     Ok(())
 }
 
-fn load_samples(mixer: &SharedMixer, samples: Vec<f32>) {
+fn load_samples(mixer: &SharedMixer, tracks: Vec<(String, Vec<f32>)>) {
     if let Ok(mut state) = mixer.lock() {
-        state.tracks = vec![TrackBuffer {
-            samples: Arc::new(samples),
-            gain: 1.0,
-            muted: false,
-        }];
+        state.tracks = tracks
+            .into_iter()
+            .map(|(name, samples)| TrackBuffer {
+                name,
+                samples: Arc::new(samples),
+                gain: 1.0,
+                muted: false,
+            })
+            .collect();
         state.position = 0;
         state.playing = false;
     }
