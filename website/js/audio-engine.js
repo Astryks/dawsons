@@ -10,7 +10,10 @@ class Track {
     this.name = name;
     this.buffer = buffer;
     this.muted = false;
+    this.solo = false;
+    this.pan = 0; // -1 (left) .. 0 (center) .. 1 (right)
     this.gain = null; // GainNode, created on play
+    this.panner = null; // StereoPannerNode, created on play
     this.source = null;
     // {family, hits, totalSteps} for a track editable via pattern-editor.js's
     // click-to-place grid; null for a plain demo-song/uploaded-audio track.
@@ -40,7 +43,13 @@ class Engine {
 
   renderSongToTracks(song) {
     const sampleRate = this.ctx.sampleRate;
-    const totalBars = song.drums.reduce((s, e) => s + e.dur, 0);
+    // Total duration is whichever is longer, drums or the melodic
+    // layers — some songs (an a cappella-style overture, say) have no
+    // drums at all, and `song.drums` alone would then wrongly compute a
+    // zero-length buffer.
+    const drumsDur = song.drums.reduce((s, e) => s + e.dur, 0);
+    const layersDur = Math.max(0, ...song.layers.map((l) => l.notes.reduce((s, e) => s + e.dur, 0)));
+    const totalBars = Math.max(drumsDur, layersDur, 0.001);
     const totalSamples = Math.ceil(totalBars * sampleRate);
 
     const tracks = [];
@@ -54,13 +63,15 @@ class Engine {
       tracks.push(new Track(layer.name, buf));
     }
 
-    const drumBuf = this.ctx.createBuffer(2, totalSamples, sampleRate);
-    let t = 0;
-    for (const hit of song.drums) {
-      renderDrumHit(drumBuf, hit.kind, t, sampleRate);
-      t += hit.dur;
+    if (song.drums.length) {
+      const drumBuf = this.ctx.createBuffer(2, totalSamples, sampleRate);
+      let t = 0;
+      for (const hit of song.drums) {
+        renderDrumHit(drumBuf, hit.kind, t, sampleRate);
+        t += hit.dur;
+      }
+      tracks.push(new Track("Drums", drumBuf));
     }
-    tracks.push(new Track("Drums", drumBuf));
 
     this.loadTracks(tracks);
   }
@@ -88,7 +99,35 @@ class Engine {
     const track = this.tracks[index];
     if (!track) return;
     track.muted = muted;
-    if (track.gain) track.gain.gain.value = muted ? 0 : 1;
+    this._updateLiveGains();
+  }
+
+  // Real solo behavior: when any track is soloed, only soloed tracks are
+  // audible (regardless of their own mute state); with nothing soloed,
+  // ordinary mute rules apply. Toggling one track's solo can change what
+  // every other currently-playing track sounds like, so this recomputes
+  // every live gain, not just the toggled track's.
+  setSolo(index, solo) {
+    const track = this.tracks[index];
+    if (!track) return;
+    track.solo = solo;
+    this._updateLiveGains();
+  }
+
+  setPan(index, pan) {
+    const track = this.tracks[index];
+    if (!track) return;
+    track.pan = Math.max(-1, Math.min(1, pan));
+    if (track.panner) track.panner.pan.value = track.pan;
+  }
+
+  _updateLiveGains() {
+    const anySoloed = this.tracks.some((t) => t.solo);
+    for (const track of this.tracks) {
+      if (!track.gain) continue;
+      const audible = anySoloed ? track.solo : !track.muted;
+      track.gain.gain.value = audible ? 1 : 0;
+    }
   }
 
   // Starts (or resumes) playback from `fromSec` — omit it to resume from
@@ -102,16 +141,21 @@ class Engine {
     this._stopSources();
     this.playing = true;
     this.startedAt = this.ctx.currentTime - startSec;
+    const anySoloed = this.tracks.some((t) => t.solo);
     for (const track of this.tracks) {
       if (startSec >= track.durationSec) continue;
       const source = this.ctx.createBufferSource();
       source.buffer = track.buffer;
       const gain = this.ctx.createGain();
-      gain.gain.value = track.muted ? 0 : 1;
-      source.connect(gain).connect(this.masterGain);
+      const audible = anySoloed ? track.solo : !track.muted;
+      gain.gain.value = audible ? 1 : 0;
+      const panner = this.ctx.createStereoPanner();
+      panner.pan.value = track.pan;
+      source.connect(gain).connect(panner).connect(this.masterGain);
       source.start(this.ctx.currentTime, startSec);
       track.source = source;
       track.gain = gain;
+      track.panner = panner;
     }
     const remaining = Math.max(0, this.maxDurationSec() - startSec);
     clearTimeout(this._stopTimer);

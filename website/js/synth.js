@@ -14,6 +14,8 @@ const INSTRUMENT_ICONS = {
   drums: "🥁",
   bell: "🔔",
   flute: "🪈",
+  saxophone: "🎷",
+  clarinet: "🎵",
 };
 
 function midiToFreq(note) {
@@ -34,6 +36,12 @@ function renderVoice(ctx, buffer, family, pitches, startSec, durationSec, sample
     brass: { wave: "sawtooth", attack: 0.03, decay: 0.1, sustain: 0.7, release: 0.12, gain: 0.18 },
     bell: { wave: "sine", attack: 0.002, decay: 0.6, sustain: 0.2, release: 0.4, gain: 0.18 },
     flute: { wave: "sine", attack: 0.04, decay: 0.1, sustain: 0.75, release: 0.15, gain: 0.2 },
+    // A sax's real timbre is complex (breath noise, reed buzz), but a
+    // sawtooth with a slower attack than guitar/brass and a warmer,
+    // longer sustain gives it a reasonably distinct "breathy horn" feel
+    // in this simple oscillator-based synth.
+    saxophone: { wave: "sawtooth", attack: 0.06, decay: 0.15, sustain: 0.8, release: 0.2, gain: 0.19 },
+    clarinet: { wave: "square", attack: 0.05, decay: 0.08, sustain: 0.85, release: 0.12, gain: 0.16 },
   };
   const shape = shapes[family] || shapes.keys;
 
@@ -70,6 +78,12 @@ function renderVoice(ctx, buffer, family, pitches, startSec, durationSec, sample
         sample = Math.sin(phase);
       } else if (shape.wave === "triangle") {
         sample = (2 / Math.PI) * Math.asin(Math.sin(phase));
+      } else if (shape.wave === "square") {
+        // A clarinet's real timbre is dominated by odd harmonics (it
+        // behaves acoustically like a closed pipe) — a square wave is
+        // the classic, simple synthesis approximation of that same
+        // odd-harmonic-only spectrum, a textbook technique.
+        sample = Math.sign(Math.sin(phase));
       } else {
         // sawtooth
         const cycles = freq * t;
