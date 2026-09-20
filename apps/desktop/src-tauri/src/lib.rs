@@ -30,6 +30,8 @@ pub fn run() {
             commands::transport::transport_stop,
             commands::transport::list_tracks,
             commands::transport::set_track_muted,
+            commands::transport::soundfont_available,
+            commands::transport::play_instrument_note,
             commands::sidecar::sidecar_status,
             commands::analysis::start_analysis,
             commands::analysis::analysis_status,

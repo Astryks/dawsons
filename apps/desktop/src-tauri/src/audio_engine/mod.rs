@@ -6,6 +6,7 @@ pub mod decode;
 pub mod device;
 pub mod effects;
 pub mod mixer;
+pub mod synth;
 pub mod transport;
 pub mod wav_writer;
 

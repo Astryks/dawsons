@@ -23,6 +23,7 @@ reqwest = { version = "0.12", default-features = false, features = ["json", "rus
 rusqlite = { version = "0.31", features = ["bundled"] }
 cpal = "0.15"
 symphonia = { version = "0.5", features = ["all"] }
+rustysynth = "1.3"
 uuid = { version = "1", features = ["v4", "serde"] }
 thiserror = "1"
 tracing = "0.1"

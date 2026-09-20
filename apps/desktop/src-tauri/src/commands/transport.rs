@@ -1,7 +1,7 @@
 use tauri::State;
 
 use crate::audio_engine::mixer::TrackInfo;
-use crate::audio_engine::transport;
+use crate::audio_engine::{synth, transport};
 use crate::state::AppState;
 
 fn require_audio(
@@ -108,4 +108,35 @@ pub fn set_track_muted(state: State<AppState>, index: usize, muted: bool) -> Res
         .lock()
         .map_err(|_| "mixer lock poisoned".to_string())?;
     mixer.set_muted(index, muted)
+}
+
+#[tauri::command]
+pub fn soundfont_available() -> bool {
+    synth::is_soundfont_available()
+}
+
+/// Instrument library demo: renders a single note with the chosen GM
+/// program via the SoundFont synth and plays it — proves the instrument
+/// picker end to end before it's wired into real track editing.
+#[tauri::command]
+pub fn play_instrument_note(state: State<AppState>, program: u8, note: i32) -> Result<(), String> {
+    let audio = state
+        .audio
+        .lock()
+        .map_err(|_| "audio state poisoned".to_string())?;
+    let handle = require_audio(&audio)?;
+    let samples = synth::render_note(&handle.engine_config, program, note, 100, 1.5)?;
+    let mut mixer = handle
+        .mixer
+        .lock()
+        .map_err(|_| "mixer lock poisoned".to_string())?;
+    mixer.tracks = vec![crate::audio_engine::mixer::TrackBuffer {
+        name: format!("instrument-{program}"),
+        samples: std::sync::Arc::new(samples),
+        gain: 1.0,
+        muted: false,
+    }];
+    mixer.position = 0;
+    mixer.playing = true;
+    Ok(())
 }
