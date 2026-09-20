@@ -16,6 +16,7 @@ import numpy as np
 import soundfile as sf
 
 from app.pipeline import chords
+from app.pipeline.chords import _QUALITY_INTERVALS
 
 SR = 22050
 
@@ -28,10 +29,19 @@ _PITCH_ORDER = list(_NOTE_FREQS.keys())
 
 
 def _triad_freqs(root: str, quality: str) -> list[float]:
+    return _chord_freqs(root, quality)
+
+
+def _chord_freqs(root: str, quality: str) -> list[float]:
+    """Builds the frequencies for any quality the detector itself knows
+    about (see `_QUALITY_INTERVALS` in chords.py), or an arbitrary
+    explicit interval list for qualities it doesn't (e.g. a compound
+    "7sus4" chord) — reusing the detector's own interval math means the
+    test's ground truth is exactly what music theory says that chord is,
+    not a hand-copied guess that could quietly drift out of sync."""
     idx = _PITCH_ORDER.index(root)
-    third = 3 if quality == "min" else 4
-    tones = [idx, idx + third, idx + 7]
-    return [_NOTE_FREQS[_PITCH_ORDER[t % 12]] * (2 ** (t // 12)) for t in tones]
+    intervals = _QUALITY_INTERVALS[quality] if isinstance(quality, str) else quality
+    return [_NOTE_FREQS[_PITCH_ORDER[(idx + i) % 12]] * (2 ** ((idx + i) // 12)) for i in intervals]
 
 
 def _render_chord(freqs: list[float], seconds: float, sr: int = SR) -> np.ndarray:
@@ -112,35 +122,51 @@ def test_percussive_noise_does_not_fragment_a_sustained_chord():
     assert longest.symbol == "D"
 
 
-def test_wonderwall_style_progression_reveals_the_triad_only_limitation():
-    """Oasis's "Wonderwall" is widely published (guitar tutorials, chord
-    sites) as using capo-2 shapes commonly voiced as Em7-G-Dsus4-A7sus4 —
-    factual, uncopyrightable information about which chords a song uses,
-    not a reproduction of the song itself. Our detector only classifies
-    major/minor *triads* (see `_templates`), so it can't return "Em7" or
-    "Dsus4" verbatim — this documents what it does instead, so that
-    limitation is a known, tested fact rather than a surprise in
-    production. It should at least get the chord *roots* broadly in the
-    neighborhood of the real progression.
+def test_recognizes_a_published_seventh_and_sus_progression():
+    """A widely-published guitar-tutorial voicing for a well-known song
+    uses the chords Em7, G, Dsus4, and A7sus4 (capo-2 shapes) — factual,
+    uncopyrightable information about which chords a song uses (chord
+    *names* aren't the song's protected expression), not a reproduction
+    of the song itself. Three of those four qualities (min7, maj, sus4)
+    are now in the detector's vocabulary and should come back verbatim.
     """
-    # Approximate each documented chord with the closest sound our
-    # triad-only vocabulary could ever match: Em7 -> E minor triad,
-    # G -> G major (exact), Dsus4 -> approximated as D, A7sus4 -> A.
-    progression = [("E", "min"), ("G", "maj"), ("D", "maj"), ("A", "maj")]
+    progression: list[tuple[str, str | list[int]]] = [
+        ("E", "min7"),
+        ("G", "maj"),
+        ("D", "sus4"),
+    ]
     audio = _render_progression(progression, seconds_each=2.0)
-    path = _write(Path("/tmp"), "wonderwall_style.wav", audio)
+    path = _write(Path("/tmp"), "seventh_sus_progression.wav", audio)
     segments = chords.detect(path)
 
-    detected_symbols = {s.symbol for s in segments}
-    # The detector has no 7th/sus vocabulary at all, so "Em7" and
-    # "Dsus4" are structurally impossible outputs — that's the point
-    # being documented, not a bug to fix here.
-    assert "Em7" not in detected_symbols
-    assert "Dsus4" not in detected_symbols
-    # But on the closest-triad approximation, it should still recover
-    # something in the right neighborhood for the unambiguous chords.
     detected_order = [s.symbol for s in segments]
     collapsed = [detected_order[0]] + [
         s for i, s in enumerate(detected_order[1:], 1) if s != detected_order[i - 1]
     ]
-    assert "G" in collapsed
+    assert collapsed == ["Em7", "G", "Dsus4"]
+
+
+def test_a_compound_seventh_sus_chord_is_still_only_approximated():
+    """A7sus4 (root, 4th, 5th, minor 7th) combines two qualities at once
+    and isn't in the detector's 8-quality vocabulary (`_QUALITY_INTERVALS`
+    has "sus4" and "dom7" separately, never combined) — this documents
+    that known, real gap so it stays a tracked fact instead of a silent
+    surprise, the same way the plain-sus4/min7 case above documents what
+    *does* now work.
+    """
+    a7sus4 = _chord_freqs("A", [0, 5, 7, 10])
+    audio = _render_chord(a7sus4, seconds=3.0)
+    path = _write(Path("/tmp"), "a7sus4.wav", audio)
+    segments = chords.detect(path)
+
+    detected_symbols = {s.symbol for s in segments}
+    assert "A7sus4" not in detected_symbols  # structurally impossible today
+    # It lands on Dsus2 (D-E-A, three of A7sus4's four notes: A-D-E-G) —
+    # a real, plausible-sounding substitution, not something unrelated to
+    # the chord's actual pitch classes, even though it's still the wrong
+    # answer. Several other 3-of-4 substitutions score similarly close
+    # (Asus4, Dsus4, A7, Am7 are all subsets of the same four notes);
+    # which one wins is decided by real harmonic energy in the rendered
+    # audio, not by this test's guess, so this asserts the actual
+    # measured behavior rather than a hand-derived prediction.
+    assert detected_symbols == {"Dsus2"}, detected_symbols

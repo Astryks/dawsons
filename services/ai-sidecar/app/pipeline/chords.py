@@ -12,10 +12,31 @@ from scipy.ndimage import median_filter
 
 _PITCH_CLASSES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 
-# Binary chroma templates for the 24 major/minor triads: 1 where a chord
-# tone falls, 0 elsewhere, rotated per root across all 12 pitch classes.
-_MAJOR_TRIAD = np.array([1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 0, 0])
-_MINOR_TRIAD = np.array([1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0, 0])
+# Semitone intervals from the root for each chord quality this detector
+# recognizes, and the symbol suffix each one gets. These are music-theory
+# definitions (e.g. a major 7th chord is always root+4+7+11 semitones),
+# not anyone's copyrightable expression — the same reasoning that lets
+# demo_songs.rs use chord progressions freely.
+_QUALITY_INTERVALS: dict[str, list[int]] = {
+    "maj": [0, 4, 7],
+    "min": [0, 3, 7],
+    "dom7": [0, 4, 7, 10],
+    "maj7": [0, 4, 7, 11],
+    "min7": [0, 3, 7, 10],
+    "sus4": [0, 5, 7],
+    "sus2": [0, 2, 7],
+    "dim": [0, 3, 6],
+}
+_QUALITY_SUFFIX: dict[str, str] = {
+    "maj": "",
+    "min": "m",
+    "dom7": "7",
+    "maj7": "maj7",
+    "min7": "m7",
+    "sus4": "sus4",
+    "sus2": "sus2",
+    "dim": "dim",
+}
 
 
 @dataclass
@@ -28,11 +49,19 @@ class ChordSegment:
     confidence: float
 
 
+def _template_for(intervals: list[int]) -> np.ndarray:
+    vec = np.zeros(12)
+    for interval in intervals:
+        vec[interval % 12] = 1
+    return vec
+
+
 def _templates() -> list[tuple[str, str, str, np.ndarray]]:
     templates = []
     for shift, root in enumerate(_PITCH_CLASSES):
-        templates.append((f"{root}", root, "maj", np.roll(_MAJOR_TRIAD, shift)))
-        templates.append((f"{root}m", root, "min", np.roll(_MINOR_TRIAD, shift)))
+        for quality, intervals in _QUALITY_INTERVALS.items():
+            symbol = f"{root}{_QUALITY_SUFFIX[quality]}"
+            templates.append((symbol, root, quality, np.roll(_template_for(intervals), shift)))
     return templates
 
 
@@ -88,6 +117,10 @@ def detect(input_path: Path, frame_hop_sec: float = 0.5) -> list[ChordSegment]:
 
     frame_times = librosa.frames_to_time(np.arange(chroma.shape[1]), sr=sr, hop_length=hop_length)
     templates = _templates()
+    symbol_to_root_quality: dict[str, tuple[str, str]] = {
+        symbol: (root, quality) for symbol, root, quality, _ in templates
+    }
+    symbol_to_root_quality["N"] = ("C", "other")
 
     raw_matches: list[tuple[str, str, str, float]] = [
         _best_match(chroma[:, i], templates) for i in range(chroma.shape[1])
@@ -106,10 +139,7 @@ def detect(input_path: Path, frame_hop_sec: float = 0.5) -> list[ChordSegment]:
             # The vote overruled this frame's own best match — root/quality
             # need to come from *a* frame that actually voted for `symbol`,
             # not the outvoted original match.
-            if symbol == "N":
-                root, quality = "C", "other"
-            else:
-                root, quality = symbol.rstrip("m"), ("min" if symbol.endswith("m") else "maj")
+            root, quality = symbol_to_root_quality[symbol]
         raw.append((float(t), symbol, root, quality, confidence))
 
     if not raw:
