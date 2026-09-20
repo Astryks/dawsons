@@ -55,6 +55,30 @@ impl MixerState {
             self.position = 0;
         }
     }
+
+    /// Offline (non-realtime) bounce of every unmuted track, summed across
+    /// the full length of the longest track — for export, not playback.
+    pub fn render_full_mix(&self) -> Vec<f32> {
+        let len = self
+            .tracks
+            .iter()
+            .map(|t| t.samples.len())
+            .max()
+            .unwrap_or(0);
+        let mut out = vec![0.0f32; len];
+        for track in &self.tracks {
+            if track.muted {
+                continue;
+            }
+            for (i, sample) in track.samples.iter().enumerate() {
+                out[i] += sample * track.gain;
+            }
+        }
+        for sample in out.iter_mut() {
+            *sample = sample.clamp(-1.0, 1.0);
+        }
+        out
+    }
 }
 
 #[cfg(test)]
@@ -123,5 +147,30 @@ mod tests {
         state.render(&mut out); // consumes the only two samples
         assert!(!state.playing);
         assert_eq!(state.position, 0);
+    }
+
+    #[test]
+    fn full_mix_sums_across_the_longest_track_length() {
+        let state = MixerState {
+            tracks: vec![track(vec![0.2, 0.2, 0.2, 0.2]), track(vec![0.1, 0.1])],
+            position: 0,
+            playing: false,
+        };
+        let mix = state.render_full_mix();
+        assert_eq!(mix.len(), 4);
+        assert!((mix[0] - 0.3).abs() < 1e-6);
+        assert!((mix[2] - 0.2).abs() < 1e-6); // second track exhausted here
+    }
+
+    #[test]
+    fn full_mix_excludes_muted_tracks() {
+        let mut muted = track(vec![1.0, 1.0]);
+        muted.muted = true;
+        let state = MixerState {
+            tracks: vec![track(vec![0.3, 0.3]), muted],
+            position: 0,
+            playing: false,
+        };
+        assert_eq!(state.render_full_mix(), vec![0.3, 0.3]);
     }
 }

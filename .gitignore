@@ -1,5 +1,6 @@
 # Rust
 /apps/desktop/src-tauri/target/
+/apps/desktop/src-tauri/gen/
 
 # Node
 node_modules/

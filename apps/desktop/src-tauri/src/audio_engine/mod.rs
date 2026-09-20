@@ -6,6 +6,7 @@ pub mod device;
 pub mod effects;
 pub mod mixer;
 pub mod transport;
+pub mod wav_writer;
 
 pub use device::{spawn_audio_thread, EngineConfig};
 pub use mixer::SharedMixer;

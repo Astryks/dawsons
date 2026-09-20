@@ -1,9 +1,11 @@
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 
+use rusqlite::Connection;
 use tauri::AppHandle;
 
 use crate::audio_engine::{self, EngineConfig, SharedMixer};
+use crate::scene_graph::store;
 use crate::sidecar;
 
 /// Handle to a running audio engine: the shared mixer state plus a
@@ -29,6 +31,7 @@ pub struct AudioEngineHandle {
 pub struct AppState {
     pub audio: Mutex<Option<AudioEngineHandle>>,
     pub sidecar_handle: Mutex<Option<sidecar::SidecarHandle>>,
+    pub db: Mutex<Option<Connection>>,
 }
 
 impl AppState {
@@ -56,5 +59,15 @@ impl AppState {
     pub fn init_sidecar(&self, app: AppHandle) {
         let handle = sidecar::spawn(app);
         *self.sidecar_handle.lock().expect("sidecar state poisoned") = Some(handle);
+    }
+
+    pub fn init_db(&self, app: &AppHandle) {
+        match store::open_db(app) {
+            Ok(conn) => {
+                tracing::info!("project database ready");
+                *self.db.lock().expect("db state poisoned") = Some(conn);
+            }
+            Err(e) => tracing::error!("failed to open project database: {e}"),
+        }
     }
 }
