@@ -24,7 +24,7 @@ def run_analysis(
             on_progress(stage, value)
 
     progress("separating_stems", 0.0)
-    stem_paths = stems.separate(input_path, out_dir, device=device)
+    stem_paths = stems.separate(input_path, out_dir, device=device, on_progress=progress)
     progress("separating_stems", 1.0)
 
     progress("detecting_tempo_key", 0.0)
