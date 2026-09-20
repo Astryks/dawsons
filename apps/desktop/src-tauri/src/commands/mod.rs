@@ -3,6 +3,7 @@
 // analysis.rs (M4), mixer.rs (M4).
 
 pub mod analysis;
+pub mod demo_songs;
 pub mod export;
 pub mod project;
 pub mod sidecar;

@@ -34,7 +34,123 @@ body {
 .app-shell__main {
   flex: 1;
   padding: 2rem;
+  overflow-y: auto;
 }
+
+.hero {
+  margin-bottom: 2rem;
+}
+
+.hero__title {
+  margin: 0 0 0.25rem;
+  font-size: 1.6rem;
+}
+
+.hero__subtitle {
+  color: #9aa0a8;
+  margin: 0 0 1.25rem;
+}
+
+.example-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.example-card {
+  background: #1a1d22;
+  border: 1px solid #2a2d33;
+  border-radius: 10px;
+  padding: 1rem;
+}
+
+.example-card h3 {
+  margin: 0 0 0.4rem;
+  font-size: 1rem;
+}
+
+.example-card p {
+  margin: 0 0 0.75rem;
+  color: #9aa0a8;
+  font-size: 0.85rem;
+  min-height: 2.6em;
+}
+
+.example-card button {
+  width: 100%;
+  padding: 0.5rem;
+  border-radius: 6px;
+  border: 1px solid #3a3d44;
+  background: #262a31;
+  color: inherit;
+  cursor: pointer;
+}
+
+.example-card button:hover {
+  background: #303540;
+}
+
+.layered-tracks {
+  margin-bottom: 2rem;
+  background: #191c21;
+  border: 1px solid #2a2d33;
+  border-radius: 10px;
+  padding: 1rem 1.25rem;
+}
+
+.layered-tracks h2 {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+}
+
+.layer {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 0.4rem 0;
+  border-bottom: 1px solid #23262c;
+}
+
+.layer:last-of-type {
+  border-bottom: none;
+}
+
+.layer__header {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  width: 140px;
+  flex-shrink: 0;
+  font-size: 0.85rem;
+}
+
+.layer__name {
+  font-weight: 600;
+}
+
+.layer__mute {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  color: #9aa0a8;
+  font-size: 0.75rem;
+}
+
+.layer__bar {
+  flex: 1;
+  height: 28px;
+  border-radius: 6px;
+  opacity: 0.85;
+}
+
+/* A small fixed palette cycling per track index — GarageBand-style
+   colored lanes, without needing per-instrument color logic. */
+.layer--0 .layer__bar { background: #6ee0b8; }
+.layer--1 .layer__bar { background: #7c9bff; }
+.layer--2 .layer__bar { background: #e0c368; }
+.layer--3 .layer__bar { background: #e08a6e; }
+.layer--4 .layer__bar { background: #c88ee0; }
+.layer--5 .layer__bar { background: #6ec8e0; }
 
 .sidecar-badge {
   font-size: 0.8rem;

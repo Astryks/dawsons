@@ -38,6 +38,8 @@ pub fn run() {
             commands::analysis::load_stems_from_result,
             commands::project::save_scene_graph,
             commands::project::get_scene_graph,
+            commands::demo_songs::list_demo_songs,
+            commands::demo_songs::load_demo_song,
             commands::project::list_projects,
             commands::project::create_project,
             commands::project::rename_project,

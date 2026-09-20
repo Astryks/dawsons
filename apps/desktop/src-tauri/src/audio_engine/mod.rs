@@ -3,6 +3,7 @@
 
 pub mod capture;
 pub mod decode;
+pub mod demo_songs;
 pub mod device;
 pub mod effects;
 pub mod mixer;
