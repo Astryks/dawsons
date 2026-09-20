@@ -5,7 +5,7 @@ use rusqlite::Connection;
 use tauri::{AppHandle, Manager};
 use uuid::Uuid;
 
-use super::model::Project;
+use super::model::{Project, VoiceNote};
 
 pub fn open_db(app: &AppHandle) -> Result<Connection, String> {
     let dir = app
@@ -35,9 +35,79 @@ fn migrate(conn: &Connection) -> Result<(), String> {
             data TEXT NOT NULL,
             updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
         );
+        CREATE TABLE IF NOT EXISTS voice_notes (
+            id TEXT PRIMARY KEY,
+            title TEXT NOT NULL,
+            duration_sec REAL NOT NULL,
+            created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%fZ', 'now')),
+            file_path TEXT NOT NULL
+        );
         ",
     )
     .map_err(|e| format!("migration failed: {e}"))
+}
+
+pub fn list_voice_notes(conn: &Connection) -> Result<Vec<VoiceNote>, String> {
+    let mut stmt = conn
+        .prepare("SELECT id, title, duration_sec, created_at, file_path FROM voice_notes ORDER BY created_at DESC")
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |row| {
+            Ok(VoiceNote {
+                id: row.get(0)?,
+                title: row.get(1)?,
+                duration_sec: row.get(2)?,
+                created_at: row.get(3)?,
+                file_path: row.get(4)?,
+            })
+        })
+        .map_err(|e| e.to_string())?;
+    rows.collect::<Result<Vec<_>, _>>()
+        .map_err(|e| e.to_string())
+}
+
+pub fn create_voice_note(
+    conn: &Connection,
+    id: &str,
+    title: &str,
+    duration_sec: f64,
+    file_path: &str,
+) -> Result<VoiceNote, String> {
+    conn.execute(
+        "INSERT INTO voice_notes (id, title, duration_sec, file_path) VALUES (?1, ?2, ?3, ?4)",
+        rusqlite::params![id, title, duration_sec, file_path],
+    )
+    .map_err(|e| format!("failed to save voice note: {e}"))?;
+    conn.query_row(
+        "SELECT id, title, duration_sec, created_at, file_path FROM voice_notes WHERE id = ?1",
+        [id],
+        |row| {
+            Ok(VoiceNote {
+                id: row.get(0)?,
+                title: row.get(1)?,
+                duration_sec: row.get(2)?,
+                created_at: row.get(3)?,
+                file_path: row.get(4)?,
+            })
+        },
+    )
+    .map_err(|e| format!("failed to load saved voice note: {e}"))
+}
+
+/// Deletes the DB row and returns the file path so the caller can remove
+/// the audio file too (kept as two steps so a failed file delete doesn't
+/// silently leave an orphaned DB row referencing nothing).
+pub fn delete_voice_note(conn: &Connection, id: &str) -> Result<String, String> {
+    let file_path: String = conn
+        .query_row(
+            "SELECT file_path FROM voice_notes WHERE id = ?1",
+            [id],
+            |row| row.get(0),
+        )
+        .map_err(|_| format!("no voice note with id {id}"))?;
+    conn.execute("DELETE FROM voice_notes WHERE id = ?1", [id])
+        .map_err(|e| format!("failed to delete voice note: {e}"))?;
+    Ok(file_path)
 }
 
 pub fn list_projects(conn: &Connection) -> Result<Vec<Project>, String> {
@@ -160,5 +230,32 @@ mod tests {
     fn delete_missing_project_errors() {
         let conn = test_db();
         assert!(delete_project(&conn, "nonexistent").is_err());
+    }
+
+    #[test]
+    fn create_then_list_returns_the_voice_note() {
+        let conn = test_db();
+        let created =
+            create_voice_note(&conn, "vn-1", "Idea for chorus", 12.5, "/tmp/vn-1.wav").unwrap();
+        let notes = list_voice_notes(&conn).unwrap();
+        assert_eq!(notes.len(), 1);
+        assert_eq!(notes[0].id, created.id);
+        assert_eq!(notes[0].title, "Idea for chorus");
+        assert!((notes[0].duration_sec - 12.5).abs() < 1e-9);
+    }
+
+    #[test]
+    fn delete_voice_note_returns_its_file_path_and_removes_the_row() {
+        let conn = test_db();
+        create_voice_note(&conn, "vn-2", "Bassline", 4.0, "/tmp/vn-2.wav").unwrap();
+        let path = delete_voice_note(&conn, "vn-2").unwrap();
+        assert_eq!(path, "/tmp/vn-2.wav");
+        assert_eq!(list_voice_notes(&conn).unwrap().len(), 0);
+    }
+
+    #[test]
+    fn delete_missing_voice_note_errors() {
+        let conn = test_db();
+        assert!(delete_voice_note(&conn, "nonexistent").is_err());
     }
 }

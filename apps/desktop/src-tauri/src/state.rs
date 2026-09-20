@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use rusqlite::Connection;
 use tauri::AppHandle;
 
-use crate::audio_engine::{self, EngineConfig, SharedMixer};
+use crate::audio_engine::{self, capture::RecordingHandle, EngineConfig, SharedMixer};
 use crate::scene_graph::store;
 use crate::sidecar;
 
@@ -32,6 +32,7 @@ pub struct AppState {
     pub audio: Mutex<Option<AudioEngineHandle>>,
     pub sidecar_handle: Mutex<Option<sidecar::SidecarHandle>>,
     pub db: Mutex<Option<Connection>>,
+    pub voice_recording: Mutex<Option<RecordingHandle>>,
 }
 
 impl AppState {

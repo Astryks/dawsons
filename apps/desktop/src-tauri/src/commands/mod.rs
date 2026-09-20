@@ -6,6 +6,7 @@ pub mod export;
 pub mod project;
 pub mod sidecar;
 pub mod transport;
+pub mod voice_notes;
 
 #[tauri::command]
 pub fn greet(name: &str) -> String {

@@ -12,6 +12,14 @@ interface Project {
   source_file: string | null;
 }
 
+interface VoiceNote {
+  id: string;
+  title: string;
+  duration_sec: number;
+  created_at: string;
+  file_path: string;
+}
+
 export default function App() {
   const [sidecarStatus, setSidecarStatus] = useState<SidecarStatus>("starting");
   const [audioError, setAudioError] = useState<string | null>(null);
@@ -21,12 +29,16 @@ export default function App() {
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [newProjectName, setNewProjectName] = useState("");
   const [exportStatus, setExportStatus] = useState<string | null>(null);
+  const [voiceNotes, setVoiceNotes] = useState<VoiceNote[]>([]);
+  const [isRecording, setIsRecording] = useState(false);
+  const [voiceNoteError, setVoiceNoteError] = useState<string | null>(null);
 
   useEffect(() => {
     // M3 wires this up to a real `sidecar:status` Tauri event; until then
     // the shell has no sidecar to report on.
     setSidecarStatus("starting");
     refreshProjects();
+    refreshVoiceNotes();
   }, []);
 
   async function runCommand(command: string, args?: Record<string, unknown>) {
@@ -101,6 +113,52 @@ export default function App() {
       setExportStatus(`Exported ${written.length} stem(s) to ${dir}`);
     } catch (err) {
       setExportStatus(String(err));
+    }
+  }
+
+  async function refreshVoiceNotes() {
+    try {
+      setVoiceNotes(await invoke<VoiceNote[]>("list_voice_notes"));
+    } catch (err) {
+      setVoiceNoteError(String(err));
+    }
+  }
+
+  async function handleStartRecording() {
+    try {
+      await invoke("start_voice_recording");
+      setIsRecording(true);
+      setVoiceNoteError(null);
+    } catch (err) {
+      setVoiceNoteError(String(err));
+    }
+  }
+
+  async function handleStopRecording() {
+    const title = window.prompt("Name this voice note:", "New idea") ?? "Untitled";
+    try {
+      await invoke("stop_voice_recording", { title });
+      setIsRecording(false);
+      await refreshVoiceNotes();
+    } catch (err) {
+      setVoiceNoteError(String(err));
+    }
+  }
+
+  async function handlePlayVoiceNote(filePath: string) {
+    try {
+      await invoke("play_voice_note", { filePath });
+    } catch (err) {
+      setVoiceNoteError(String(err));
+    }
+  }
+
+  async function handleDeleteVoiceNote(id: string) {
+    try {
+      await invoke("delete_voice_note", { id });
+      await refreshVoiceNotes();
+    } catch (err) {
+      setVoiceNoteError(String(err));
     }
   }
 
@@ -198,6 +256,35 @@ export default function App() {
               Play with effects
             </button>
           </div>
+        </section>
+
+        <section className="debug-panel">
+          <h2>Voice Notes</h2>
+          <p className="debug-panel__hint">
+            Captured and stored entirely on this machine — no server, no cloud storage cost.
+          </p>
+          <div className="debug-panel__buttons">
+            {!isRecording ? (
+              <button onClick={handleStartRecording}>Start recording</button>
+            ) : (
+              <button onClick={handleStopRecording}>Stop &amp; save</button>
+            )}
+          </div>
+          {voiceNoteError && <p className="debug-panel__error">{voiceNoteError}</p>}
+          <ul className="voice-note-list">
+            {voiceNotes.map((note) => (
+              <li key={note.id} className="voice-note-list__item">
+                <span>
+                  {note.title} ({note.duration_sec.toFixed(1)}s)
+                </span>
+                <span className="voice-note-list__actions">
+                  <button onClick={() => handlePlayVoiceNote(note.file_path)}>Play</button>
+                  <button onClick={() => handleDeleteVoiceNote(note.id)}>Delete</button>
+                </span>
+              </li>
+            ))}
+            {voiceNotes.length === 0 && <li className="debug-panel__hint">No voice notes yet.</li>}
+          </ul>
         </section>
       </main>
     </div>
