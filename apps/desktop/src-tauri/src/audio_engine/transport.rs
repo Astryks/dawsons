@@ -52,6 +52,23 @@ pub fn load_test_track_with_effects(
     reverse: bool,
     semitones: f32,
 ) -> Result<(), String> {
+    load_file_with_effects(mixer, config, path, reverse, semitones, 0.0, 0.0)
+}
+
+/// Loads a file with reverse, pitch shift, and/or reverb applied — the
+/// full "isolate a sound, then reshape it" clip-tools chain. `reverb_wet`
+/// and `reverb_room` are both 0..1; `reverb_wet` of 0 skips reverb
+/// entirely (no cost paid for an effect that isn't in use).
+#[allow(clippy::too_many_arguments)]
+pub fn load_file_with_effects(
+    mixer: &SharedMixer,
+    config: &EngineConfig,
+    path: &Path,
+    reverse: bool,
+    semitones: f32,
+    reverb_wet: f32,
+    reverb_room: f32,
+) -> Result<(), String> {
     let decoded = decode::decode_file(path)?;
     let mut converted = decode::to_engine_format(&decoded, config.sample_rate, config.channels);
     if reverse {
@@ -65,12 +82,45 @@ pub fn load_test_track_with_effects(
             semitones,
         );
     }
+    if reverb_wet > 0.0 {
+        converted = effects::reverb(
+            &converted,
+            config.channels,
+            config.sample_rate,
+            reverb_wet,
+            reverb_room,
+        );
+    }
     let name = path
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("track")
         .to_string();
     load_samples(mixer, vec![(name, converted)]);
+    Ok(())
+}
+
+/// Adds one file as a new track alongside whatever's already loaded,
+/// rather than replacing the whole mixer state — the "smart upload" tool
+/// drops a classified clip into its own layer without disturbing the
+/// tracks already on the timeline.
+pub fn add_track(
+    mixer: &SharedMixer,
+    config: &EngineConfig,
+    path: &Path,
+    name: String,
+) -> Result<(), String> {
+    let decoded = decode::decode_file(path)?;
+    let converted = decode::to_engine_format(&decoded, config.sample_rate, config.channels);
+    let mut state = mixer
+        .lock()
+        .map_err(|_| "mixer lock poisoned".to_string())?;
+    state.tracks.push(TrackBuffer {
+        name,
+        samples: Arc::new(converted),
+        gain: 1.0,
+        muted: false,
+    });
     Ok(())
 }
 

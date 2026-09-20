@@ -9,7 +9,8 @@ first for what's actually done vs. planned.
 - **M2** — Real-time audio engine (cpal + symphonia): file decode, resample, multi-track mixing, transport
 - **M3** — Sidecar process supervision: spawn, health-check, restart-once-on-crash, graceful shutdown
 - **Marketing site** — `website/`, deployed to [mydawsons.com](https://mydawsons.com) via free GitHub Pages (DNS still needs pointing at GitHub Pages from the registrar)
-- **Reverse & pitch-shift** — vari-speed audio effect, real feature with tests
+- **Clip tools: reverse, re-pitch & reverb** — vari-speed reverse/pitch-shift plus a from-scratch Schroeder reverb (comb + all-pass filters, our own DSP code, no dependency), all runnable on *any* file the user picks (an isolated Demucs stem, an exported clip, an upload) — not just a bundled demo tone
+- **Smart upload** — drop in any sound file and the sidecar runs it through Demucs, compares stem energies, and suggests which instrument layer it belongs in (or a new layer if nothing matches clearly) before adding it to the timeline as its own track
 - **Multi-project management** — local SQLite `projects` table, create/rename/delete/switch
 - **Export** — mix bounce and per-stem export to local WAV files
 - **Voice Notes** — on-device recording/playback/delete (cpal capture path)
@@ -18,7 +19,7 @@ first for what's actually done vs. planned.
 - **Instrument library** — 128 General MIDI instruments playable via `rustysynth` + a free MIT-licensed SoundFont (FluidR3_GM, fetched via `scripts/download_soundfont.sh`, never committed — same pattern as model weights)
 - **Voice-to-instrument** — the second flagship capability from the original vision. YIN pitch tracking (classical DSP, not a model) turns a recording into MIDI notes, played back through any of the 128 GM instruments.
 
-32 Rust unit tests + 4 Python tests (including real end-to-end runs — Demucs inference and the full M5 pipeline, not mocked) passing. Everything above runs 100% locally — no server, no cloud cost, per the project's core constraint.
+40 Rust unit tests + 10 Python tests (including real end-to-end runs — Demucs inference, the full M5 pipeline, and clip classification, not mocked) passing. Everything above runs 100% locally — no server, no cloud cost, per the project's core constraint.
 
 ## Open-source model inventory (what's actually integrated vs. discussed)
 

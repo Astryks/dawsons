@@ -29,7 +29,7 @@ pub struct AnalysisStatus {
     pub error: Option<String>,
 }
 
-fn sidecar_port(state: &State<AppState>) -> Result<u16, String> {
+pub(crate) fn sidecar_port(state: &State<AppState>) -> Result<u16, String> {
     let handle = state
         .sidecar_handle
         .lock()
@@ -48,7 +48,7 @@ fn sidecar_port(state: &State<AppState>) -> Result<u16, String> {
     }
 }
 
-fn http_client() -> Result<reqwest::blocking::Client, String> {
+pub(crate) fn http_client() -> Result<reqwest::blocking::Client, String> {
     reqwest::blocking::Client::builder()
         .timeout(Duration::from_secs(10))
         .build()

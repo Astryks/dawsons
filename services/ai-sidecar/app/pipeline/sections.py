@@ -41,7 +41,7 @@ def segment(input_path: Path, min_section_sec: float = 8.0) -> list[Section]:
         novelty, pre_max=min_frames, post_max=min_frames, pre_avg=min_frames, post_avg=min_frames, delta=0.1, wait=min_frames
     )
     boundaries = [0.0] + [float(frame_times[p]) for p in peaks] + [duration]
-    boundaries = sorted(set(round(b, 3) for b in boundaries))
+    boundaries = sorted({round(b, 3) for b in boundaries})
 
     sections = []
     for i in range(len(boundaries) - 1):

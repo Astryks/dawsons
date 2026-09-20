@@ -3,10 +3,10 @@ chords -> sections -> Scene Graph fragment, schema-validated before
 returning.
 """
 
-import librosa
-
+from collections.abc import Callable
 from pathlib import Path
-from typing import Callable, Optional
+
+import librosa
 
 from app.pipeline import chords, sections, stems, tempo_key
 from app.scene_graph.builder import build_fragment
@@ -17,7 +17,7 @@ def run_analysis(
     input_path: Path,
     out_dir: Path,
     device: str = "cpu",
-    on_progress: Optional[Callable[[str, float], None]] = None,
+    on_progress: Callable[[str, float], None] | None = None,
 ) -> dict:
     def progress(stage: str, value: float) -> None:
         if on_progress:

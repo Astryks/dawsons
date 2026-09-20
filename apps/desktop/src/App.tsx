@@ -79,6 +79,9 @@ export default function App() {
   const [audioError, setAudioError] = useState<string | null>(null);
   const [reverse, setReverse] = useState(false);
   const [semitones, setSemitones] = useState(0);
+  const [clipPath, setClipPath] = useState<string | null>(null);
+  const [reverbWet, setReverbWet] = useState(0);
+  const [reverbRoom, setReverbRoom] = useState(0.5);
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [newProjectName, setNewProjectName] = useState("");
@@ -96,6 +99,15 @@ export default function App() {
   const [demoSongs, setDemoSongs] = useState<DemoSongInfo[]>([]);
   const [demoSongError, setDemoSongError] = useState<string | null>(null);
   const [loadingDemoSong, setLoadingDemoSong] = useState<number | null>(null);
+  const [smartUploadError, setSmartUploadError] = useState<string | null>(null);
+  const [smartUploadBusy, setSmartUploadBusy] = useState(false);
+  const [uploadClassification, setUploadClassification] = useState<{
+    filePath: string;
+    suggestedLayer: string | null;
+    confidence: number;
+    newLayer: boolean;
+  } | null>(null);
+  const [layerNameOverride, setLayerNameOverride] = useState("");
 
   useEffect(() => {
     // M3 wires this up to a real `sidecar:status` Tauri event; until then
@@ -220,6 +232,78 @@ export default function App() {
     } catch (err) {
       setAnalysisError(String(err));
     }
+  }
+
+  async function handleSmartUpload() {
+    const path = await open({
+      filters: [{ name: "Audio", extensions: ["mp3", "wav", "flac", "m4a", "ogg"] }],
+    });
+    if (!path || Array.isArray(path)) return;
+
+    setSmartUploadError(null);
+    setUploadClassification(null);
+    setSmartUploadBusy(true);
+    try {
+      const jobId = await invoke<string>("start_clip_classification", { filePath: path });
+      pollClipClassification(jobId, path);
+    } catch (err) {
+      setSmartUploadError(String(err));
+      setSmartUploadBusy(false);
+    }
+  }
+
+  function pollClipClassification(jobId: string, filePath: string) {
+    const interval = setInterval(async () => {
+      try {
+        const status = await invoke<{
+          status: string;
+          result: { suggested_layer: string | null; confidence: number; new_layer: boolean } | null;
+          error: string | null;
+        }>("clip_classification_status", { jobId });
+
+        if (status.status === "done" && status.result) {
+          clearInterval(interval);
+          setSmartUploadBusy(false);
+          setUploadClassification({
+            filePath,
+            suggestedLayer: status.result.suggested_layer,
+            confidence: status.result.confidence,
+            newLayer: status.result.new_layer,
+          });
+          setLayerNameOverride(status.result.suggested_layer ?? "New layer");
+        } else if (status.status === "failed") {
+          clearInterval(interval);
+          setSmartUploadBusy(false);
+          setSmartUploadError(status.error ?? "classification failed");
+        }
+      } catch (err) {
+        clearInterval(interval);
+        setSmartUploadBusy(false);
+        setSmartUploadError(String(err));
+      }
+    }, 1000);
+  }
+
+  async function handleConfirmSmartUpload() {
+    if (!uploadClassification) return;
+    try {
+      await invoke("load_clip_into_layer", {
+        filePath: uploadClassification.filePath,
+        layerName: layerNameOverride.trim() || "New layer",
+      });
+      setUploadClassification(null);
+      await refreshTracks();
+    } catch (err) {
+      setSmartUploadError(String(err));
+    }
+  }
+
+  async function handlePickClip() {
+    const path = await open({
+      filters: [{ name: "Audio", extensions: ["mp3", "wav", "flac", "m4a", "ogg"] }],
+    });
+    if (!path || Array.isArray(path)) return;
+    setClipPath(path);
   }
 
   async function handleUploadSong() {
@@ -434,6 +518,43 @@ export default function App() {
         </section>
 
         <section className="debug-panel">
+          <h2>Smart upload</h2>
+          <p className="debug-panel__hint">
+            Drop in any sound and Dawsons figures out where it goes — it runs the same AI that
+            separates songs into stems, sees which instrument the clip looks most like, and offers
+            to drop it straight into that layer (or a brand new one if nothing matches).
+          </p>
+          <div className="debug-panel__buttons">
+            <button onClick={handleSmartUpload} disabled={smartUploadBusy}>
+              {smartUploadBusy ? "Listening…" : "Upload a sound…"}
+            </button>
+          </div>
+          {smartUploadError && <p className="debug-panel__error">{smartUploadError}</p>}
+          {uploadClassification && (
+            <>
+              <p className="debug-panel__hint">
+                {uploadClassification.newLayer
+                  ? "Doesn't clearly match an existing instrument — suggesting a new layer."
+                  : `Sounds like ${uploadClassification.suggestedLayer} (${Math.round(
+                      uploadClassification.confidence * 100
+                    )}% confident).`}
+              </p>
+              <label className="debug-panel__field">
+                Layer name:
+                <input
+                  type="text"
+                  value={layerNameOverride}
+                  onChange={(e) => setLayerNameOverride(e.target.value)}
+                />
+              </label>
+              <div className="debug-panel__buttons">
+                <button onClick={handleConfirmSmartUpload}>Add to timeline</button>
+              </div>
+            </>
+          )}
+        </section>
+
+        <section className="debug-panel">
           <h2>Export</h2>
           <p className="debug-panel__hint">
             Bounces whatever's currently loaded in the audio engine to local files you choose — no server involved.
@@ -456,10 +577,17 @@ export default function App() {
         </section>
 
         <section className="debug-panel">
-          <h2>Reverse &amp; re-pitch</h2>
+          <h2>Clip tools: reverse, re-pitch &amp; reverb</h2>
           <p className="debug-panel__hint">
-            Flip a clip backwards and shift its pitch — the classic trick behind turning an
-            unrelated recording into a new texture.
+            Flip a clip backwards, shift its pitch, or drop it in a room — the classic tricks (a
+            favorite of producers like Charlie Puth) for turning an isolated sound — a Demucs stem,
+            an exported clip, any audio file — into something new.
+          </p>
+          <div className="debug-panel__buttons">
+            <button onClick={handlePickClip}>Pick a clip…</button>
+          </div>
+          <p className="debug-panel__hint">
+            {clipPath ? `Using: ${clipPath}` : "No clip picked — will use the built-in test tone."}
           </p>
           <label className="debug-panel__field">
             <input type="checkbox" checked={reverse} onChange={(e) => setReverse(e.target.checked)} />
@@ -475,8 +603,40 @@ export default function App() {
               onChange={(e) => setSemitones(Number(e.target.value))}
             />
           </label>
+          <label className="debug-panel__field">
+            Reverb: {Math.round(reverbWet * 100)}% wet
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={Math.round(reverbWet * 100)}
+              onChange={(e) => setReverbWet(Number(e.target.value) / 100)}
+            />
+          </label>
+          <label className="debug-panel__field">
+            Room size: {Math.round(reverbRoom * 100)}%
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={Math.round(reverbRoom * 100)}
+              onChange={(e) => setReverbRoom(Number(e.target.value) / 100)}
+            />
+          </label>
           <div className="debug-panel__buttons">
-            <button onClick={() => runCommand("debug_play_reversed_pitched_tone", { reverse, semitones })}>
+            <button
+              onClick={() =>
+                clipPath
+                  ? runCommand("apply_reverse_pitch_to_file", {
+                      filePath: clipPath,
+                      reverse,
+                      semitones,
+                      reverbWet,
+                      reverbRoom,
+                    })
+                  : runCommand("debug_play_reversed_pitched_tone", { reverse, semitones })
+              }
+            >
               Play with effects
             </button>
           </div>

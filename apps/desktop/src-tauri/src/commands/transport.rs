@@ -55,6 +55,38 @@ pub fn debug_play_reversed_pitched_tone(
     transport::play(&handle.mixer)
 }
 
+/// The real "reverse & re-pitch" tool: applies reverse, pitch shift, and
+/// reverb to *any* file the user points at — including a stem Demucs just
+/// isolated from an uploaded clip — not just the bundled demo tone. This
+/// is what actually makes the "isolate a sound, clean it up, then reshape
+/// it" workflow usable end to end. `reverb_wet`/`reverb_room` default to 0
+/// (no reverb) when omitted.
+#[tauri::command]
+pub fn apply_reverse_pitch_to_file(
+    state: State<AppState>,
+    file_path: String,
+    reverse: bool,
+    semitones: f64,
+    reverb_wet: Option<f64>,
+    reverb_room: Option<f64>,
+) -> Result<(), String> {
+    let audio = state
+        .audio
+        .lock()
+        .map_err(|_| "audio state poisoned".to_string())?;
+    let handle = require_audio(&audio)?;
+    transport::load_file_with_effects(
+        &handle.mixer,
+        &handle.engine_config,
+        std::path::Path::new(&file_path),
+        reverse,
+        semitones as f32,
+        reverb_wet.unwrap_or(0.0) as f32,
+        reverb_room.unwrap_or(0.0) as f32,
+    )?;
+    transport::play(&handle.mixer)
+}
+
 #[tauri::command]
 pub fn transport_play(state: State<AppState>) -> Result<(), String> {
     let audio = state

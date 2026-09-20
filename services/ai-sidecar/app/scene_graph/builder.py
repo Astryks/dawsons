@@ -3,7 +3,6 @@ fragment matching packages/scene-graph-schema/schema/scene-graph.schema.json.
 """
 
 import uuid
-from dataclasses import asdict
 from pathlib import Path
 
 from app.pipeline.chords import ChordSegment

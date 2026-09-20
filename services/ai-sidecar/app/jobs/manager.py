@@ -9,7 +9,6 @@ persist jobs across restarts.
 from __future__ import annotations
 
 import threading
-from typing import Optional
 
 from app.jobs.models import JobRecord, JobStatus
 
@@ -24,7 +23,7 @@ def create(job_id: str) -> JobRecord:
     return record
 
 
-def get(job_id: str) -> Optional[JobRecord]:
+def get(job_id: str) -> JobRecord | None:
     with _lock:
         return _jobs.get(job_id)
 

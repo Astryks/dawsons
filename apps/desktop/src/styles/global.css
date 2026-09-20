@@ -139,18 +139,36 @@ body {
 .layer__bar {
   flex: 1;
   height: 28px;
-  border-radius: 6px;
-  opacity: 0.85;
+  border-radius: 8px;
+  position: relative;
+  overflow: hidden;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -6px 10px rgba(0, 0, 0, 0.15);
 }
 
-/* A small fixed palette cycling per track index — GarageBand-style
-   colored lanes, without needing per-instrument color logic. */
-.layer--0 .layer__bar { background: #6ee0b8; }
-.layer--1 .layer__bar { background: #7c9bff; }
-.layer--2 .layer__bar { background: #e0c368; }
-.layer--3 .layer__bar { background: #e08a6e; }
-.layer--4 .layer__bar { background: #c88ee0; }
-.layer--5 .layer__bar { background: #6ec8e0; }
+.layer__bar::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: repeating-linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.05) 0px,
+    rgba(255, 255, 255, 0.05) 1px,
+    transparent 1px,
+    transparent 10px
+  );
+}
+
+/* A curated, saturated palette cycling per track index — each a subtle
+   diagonal gradient with a soft outer glow, rather than GarageBand's flat
+   fills, so the layered view reads as more premium at a glance. */
+.layer--0 .layer__bar { background: linear-gradient(135deg, #4ee8a8, #1fb37d); box-shadow: 0 0 14px -4px #4ee8a8aa, inset 0 1px 0 rgba(255,255,255,.18); }
+.layer--1 .layer__bar { background: linear-gradient(135deg, #6f8dff, #3d5ce0); box-shadow: 0 0 14px -4px #6f8dffaa, inset 0 1px 0 rgba(255,255,255,.18); }
+.layer--2 .layer__bar { background: linear-gradient(135deg, #ffcf5c, #f0a030); box-shadow: 0 0 14px -4px #ffcf5caa, inset 0 1px 0 rgba(255,255,255,.18); }
+.layer--3 .layer__bar { background: linear-gradient(135deg, #ff8f70, #e8563a); box-shadow: 0 0 14px -4px #ff8f70aa, inset 0 1px 0 rgba(255,255,255,.18); }
+.layer--4 .layer__bar { background: linear-gradient(135deg, #d68bff, #a84fe0); box-shadow: 0 0 14px -4px #d68bffaa, inset 0 1px 0 rgba(255,255,255,.18); }
+.layer--5 .layer__bar { background: linear-gradient(135deg, #5cd8ff, #2ea8d8); box-shadow: 0 0 14px -4px #5cd8ffaa, inset 0 1px 0 rgba(255,255,255,.18); }
 
 .sidecar-badge {
   font-size: 0.8rem;

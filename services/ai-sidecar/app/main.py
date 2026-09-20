@@ -11,12 +11,13 @@ import sys
 
 from fastapi import FastAPI
 
-from app.api import routes_admin, routes_analyze, routes_health
+from app.api import routes_admin, routes_analyze, routes_classify, routes_health
 
 app = FastAPI(title="dawsons-ai-sidecar")
 
 app.include_router(routes_health.router)
 app.include_router(routes_analyze.router)
+app.include_router(routes_classify.router)
 app.include_router(routes_admin.router)
 
 

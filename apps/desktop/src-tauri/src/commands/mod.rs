@@ -7,6 +7,7 @@ pub mod demo_songs;
 pub mod export;
 pub mod project;
 pub mod sidecar;
+pub mod smart_upload;
 pub mod transport;
 pub mod voice_notes;
 

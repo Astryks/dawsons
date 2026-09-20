@@ -25,6 +25,7 @@ pub fn run() {
             commands::greet,
             commands::transport::debug_play_test_tone,
             commands::transport::debug_play_reversed_pitched_tone,
+            commands::transport::apply_reverse_pitch_to_file,
             commands::transport::transport_play,
             commands::transport::transport_pause,
             commands::transport::transport_stop,
@@ -52,6 +53,9 @@ pub fn run() {
             commands::voice_notes::delete_voice_note,
             commands::voice_notes::play_voice_note,
             commands::voice_notes::play_voice_note_as_instrument,
+            commands::smart_upload::start_clip_classification,
+            commands::smart_upload::clip_classification_status,
+            commands::smart_upload::load_clip_into_layer,
         ])
         .run(tauri::generate_context!())
         .expect("error while running dawsons");
