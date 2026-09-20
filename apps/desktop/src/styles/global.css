@@ -56,3 +56,35 @@ body {
   background: #3a1f1f;
   color: #e06e6e;
 }
+
+.debug-panel {
+  margin-top: 1.5rem;
+  padding: 1rem;
+  border: 1px dashed #3a3d44;
+  border-radius: 8px;
+  max-width: 24rem;
+}
+
+.debug-panel__buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.debug-panel__buttons button {
+  padding: 0.4rem 0.8rem;
+  border-radius: 6px;
+  border: 1px solid #3a3d44;
+  background: #1e2126;
+  color: inherit;
+  cursor: pointer;
+}
+
+.debug-panel__buttons button:hover {
+  background: #262a31;
+}
+
+.debug-panel__error {
+  margin-top: 0.75rem;
+  color: #e06e6e;
+  font-size: 0.85rem;
+}
