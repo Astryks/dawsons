@@ -4,14 +4,14 @@
 //! similar cross-thread-handle issues.
 
 use std::io::{BufRead, BufReader};
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 use std::process::{Child, Command, Stdio};
 use std::sync::mpsc;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
 use serde::{Deserialize, Serialize};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 use super::client;
 
@@ -45,24 +45,60 @@ fn sidecar_dir() -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../../services/ai-sidecar")
 }
 
-fn python_binary(dir: &Path) -> PathBuf {
-    // Dev: the venv created by scripts/setup_dev.sh. Packaged builds swap
-    // this for a PyInstaller-frozen sidecar binary bundled via Tauri's
-    // external-binary mechanism instead of spawning a system Python (M8).
-    dir.join(".venv/bin/python")
+/// How to actually launch the sidecar process — resolved once per spawn
+/// attempt rather than baked into a single hardcoded path, since dev and
+/// packaged builds genuinely run a different thing (M8): dev spawns the
+/// repo's own venv Python (scripts/setup_dev.sh); a packaged build runs
+/// the PyInstaller-frozen binary bundled as a Tauri resource (see
+/// scripts/build_sidecar.sh and tauri.conf.json's `bundle.resources`) —
+/// a real end user's machine has no Python at all.
+enum SidecarLaunch {
+    Frozen { executable: PathBuf, working_dir: PathBuf },
+    DevPython { python: PathBuf, working_dir: PathBuf },
 }
 
-fn spawn_child(dir: &Path) -> Result<(Child, u16), String> {
-    let python = python_binary(dir);
-    if !python.exists() {
-        return Err(format!(
-            "sidecar venv not found at {python:?} — run ./scripts/setup_dev.sh first"
-        ));
+fn resolve_launch(app: &AppHandle) -> Result<SidecarLaunch, String> {
+    // A --onedir PyInstaller build is a directory of files, not a single
+    // relocatable binary — bundled under Resources/dawsons-sidecar/ (see
+    // tauri.conf.json), with the actual executable of the same name
+    // nested one level inside that directory.
+    if let Ok(resource_dir) = app.path().resource_dir() {
+        let executable = resource_dir.join("dawsons-sidecar").join("dawsons-sidecar");
+        if executable.exists() {
+            let working_dir = executable
+                .parent()
+                .expect("executable path always has a parent")
+                .to_path_buf();
+            return Ok(SidecarLaunch::Frozen { executable, working_dir });
+        }
     }
 
-    let mut child = Command::new(&python)
-        .args(["-m", "app.main"])
-        .current_dir(dir)
+    let dir = sidecar_dir();
+    let python = dir.join(".venv/bin/python");
+    if !python.exists() {
+        return Err(format!(
+            "no frozen sidecar bundled and no dev venv found at {python:?} — run ./scripts/setup_dev.sh first"
+        ));
+    }
+    Ok(SidecarLaunch::DevPython { python, working_dir: dir })
+}
+
+fn spawn_child(app: &AppHandle) -> Result<(Child, u16), String> {
+    let launch = resolve_launch(app)?;
+    let mut command = match &launch {
+        SidecarLaunch::Frozen { executable, working_dir } => {
+            let mut c = Command::new(executable);
+            c.current_dir(working_dir);
+            c
+        }
+        SidecarLaunch::DevPython { python, working_dir } => {
+            let mut c = Command::new(python);
+            c.args(["-m", "app.main"]).current_dir(working_dir);
+            c
+        }
+    };
+
+    let mut child = command
         .stdout(Stdio::piped())
         .stderr(Stdio::piped())
         .spawn()
@@ -144,9 +180,7 @@ pub fn spawn(app: AppHandle) -> SidecarHandle {
 }
 
 fn supervise(app: AppHandle, status: Arc<Mutex<SidecarStatus>>, shutdown_rx: mpsc::Receiver<()>) {
-    let dir = sidecar_dir();
-
-    let mut child = match start_and_confirm(&dir, &app, &status) {
+    let mut child = match start_and_confirm(&app, &status) {
         Some(child) => child,
         None => return, // spawn/health-check failed; status already set to Error
     };
@@ -184,7 +218,7 @@ fn supervise(app: AppHandle, status: Arc<Mutex<SidecarStatus>>, shutdown_rx: mps
                 }
                 restarted_once = true;
                 set_status(&status, &app, SidecarStatus::Starting);
-                match start_and_confirm(&dir, &app, &status) {
+                match start_and_confirm(&app, &status) {
                     Some(new_child) => child = new_child,
                     None => return,
                 }
@@ -195,12 +229,8 @@ fn supervise(app: AppHandle, status: Arc<Mutex<SidecarStatus>>, shutdown_rx: mps
     }
 }
 
-fn start_and_confirm(
-    dir: &Path,
-    app: &AppHandle,
-    status: &Arc<Mutex<SidecarStatus>>,
-) -> Option<Child> {
-    let (child, port) = match spawn_child(dir) {
+fn start_and_confirm(app: &AppHandle, status: &Arc<Mutex<SidecarStatus>>) -> Option<Child> {
+    let (child, port) = match spawn_child(app) {
         Ok(v) => v,
         Err(e) => {
             tracing::error!("sidecar spawn failed: {e}");
@@ -208,7 +238,13 @@ fn start_and_confirm(
             return None;
         }
     };
-    if let Err(e) = wait_for_health(port, Duration::from_secs(15)) {
+    // 60s, not 15s: a packaged build's frozen sidecar has a real,
+    // measured cold-start of up to ~45s (loading ~1.2GB of bundled
+    // shared libraries on first launch) — confirmed by actually timing
+    // it, not assumed. The dev venv path is near-instant regardless, so
+    // this only affects how long a genuinely broken startup takes to
+    // report an error, not the common case.
+    if let Err(e) = wait_for_health(port, Duration::from_secs(60)) {
         tracing::error!("sidecar health check failed: {e}");
         set_status(status, app, SidecarStatus::Error { message: e });
         return None;

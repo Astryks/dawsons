@@ -29,6 +29,9 @@
     "targets": "all",
     "icon": [
       "icons/icon.png"
-    ]
+    ],
+    "resources": {
+      "../../../services/ai-sidecar/dist/dawsons-sidecar": "dawsons-sidecar"
+    }
   }
 }
