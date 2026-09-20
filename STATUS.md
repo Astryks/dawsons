@@ -13,13 +13,14 @@ first for what's actually done vs. planned.
 - **Multi-project management** — local SQLite `projects` table, create/rename/delete/switch
 - **Export** — mix bounce and per-stem export to local WAV files
 - **Voice Notes** — on-device recording/playback/delete (cpal capture path)
-- **M4 — Real song analysis**: real Demucs stem separation (not mocked), job tracking (`POST /analyze` → poll → done), stems load as independently mutable tracks in the audio engine
+- **M4 — Real song analysis**: real Demucs stem separation via `htdemucs_6s` (6 stems: vocals/drums/bass/guitar/piano/other — a genuinely different model checkpoint than the default 4-stem one), job tracking (`POST /analyze` → poll → done), stems load as independently mutable tracks
+- **M5 — Tempo/key/chord/section detection**: real librosa-based tempo/key, a custom chroma+template chord detector (avoids GPL Chordino), novelty-based sections — all assembled into the full schema-validated Scene Graph fragment, persisted per-project in SQLite
+- **Instrument library** — 128 General MIDI instruments playable via `rustysynth` + a free MIT-licensed SoundFont (FluidR3_GM, fetched via `scripts/download_soundfont.sh`, never committed — same pattern as model weights)
 
-25 Rust unit tests + 4 Python tests (including a real end-to-end Demucs inference test) passing. Everything above runs 100% locally — no server, no cloud cost, per the project's core constraint.
+29 Rust unit tests + 4 Python tests (including real end-to-end runs — Demucs inference and the full M5 pipeline, not mocked) passing. Everything above runs 100% locally — no server, no cloud cost, per the project's core constraint.
 
 ## Not started yet
 
-- M5 — Tempo/key/chord/section detection populating the full Scene Graph (M4's `/analyze` result is stems-only for now; the full schema-shaped fragment lands here)
 - M6 — Timeline + AI-breakdown UI (track add/remove/reorder, song-browser dropdown, confidence badges)
 - M6b — Voice Notes UI polish / promoting a note into a project
 - M7 — Real model weight download flow with first-run progress UX
@@ -32,3 +33,5 @@ first for what's actually done vs. planned.
 
 - Branching discipline slipped once (edited files on `main` before creating a feature branch), which combined with GitHub's squash-merge commit-hash changes to cause a real merge conflict — resolved cleanly, but always `git checkout -b <branch>` first from now on.
 - Model weights (Demucs, and later CREPE/MT3/DDSP) are deliberately **not** committed to git — see `docs/ARCHITECTURE.md` and the note in `services/ai-sidecar/models/`. They're fetched from each project's own public distribution point at runtime, which is the free and correct approach; see that section for why vendoring them here would be both costly and unnecessary.
+- The dev machine's pyenv-built Python 3.11.10 was missing `lzma` support (needed transitively by librosa's `pooch` dependency) — fixed by building xz 5.8.4 from source as a static lib and rebuilding Python against it. If setting up on a fresh machine, watch for this same failure mode and note that xz 5.6.0/5.6.1 specifically are backdoored (CVE-2024-3094) — use 5.6.2+ or the 5.4.x/5.8.x lines.
+- YouTube link import was considered and explicitly dropped: extracting audio from YouTube violates their ToS regardless of any in-app disclaimer (a disclaimer manages user liability, not whether the app itself breaks the platform's terms). Direct file upload is the only import path, by design.
