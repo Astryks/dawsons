@@ -65,6 +65,28 @@ no server involved):
 2. **Export stems** — writes each track's audio to its own file in a chosen folder.
 3. **Export project bundle** — zips the project's SQLite row (as JSON) plus its `assets/` folder into one `.dawsonsproject` file, for backup or moving to another machine; re-importing reads the manifest back in.
 
+## Local profile (new feature — not a social network)
+
+Ask: a profile picture and a page showing "your songs," optionally
+without ever creating an account.
+
+Resolution: a single local `profile` row (display name, avatar image
+copied into the app data dir, created_at) in the existing SQLite DB. No
+account exists until the user sets one — the app works fully in
+"anonymous" mode otherwise (matches the requirement that it work without
+an account). The profile page is just the existing `projects` list
+(already built) rendered under the avatar/name header — no new
+song-storage mechanism, since projects already *are* "songs you've
+created."
+
+**This is deliberately not a social network.** Showing other people's
+songs, following/discovery, or sharing between users would require a real
+backend, a database beyond local SQLite, and image/audio hosting — all
+ongoing server costs that conflict directly with the project's
+zero-infrastructure-cost constraint. If multi-user sharing is wanted
+later, that's a distinct decision (pick a backend, accept a hosting bill)
+rather than something the local profile quietly grows into.
+
 ## Voice Notes (new feature — local-only, zero server cost)
 
 Problem: a place to quickly capture a vocal/musical idea, without taking
