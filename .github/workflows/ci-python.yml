@@ -1,0 +1,26 @@
+name: CI (Python sidecar)
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    paths:
+      - "services/ai-sidecar/**"
+      - ".github/workflows/ci-python.yml"
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: services/ai-sidecar
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+          cache-dependency-path: services/ai-sidecar/requirements.txt
+      - run: pip install -r requirements.txt -e ".[dev]"
+      - run: ruff check .
+      - run: pytest

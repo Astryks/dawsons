@@ -1,0 +1,38 @@
+# Rust
+/apps/desktop/src-tauri/target/
+
+# Node
+node_modules/
+dist/
+.vite/
+apps/desktop/dist/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/
+services/ai-sidecar/.pytest_cache/
+*.egg-info/
+
+# Model weights and caches — never commit; see services/ai-sidecar/models/download_weights.py
+**/models/cache/
+*.pth
+*.th
+*.ckpt
+*.onnx
+*.safetensors
+
+# Build/bundle artifacts
+services/ai-sidecar/dist/
+services/ai-sidecar/build/
+*.dmg
+*.app
+*.msi
+*.AppImage
+
+# OS / editor
+.DS_Store
+.vscode/
+.idea/
+*.swp

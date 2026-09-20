@@ -1,0 +1,32 @@
+[project]
+name = "dawsons-ai-sidecar"
+version = "0.1.0"
+description = "Local AI analysis service for Dawsons, spawned and supervised by the desktop app"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+]
+
+# Heavier pipeline dependencies (Demucs, torch/torchaudio, librosa, soundfile,
+# numpy/scipy) are added starting at M4/M5 when the corresponding pipeline
+# stages are implemented — see docs/ARCHITECTURE.md milestones. Keeping this
+# minimal for now keeps the M1-M3 install/CI fast.
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.3",
+    "httpx>=0.27",
+    "ruff>=0.7",
+    "mypy>=1.13",
+]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+# `models/` holds weight manifests + a standalone script (run directly,
+# not imported), not a Python package — exclude it from discovery.
+include = ["app*"]

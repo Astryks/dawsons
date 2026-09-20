@@ -1,0 +1,58 @@
+:root {
+  color-scheme: dark;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: #14161a;
+  color: #e6e6e6;
+}
+
+.app-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.app-shell__titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 1rem;
+  border-bottom: 1px solid #2a2d33;
+}
+
+.app-shell__title {
+  font-weight: 600;
+}
+
+.app-shell__main {
+  flex: 1;
+  padding: 2rem;
+}
+
+.sidecar-badge {
+  font-size: 0.8rem;
+  padding: 0.15rem 0.6rem;
+  border-radius: 999px;
+}
+
+.sidecar-badge--starting {
+  background: #3a3320;
+  color: #e0c368;
+}
+
+.sidecar-badge--ready {
+  background: #1f3a26;
+  color: #6ee08a;
+}
+
+.sidecar-badge--error {
+  background: #3a1f1f;
+  color: #e06e6e;
+}

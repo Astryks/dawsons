@@ -1,0 +1,10 @@
+[
+  {
+    "name": "demucs-htdemucs",
+    "source": "torch.hub",
+    "source_url": "https://dl.fbaipublicfiles.com/demucs/hybrid_transformer/htdemucs.th",
+    "expected_sha256": "TODO-fill-in-when-M4-lands",
+    "license": "MIT",
+    "dest_path": "htdemucs/htdemucs.th"
+  }
+]

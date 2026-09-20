@@ -1,0 +1,153 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://dawsons.app/schema/scene-graph/v1.json",
+  "title": "MusicalSceneGraph",
+  "description": "The canonical, versioned representation of a song's structure. Every AI analysis result and every user edit reads and writes this shape — never raw waveforms.",
+  "type": "object",
+  "required": ["schemaVersion", "song"],
+  "properties": {
+    "schemaVersion": { "type": "string", "const": "1.0.0" },
+    "song": {
+      "type": "object",
+      "required": ["id", "title", "durationSec", "bpm", "key", "timeSignature", "tracks"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "title": { "type": "string" },
+        "sourceFile": { "type": "string", "description": "original uploaded file path/name" },
+        "durationSec": { "type": "number", "minimum": 0 },
+        "bpm": { "$ref": "#/$defs/ConfidentValue" },
+        "key": {
+          "type": "object",
+          "required": ["tonic", "mode", "confidence", "source"],
+          "properties": {
+            "tonic": { "type": "string", "enum": ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"] },
+            "mode": { "type": "string", "enum": ["major", "minor"] },
+            "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+            "source": { "$ref": "#/$defs/Source" }
+          }
+        },
+        "timeSignature": {
+          "type": "object",
+          "required": ["numerator", "denominator"],
+          "properties": {
+            "numerator": { "type": "integer", "minimum": 1 },
+            "denominator": { "type": "integer", "enum": [2, 4, 8, 16] }
+          }
+        },
+        "sections": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Section" }
+        },
+        "tracks": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Track" }
+        },
+        "chords": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/Chord" }
+        },
+        "automation": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/AutomationCurve" }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "Source": {
+      "type": "string",
+      "description": "Which model/algorithm produced this value, or 'user' for a manual edit.",
+      "enum": ["demucs", "librosa-tempo", "librosa-key", "chord-detector-v1", "section-detector-v1", "user"]
+    },
+    "ConfidentValue": {
+      "type": "object",
+      "required": ["value", "confidence", "source"],
+      "properties": {
+        "value": { "type": "number" },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "source": { "$ref": "#/$defs/Source" }
+      }
+    },
+    "Section": {
+      "type": "object",
+      "required": ["id", "label", "startSec", "endSec"],
+      "properties": {
+        "id": { "type": "string" },
+        "label": { "type": "string", "description": "e.g. intro, verse, chorus, bridge, outro, or a generic 'section-N' in Phase 1" },
+        "startSec": { "type": "number", "minimum": 0 },
+        "endSec": { "type": "number", "minimum": 0 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "source": { "$ref": "#/$defs/Source" }
+      }
+    },
+    "Track": {
+      "type": "object",
+      "required": ["id", "name", "type", "instrument"],
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "type": { "type": "string", "enum": ["audio", "midi"], "description": "Phase 1 tracks are all audio (stems); midi is reserved for later transcription phases" },
+        "instrument": { "type": "string", "description": "e.g. vocals, drums, bass, other, piano, guitar" },
+        "audioFilePath": { "type": "string", "description": "path to the separated stem audio file" },
+        "sourceStem": { "type": "string", "enum": ["vocals", "drums", "bass", "other"], "description": "which Demucs stem this track came from" },
+        "gainDb": { "type": "number", "default": 0 },
+        "muted": { "type": "boolean", "default": false },
+        "solo": { "type": "boolean", "default": false },
+        "notes": {
+          "type": "array",
+          "description": "empty for Phase 1 audio tracks; populated in later phases via transcription",
+          "items": { "$ref": "#/$defs/Note" }
+        },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "source": { "$ref": "#/$defs/Source" }
+      }
+    },
+    "Note": {
+      "type": "object",
+      "required": ["instrument", "note", "startSec", "durationSec", "velocity", "confidence", "source"],
+      "properties": {
+        "instrument": { "type": "string" },
+        "note": { "type": "integer", "minimum": 0, "maximum": 127, "description": "MIDI note number" },
+        "startSec": { "type": "number", "minimum": 0 },
+        "durationSec": { "type": "number", "minimum": 0 },
+        "velocity": { "type": "integer", "minimum": 0, "maximum": 127 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "source": { "$ref": "#/$defs/Source" }
+      }
+    },
+    "Chord": {
+      "type": "object",
+      "required": ["symbol", "root", "quality", "startSec", "endSec", "confidence", "source"],
+      "properties": {
+        "symbol": { "type": "string", "description": "human-readable, e.g. 'Cmaj7', 'Am', 'G/B'" },
+        "root": { "type": "string", "enum": ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"] },
+        "quality": { "type": "string", "enum": ["maj", "min", "maj7", "min7", "dom7", "dim", "aug", "sus2", "sus4", "other"] },
+        "bassNote": { "type": ["string", "null"] },
+        "startSec": { "type": "number", "minimum": 0 },
+        "endSec": { "type": "number", "minimum": 0 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "source": { "$ref": "#/$defs/Source" }
+      }
+    },
+    "AutomationCurve": {
+      "type": "object",
+      "required": ["id", "targetTrackId", "parameter", "points"],
+      "properties": {
+        "id": { "type": "string" },
+        "targetTrackId": { "type": "string" },
+        "parameter": { "type": "string", "enum": ["gain", "pan"], "description": "reserved for later phases; Phase 1 emits none" },
+        "points": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["timeSec", "value"],
+            "properties": {
+              "timeSec": { "type": "number" },
+              "value": { "type": "number" }
+            }
+          }
+        }
+      }
+    }
+  }
+}
