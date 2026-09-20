@@ -3,12 +3,18 @@ import { DEMO_SONGS } from "./demo-songs.js";
 import { INSTRUMENT_ICONS, renderVoice } from "./synth.js";
 import { reverseBuffer, pitchShiftBuffer, buildEffectChain } from "./effects.js";
 import { detectNotes, snapNotesToScale, MAJOR_SCALE, MINOR_SCALE } from "./pitch.js";
+import { STARTERS } from "./starter-patterns.js";
+import { paletteFor, soundLabel, createPattern, toggleStep, autoFillEveryBeats } from "./pattern-editor.js";
 
 const engine = new Engine();
 let currentSong = null;
 let uploadedBuffer = null;
 let uploadedName = "";
 let playheadTimer = null;
+// Which track's row is open in the left sidebar's sound picker, and
+// which sound from its palette is currently "armed" to place on tap.
+let activeTrackIndex = null;
+let armedSound = null;
 
 const familyIcon = {
   keys: INSTRUMENT_ICONS.keys,
@@ -98,18 +104,23 @@ function renderTrackList() {
 function renderTimeline() {
   const el = document.getElementById("timeline");
   if (!engine.tracks.length) {
-    el.innerHTML = '<p class="daw-note">Pick an example song from the sidebar to see a layered project right away.</p>';
+    el.innerHTML =
+      '<p class="daw-note">Tap an instrument above, or pick an example song from the sidebar, to see a layered project right away.</p>';
     return;
   }
   const maxDur = engine.maxDurationSec();
   el.innerHTML = engine.tracks
     .map((track, i) => {
+      const isActive = i === activeTrackIndex;
       const pct = Math.max(2, (track.durationSec / maxDur) * 100);
+      const body = track.pattern
+        ? renderPatternGridHtml(track, i)
+        : `<div class="timeline-layer__bar layer-color-${i % 6}" style="width:${pct}%"></div>`;
       return `
-        <div class="timeline-layer">
-          <div class="timeline-layer__label">${track.name}</div>
+        <div class="timeline-layer${isActive ? " timeline-layer--active" : ""}">
+          <div class="timeline-layer__label" data-track-index="${i}">${track.name}</div>
           <div class="timeline-layer__track">
-            <div class="timeline-layer__bar layer-color-${i % 6}" style="width:${pct}%"></div>
+            ${body}
             <div class="timeline-layer__playhead" id="playhead-${i}" style="display:none"></div>
           </div>
         </div>`;
@@ -117,7 +128,49 @@ function renderTimeline() {
     .join("");
 }
 
+// Renders one pattern-backed track's row as a grid of clickable steps —
+// tapping an empty step places the currently armed sound, tapping a
+// filled step removes it (see the #timeline click-delegation below).
+function renderPatternGridHtml(track, trackIndex) {
+  const palette = paletteFor(track.pattern.family);
+  let html = `<div class="pattern-grid" data-track-index="${trackIndex}">`;
+  for (let step = 0; step < track.pattern.totalSteps; step++) {
+    const hit = track.pattern.hits.find((h) => h.step === step);
+    if (hit) {
+      const entry = palette.find((s) => s.key === hit.sound);
+      const initial = entry ? entry.label.charAt(0).toUpperCase() : "";
+      html += `<button type="button" class="pattern-grid__step is-filled" data-step="${step}" title="${soundLabel(
+        track.pattern.family,
+        hit.sound,
+      )} — tap to remove">${initial}</button>`;
+    } else {
+      const armedLabel = armedSound ? soundLabel(track.pattern.family, armedSound) : "a sound";
+      html += `<button type="button" class="pattern-grid__step" data-step="${step}" title="Tap to place ${armedLabel}"></button>`;
+    }
+  }
+  html += "</div>";
+  return html;
+}
+
+function formatTime(sec) {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${s.toString().padStart(2, "0")}`;
+}
+
+function updateScrubber() {
+  const maxDur = engine.maxDurationSec();
+  const pos = engine.positionSec();
+  const pct = engine.tracks.length ? Math.max(0, Math.min(100, (pos / maxDur) * 100)) : 0;
+  document.getElementById("scrubber-fill").style.width = `${pct}%`;
+  document.getElementById("scrubber-thumb").style.left = `${pct}%`;
+  document.getElementById("scrubber-time").textContent = engine.tracks.length
+    ? `${formatTime(pos)} / ${formatTime(maxDur)}`
+    : "0:00";
+}
+
 function updatePlayhead() {
+  updateScrubber();
   if (!engine.playing) {
     document.querySelectorAll(".timeline-layer__playhead").forEach((p) => (p.style.display = "none"));
     return;
@@ -129,7 +182,7 @@ function updatePlayhead() {
     p.style.display = "block";
     p.style.left = `${pct}%`;
   });
-  if (engine.playing) playheadTimer = requestAnimationFrame(updatePlayhead);
+  playheadTimer = requestAnimationFrame(updatePlayhead);
 }
 
 document.getElementById("play-btn").onclick = async () => {
@@ -137,20 +190,174 @@ document.getElementById("play-btn").onclick = async () => {
   engine.play();
   updatePlayhead();
 };
-document.getElementById("pause-btn").onclick = () => engine.pause();
-document.getElementById("stop-btn").onclick = () => engine.stop();
+document.getElementById("pause-btn").onclick = () => {
+  engine.pause();
+  updatePlayhead();
+};
+document.getElementById("stop-btn").onclick = () => {
+  engine.stop();
+  updatePlayhead();
+};
+
+// --- Draggable scrubber: click anywhere on the bar to jump there, or
+// drag the thumb to scrub through the project while it plays. ---
+const scrubberEl = document.getElementById("scrubber");
+let isScrubbing = false;
+
+function seekFromPointer(clientX) {
+  if (!engine.tracks.length) return;
+  const rect = scrubberEl.getBoundingClientRect();
+  const frac = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+  engine.seekTo(frac * engine.maxDurationSec());
+  updateScrubber();
+}
+
+scrubberEl.addEventListener("pointerdown", (e) => {
+  isScrubbing = true;
+  scrubberEl.setPointerCapture(e.pointerId);
+  seekFromPointer(e.clientX);
+});
+scrubberEl.addEventListener("pointermove", (e) => {
+  if (isScrubbing) seekFromPointer(e.clientX);
+});
+scrubberEl.addEventListener("pointerup", (e) => {
+  isScrubbing = false;
+  try {
+    scrubberEl.releasePointerCapture(e.pointerId);
+  } catch {
+    /* already released */
+  }
+  if (engine.playing) updatePlayhead(); // restart the rAF loop from the new position
+});
+
+// --- Click-to-place beat/note grid: selecting a track's row, toggling
+// a step, and the sidebar sound picker (arm a sound / auto-fill). ---
+document.getElementById("timeline").addEventListener("click", (e) => {
+  const stepBtn = e.target.closest(".pattern-grid__step");
+  if (stepBtn) {
+    const trackIndex = Number(stepBtn.closest(".pattern-grid").dataset.trackIndex);
+    handleStepClick(trackIndex, Number(stepBtn.dataset.step));
+    return;
+  }
+  const label = e.target.closest(".timeline-layer__label");
+  if (label && label.dataset.trackIndex !== undefined) {
+    activeTrackIndex = Number(label.dataset.trackIndex);
+    renderTimeline();
+    renderSoundPicker();
+  }
+});
+
+function handleStepClick(trackIndex, step) {
+  const track = engine.tracks[trackIndex];
+  if (!track || !track.pattern) return;
+  activeTrackIndex = trackIndex;
+  track.buffer = toggleStep(engine.ctx, engine.ctx.sampleRate, track.pattern, step, armedSound);
+  renderTimeline();
+  renderSoundPicker();
+}
+
+function renderSoundPicker() {
+  const el = document.getElementById("sound-picker");
+  const track = activeTrackIndex !== null ? engine.tracks[activeTrackIndex] : null;
+  if (!track || !track.pattern) {
+    el.innerHTML = '<p class="daw-note">Click a beat track\'s row in the timeline to edit its sounds.</p>';
+    return;
+  }
+  const palette = paletteFor(track.pattern.family);
+  el.innerHTML = `
+    <div class="sound-picker__title">${track.name}</div>
+    <div class="sound-picker__grid">
+      ${palette
+        .map(
+          (s) =>
+            `<button type="button" class="sound-picker__btn${armedSound === s.key ? " is-armed" : ""}" data-sound="${s.key}">${s.label}</button>`,
+        )
+        .join("")}
+    </div>
+    <p class="sound-picker__hint">Tap a sound above, then tap any step in the timeline to place it — tap a filled step again to remove it.</p>
+    <div class="sound-picker__autofill">
+      <span>Auto-fill every:</span>
+      ${[2, 4, 6, 8]
+        .map((n) => `<button type="button" class="sound-picker__autofill-btn" data-every="${n}">${n} beats</button>`)
+        .join("")}
+    </div>
+  `;
+}
+
+document.getElementById("sound-picker").addEventListener("click", (e) => {
+  const soundBtn = e.target.closest(".sound-picker__btn");
+  if (soundBtn) {
+    armedSound = soundBtn.dataset.sound;
+    renderSoundPicker();
+    renderTimeline();
+    return;
+  }
+  const fillBtn = e.target.closest(".sound-picker__autofill-btn");
+  if (!fillBtn || !armedSound || activeTrackIndex === null) return;
+  const track = engine.tracks[activeTrackIndex];
+  if (!track || !track.pattern) return;
+  track.buffer = autoFillEveryBeats(engine.ctx, engine.ctx.sampleRate, track.pattern, armedSound, Number(fillBtn.dataset.every));
+  renderTimeline();
+});
+
+// --- "Tap an instrument, hear it right away" starter strip ---
+function renderStarterGrid() {
+  const el = document.getElementById("starter-grid");
+  el.innerHTML = STARTERS.map(
+    (s) =>
+      `<button type="button" class="daw-starter__btn daw-starter__btn--${s.key}" data-starter="${s.key}">
+        <span class="daw-starter__icon">${s.icon}</span><span>${s.label}</span>
+      </button>`,
+  ).join("");
+  el.querySelectorAll("button[data-starter]").forEach((btn) => {
+    btn.onclick = () => handleAddStarterInstrument(btn.dataset.starter);
+  });
+}
+
+async function handleAddStarterInstrument(starterKey) {
+  const starter = STARTERS.find((s) => s.key === starterKey);
+  if (!starter) return;
+  await engine.resume();
+  const pattern = createPattern(engine.ctx, engine.ctx.sampleRate, starter.family, starter.hits);
+  engine.addTrack(starter.label, pattern.buffer, pattern);
+  activeTrackIndex = engine.tracks.length - 1;
+  armedSound = paletteFor(starter.family)[0]?.key || null;
+  renderTrackList();
+  renderTimeline();
+  renderSoundPicker();
+  engine.play();
+  updatePlayhead();
+}
 
 // --- Upload + clip tools ---
-document.getElementById("upload-track").onclick = () => document.getElementById("upload-input").click();
-document.getElementById("upload-input").onchange = async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
+async function handleUploadedFile(file) {
   await engine.resume();
   const arrayBuffer = await file.arrayBuffer();
   uploadedBuffer = await engine.ctx.decodeAudioData(arrayBuffer);
   uploadedName = file.name;
   document.getElementById("effects-panel").style.display = "block";
+}
+
+document.getElementById("upload-track").onclick = () => document.getElementById("upload-input").click();
+document.getElementById("upload-input").onchange = async (e) => {
+  const file = e.target.files[0];
+  if (file) await handleUploadedFile(file);
 };
+
+// Drag a file straight onto the timeline as an alternative to the file
+// picker — same handling either way.
+const timelineDropEl = document.getElementById("timeline");
+timelineDropEl.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  timelineDropEl.classList.add("is-drag-over");
+});
+timelineDropEl.addEventListener("dragleave", () => timelineDropEl.classList.remove("is-drag-over"));
+timelineDropEl.addEventListener("drop", async (e) => {
+  e.preventDefault();
+  timelineDropEl.classList.remove("is-drag-over");
+  const file = e.dataTransfer.files && e.dataTransfer.files[0];
+  if (file) await handleUploadedFile(file);
+});
 
 function wireSlider(id, valId, fmt) {
   const slider = document.getElementById(id);
@@ -318,6 +525,8 @@ voiceRenderBtn.onclick = async () => {
 };
 
 renderSongPicker();
+renderStarterGrid();
+updateScrubber();
 
 // If arriving from the Discover page's "Open a similar layered example"
 // link, load that song immediately instead of leaving the DAW empty.

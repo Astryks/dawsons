@@ -134,6 +134,27 @@ function renderDrumHit(buffer, kind, startSec, sampleRate) {
         data1[idx] += value;
       }
     }
+  } else if (kind === "clap") {
+    // A real handclap is several near-simultaneous noise bursts (multiple
+    // hands/fingers not landing at exactly the same instant), so this
+    // layers three short, fast-decaying noise bursts a few milliseconds
+    // apart rather than one single envelope like the snare above.
+    const burstOffsetsSec = [0, 0.012, 0.024];
+    const dur = 0.09;
+    const n = Math.floor(dur * sampleRate);
+    for (const offsetSec of burstOffsetsSec) {
+      const offsetSamples = Math.floor(offsetSec * sampleRate);
+      for (let i = 0; i < n; i++) {
+        const t = i / sampleRate;
+        const env = Math.exp(-t * 35);
+        const value = (Math.random() * 2 - 1) * env * 0.3;
+        const idx = startSample + offsetSamples + i;
+        if (idx >= 0 && idx < data0.length) {
+          data0[idx] += value;
+          data1[idx] += value;
+        }
+      }
+    }
   }
 }
 

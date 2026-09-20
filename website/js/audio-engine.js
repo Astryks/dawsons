@@ -6,12 +6,15 @@ import { renderVoice, renderDrumHit } from "./synth.js";
 import { BAR_SEC } from "./demo-songs.js";
 
 class Track {
-  constructor(name, buffer) {
+  constructor(name, buffer, pattern = null) {
     this.name = name;
     this.buffer = buffer;
     this.muted = false;
     this.gain = null; // GainNode, created on play
     this.source = null;
+    // {family, hits, totalSteps} for a track editable via pattern-editor.js's
+    // click-to-place grid; null for a plain demo-song/uploaded-audio track.
+    this.pattern = pattern;
   }
 
   get durationSec() {
@@ -25,6 +28,7 @@ class Engine {
     this.tracks = [];
     this.playing = false;
     this.startedAt = 0;
+    this.pausedAtSec = 0; // where a paused/stopped transport will resume from
     this.masterGain = this.ctx.createGain();
     this.masterGain.gain.value = 1.0;
     this.masterGain.connect(this.ctx.destination);
@@ -66,8 +70,8 @@ class Engine {
     this.tracks = tracks;
   }
 
-  addTrack(name, buffer) {
-    this.tracks.push(new Track(name, buffer));
+  addTrack(name, buffer, pattern = null) {
+    this.tracks.push(new Track(name, buffer, pattern));
   }
 
   removeTrack(index) {
@@ -87,33 +91,65 @@ class Engine {
     if (track.gain) track.gain.gain.value = muted ? 0 : 1;
   }
 
-  play() {
-    this.stop();
+  // Starts (or resumes) playback from `fromSec` — omit it to resume from
+  // wherever playback was last paused/sought to (defaulting to 0 the
+  // first time). Each track's own source starts at that same offset
+  // *into its buffer* (`AudioBufferSourceNode.start(when, offset)`), and
+  // a track shorter than `fromSec` is simply skipped since it has
+  // already finished playing by that point in the timeline.
+  play(fromSec) {
+    const startSec = Math.max(0, fromSec !== undefined ? fromSec : this.pausedAtSec);
+    this._stopSources();
     this.playing = true;
-    this.startedAt = this.ctx.currentTime;
+    this.startedAt = this.ctx.currentTime - startSec;
     for (const track of this.tracks) {
+      if (startSec >= track.durationSec) continue;
       const source = this.ctx.createBufferSource();
       source.buffer = track.buffer;
       const gain = this.ctx.createGain();
       gain.gain.value = track.muted ? 0 : 1;
       source.connect(gain).connect(this.masterGain);
-      source.start();
+      source.start(this.ctx.currentTime, startSec);
       track.source = source;
       track.gain = gain;
     }
-    const maxDur = Math.max(0, ...this.tracks.map((t) => t.durationSec));
+    const remaining = Math.max(0, this.maxDurationSec() - startSec);
+    clearTimeout(this._stopTimer);
     this._stopTimer = setTimeout(() => {
       this.playing = false;
-    }, maxDur * 1000);
+      this.pausedAtSec = 0;
+    }, remaining * 1000);
   }
 
+  // Stops sound but remembers the position, so a later `play()` resumes
+  // from here instead of restarting — real pause/resume, not stop/reset.
   pause() {
-    this.stop();
+    this.pausedAtSec = this.positionSec();
+    this._stopSources();
+    this.playing = false;
+    clearTimeout(this._stopTimer);
   }
 
   stop() {
+    this._stopSources();
     this.playing = false;
+    this.pausedAtSec = 0;
     clearTimeout(this._stopTimer);
+  }
+
+  // Jumps the transport to `sec` — restarts playback there immediately
+  // if already playing, or just remembers it for the next `play()`
+  // otherwise. This is what the draggable scrubber calls while dragging.
+  seekTo(sec) {
+    const clamped = Math.max(0, Math.min(sec, this.maxDurationSec()));
+    if (this.playing) {
+      this.play(clamped);
+    } else {
+      this.pausedAtSec = clamped;
+    }
+  }
+
+  _stopSources() {
     for (const track of this.tracks) {
       if (track.source) {
         try {
@@ -127,8 +163,8 @@ class Engine {
   }
 
   positionSec() {
-    if (!this.playing) return 0;
-    return this.ctx.currentTime - this.startedAt;
+    if (this.playing) return this.ctx.currentTime - this.startedAt;
+    return this.pausedAtSec;
   }
 
   maxDurationSec() {
