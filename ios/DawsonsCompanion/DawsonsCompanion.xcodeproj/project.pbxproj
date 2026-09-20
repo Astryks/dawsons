@@ -1,0 +1,297 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		D382A5971313CCED3E614441 /* DawsonsCompanionApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = E1D51C0174BBCD5DAF2D8939 /* DawsonsCompanionApp.swift */; };
+		9503099583FBDCD2682DC4DC /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E92F0F0BD2D703A6FE3D74E /* ContentView.swift */; };
+		551A14E61DD815F5B36DD794 /* AudioRecorder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 14675CA0B72156ED679BBD2D /* AudioRecorder.swift */; };
+		E7DE1B5A9DF4EAF6A67E9044 /* VoiceNoteStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 911E7AAB5ABEBE13822EA46C /* VoiceNoteStore.swift */; };
+		051D3DE5047DD85365366718 /* Synth.swift in Sources */ = {isa = PBXBuildFile; fileRef = 41884DF527B6E65DA26DB4BC /* Synth.swift */; };
+		D2F3C9E4F373902700044393 /* PatternEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8ADD8EBBE421A19794F79313 /* PatternEditor.swift */; };
+		01B364984359CB4FB713FF83 /* PitchDetector.swift in Sources */ = {isa = PBXBuildFile; fileRef = 813C73D93A65F36C809AB4EC /* PitchDetector.swift */; };
+		C75AC989BE85E1DF683C1B68 /* AudioEffects.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2B6217C6F2943CBF04368A10 /* AudioEffects.swift */; };
+		5FE3C0E81C159A0DFB53CA81 /* DAWEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A4A0BB674D067C86AF831BE /* DAWEngine.swift */; };
+		F78328356138BBEF7C362E0F /* AudioFileLoader.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8FB9829E128383C9F3D9253 /* AudioFileLoader.swift */; };
+		90D805868DBAFCE293402742 /* TimelineView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E1AAA1737C05DA5A682629F /* TimelineView.swift */; };
+		A66CDD24E72858A7B0936E84 /* DAWView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9C0306BB356CFA6EAC64566 /* DAWView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		E1D51C0174BBCD5DAF2D8939 /* DawsonsCompanionApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DawsonsCompanionApp.swift; sourceTree = "<group>"; };
+		7E92F0F0BD2D703A6FE3D74E /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		14675CA0B72156ED679BBD2D /* AudioRecorder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioRecorder.swift; sourceTree = "<group>"; };
+		911E7AAB5ABEBE13822EA46C /* VoiceNoteStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VoiceNoteStore.swift; sourceTree = "<group>"; };
+		A008E74DA2FC70F98A9E3687 /* DawsonsCompanion.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DawsonsCompanion.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		41884DF527B6E65DA26DB4BC /* Synth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Synth.swift; sourceTree = "<group>"; };
+		8ADD8EBBE421A19794F79313 /* PatternEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PatternEditor.swift; sourceTree = "<group>"; };
+		813C73D93A65F36C809AB4EC /* PitchDetector.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PitchDetector.swift; sourceTree = "<group>"; };
+		2B6217C6F2943CBF04368A10 /* AudioEffects.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioEffects.swift; sourceTree = "<group>"; };
+		3A4A0BB674D067C86AF831BE /* DAWEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DAWEngine.swift; sourceTree = "<group>"; };
+		A8FB9829E128383C9F3D9253 /* AudioFileLoader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioFileLoader.swift; sourceTree = "<group>"; };
+		3E1AAA1737C05DA5A682629F /* TimelineView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TimelineView.swift; sourceTree = "<group>"; };
+		B9C0306BB356CFA6EAC64566 /* DAWView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DAWView.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		2793B8B0D4B2E6D4F7D52D0D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		BF7F8EDC3581A9FA0E31A9E8 = {
+			isa = PBXGroup;
+			children = (
+				88075FA05E003CE686C803CA /* DawsonsCompanion */,
+				28953E211CE779D64F24108B /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		88075FA05E003CE686C803CA /* DawsonsCompanion */ = {
+			isa = PBXGroup;
+			children = (
+				E1D51C0174BBCD5DAF2D8939 /* DawsonsCompanionApp.swift */,
+				7E92F0F0BD2D703A6FE3D74E /* ContentView.swift */,
+				14675CA0B72156ED679BBD2D /* AudioRecorder.swift */,
+				911E7AAB5ABEBE13822EA46C /* VoiceNoteStore.swift */,
+				41884DF527B6E65DA26DB4BC /* Synth.swift */,
+				8ADD8EBBE421A19794F79313 /* PatternEditor.swift */,
+				813C73D93A65F36C809AB4EC /* PitchDetector.swift */,
+				2B6217C6F2943CBF04368A10 /* AudioEffects.swift */,
+				3A4A0BB674D067C86AF831BE /* DAWEngine.swift */,
+				A8FB9829E128383C9F3D9253 /* AudioFileLoader.swift */,
+				3E1AAA1737C05DA5A682629F /* TimelineView.swift */,
+				B9C0306BB356CFA6EAC64566 /* DAWView.swift */,
+			);
+			path = DawsonsCompanion;
+			sourceTree = "<group>";
+		};
+		28953E211CE779D64F24108B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A008E74DA2FC70F98A9E3687 /* DawsonsCompanion.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		56FA26189777448B4B1CBFC2 /* DawsonsCompanion */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 29F7523862B4F74F78E13A0F /* Build configuration list for PBXNativeTarget "DawsonsCompanion" */;
+			buildPhases = (
+				8DA1D713FBD32A9142BB0A8F /* Sources */,
+				2793B8B0D4B2E6D4F7D52D0D /* Frameworks */,
+				C321D53DD7CDB1C74413C232 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DawsonsCompanion;
+			productName = DawsonsCompanion;
+			productReference = A008E74DA2FC70F98A9E3687 /* DawsonsCompanion.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		67BFE716858EF8B036B2AF7B /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1540;
+				LastUpgradeCheck = 1540;
+				TargetAttributes = {
+					56FA26189777448B4B1CBFC2 = {
+						CreatedOnToolsVersion = 15.4;
+					};
+				};
+			};
+			buildConfigurationList = 23DAFA1867F4C994DC85E99B /* Build configuration list for PBXProject "DawsonsCompanion" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = BF7F8EDC3581A9FA0E31A9E8;
+			productRefGroup = 28953E211CE779D64F24108B /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				56FA26189777448B4B1CBFC2 /* DawsonsCompanion */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		C321D53DD7CDB1C74413C232 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		8DA1D713FBD32A9142BB0A8F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D382A5971313CCED3E614441 /* DawsonsCompanionApp.swift in Sources */,
+				9503099583FBDCD2682DC4DC /* ContentView.swift in Sources */,
+				551A14E61DD815F5B36DD794 /* AudioRecorder.swift in Sources */,
+				E7DE1B5A9DF4EAF6A67E9044 /* VoiceNoteStore.swift in Sources */,
+				051D3DE5047DD85365366718 /* Synth.swift in Sources */,
+				D2F3C9E4F373902700044393 /* PatternEditor.swift in Sources */,
+				01B364984359CB4FB713FF83 /* PitchDetector.swift in Sources */,
+				C75AC989BE85E1DF683C1B68 /* AudioEffects.swift in Sources */,
+				5FE3C0E81C159A0DFB53CA81 /* DAWEngine.swift in Sources */,
+				F78328356138BBEF7C362E0F /* AudioFileLoader.swift in Sources */,
+				90D805868DBAFCE293402742 /* TimelineView.swift in Sources */,
+				A66CDD24E72858A7B0936E84 /* DAWView.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		BD82985FD60F3644CFF81456 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		E3980763BD67CA11253DD9E5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_VERSION = 5.0;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		A1D0F2CE9C3EF9DC4AE4B1F5 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Dawsons Companion needs microphone access to record voice notes and singing.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.astryks.dawsonscompanion;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		D4980C3385AD4C57667477F3 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_NSMicrophoneUsageDescription = "Dawsons Companion needs microphone access to record voice notes and singing.";
+				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.astryks.dawsonscompanion;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		23DAFA1867F4C994DC85E99B /* Build configuration list for PBXProject "DawsonsCompanion" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				BD82985FD60F3644CFF81456 /* Debug */,
+				E3980763BD67CA11253DD9E5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		29F7523862B4F74F78E13A0F /* Build configuration list for PBXNativeTarget "DawsonsCompanion" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A1D0F2CE9C3EF9DC4AE4B1F5 /* Debug */,
+				D4980C3385AD4C57667477F3 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 67BFE716858EF8B036B2AF7B /* Project object */;
+}
