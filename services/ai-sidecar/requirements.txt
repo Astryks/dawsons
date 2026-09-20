@@ -10,7 +10,9 @@ numpy==2.4.6
 soundfile==0.13.1
 librosa==0.11.0
 jsonschema==4.26.0
-ace-step==0.2.0
+# PyPI only publishes ace-step 0.1.0; 0.2.0 (what this project actually
+# needs and runs against) is only available from source.
+ace-step @ git+https://github.com/ace-step/ACE-Step.git@1bee4c9f5b43e30995f8d4d33b3919197ce1bd68
 torchcodec==0.16.0
 faster-whisper==1.2.1
 torchcrepe==0.0.24
