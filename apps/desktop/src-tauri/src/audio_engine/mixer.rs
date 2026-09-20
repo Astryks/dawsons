@@ -8,6 +8,7 @@
 use std::sync::{Arc, Mutex};
 
 pub struct TrackBuffer {
+    pub name: String,
     /// Interleaved samples already converted to the engine's output
     /// sample rate and channel count (see decode::to_engine_format).
     pub samples: Arc<Vec<f32>>,
@@ -24,6 +25,12 @@ pub struct MixerState {
 }
 
 pub type SharedMixer = Arc<Mutex<MixerState>>;
+
+#[derive(Clone, Debug, serde::Serialize)]
+pub struct TrackInfo {
+    pub name: String,
+    pub muted: bool,
+}
 
 impl MixerState {
     /// Fills `out` (interleaved) by summing unmuted tracks at the current
@@ -54,6 +61,25 @@ impl MixerState {
             self.playing = false;
             self.position = 0;
         }
+    }
+
+    pub fn track_info(&self) -> Vec<TrackInfo> {
+        self.tracks
+            .iter()
+            .map(|t| TrackInfo {
+                name: t.name.clone(),
+                muted: t.muted,
+            })
+            .collect()
+    }
+
+    pub fn set_muted(&mut self, index: usize, muted: bool) -> Result<(), String> {
+        let track = self
+            .tracks
+            .get_mut(index)
+            .ok_or_else(|| format!("no track at index {index}"))?;
+        track.muted = muted;
+        Ok(())
     }
 
     /// Offline (non-realtime) bounce of every unmuted track, summed across
@@ -87,6 +113,7 @@ mod tests {
 
     fn track(samples: Vec<f32>) -> TrackBuffer {
         TrackBuffer {
+            name: "test".into(),
             samples: Arc::new(samples),
             gain: 1.0,
             muted: false,

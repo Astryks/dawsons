@@ -1,5 +1,6 @@
 use tauri::State;
 
+use crate::audio_engine::mixer::TrackInfo;
 use crate::audio_engine::transport;
 use crate::state::AppState;
 
@@ -79,4 +80,32 @@ pub fn transport_stop(state: State<AppState>) -> Result<(), String> {
         .lock()
         .map_err(|_| "audio state poisoned".to_string())?;
     transport::stop(&require_audio(&audio)?.mixer)
+}
+
+#[tauri::command]
+pub fn list_tracks(state: State<AppState>) -> Result<Vec<TrackInfo>, String> {
+    let audio = state
+        .audio
+        .lock()
+        .map_err(|_| "audio state poisoned".to_string())?;
+    let handle = require_audio(&audio)?;
+    let mixer = handle
+        .mixer
+        .lock()
+        .map_err(|_| "mixer lock poisoned".to_string())?;
+    Ok(mixer.track_info())
+}
+
+#[tauri::command]
+pub fn set_track_muted(state: State<AppState>, index: usize, muted: bool) -> Result<(), String> {
+    let audio = state
+        .audio
+        .lock()
+        .map_err(|_| "audio state poisoned".to_string())?;
+    let handle = require_audio(&audio)?;
+    let mut mixer = handle
+        .mixer
+        .lock()
+        .map_err(|_| "mixer lock poisoned".to_string())?;
+    mixer.set_muted(index, muted)
 }

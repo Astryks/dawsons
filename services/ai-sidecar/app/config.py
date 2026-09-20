@@ -15,3 +15,15 @@ from pathlib import Path
 WORK_DIR = Path(os.environ.get("DAWSONS_WORK_DIR", Path.cwd() / ".dawsons-work"))
 
 SIDECAR_VERSION = "0.1.0"
+
+
+def detect_device() -> str:
+    """Best available torch device — Demucs inference time varies a lot by
+    device, so both /health and /analyze want to know this."""
+    import torch
+
+    if torch.cuda.is_available():
+        return "cuda"
+    if torch.backends.mps.is_available():
+        return "mps"
+    return "cpu"
