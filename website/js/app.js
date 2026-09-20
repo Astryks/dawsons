@@ -442,13 +442,22 @@ function handleAddInstrumentTrack(family) {
 }
 
 // --- Upload + Any Sound row ---
-async function handleUploadedFile(file) {
+async function handleDecodedAudio(arrayBuffer, name) {
   await engine.resume();
-  const arrayBuffer = await file.arrayBuffer();
-  uploadedBuffer = await engine.ctx.decodeAudioData(arrayBuffer);
-  uploadedName = file.name;
-  document.getElementById("anysound-status").textContent = `Loaded ${file.name} — set reverse/pitch, then Apply.`;
+  const statusEl = document.getElementById("anysound-status");
+  try {
+    uploadedBuffer = await engine.ctx.decodeAudioData(arrayBuffer);
+  } catch {
+    statusEl.textContent = "Couldn't decode that as audio — check it's a supported audio format.";
+    return;
+  }
+  uploadedName = name;
+  statusEl.textContent = `Loaded ${name} — set reverse/pitch, then Apply.`;
   document.getElementById("fx-apply-btn").disabled = false;
+}
+
+async function handleUploadedFile(file) {
+  await handleDecodedAudio(await file.arrayBuffer(), file.name);
 }
 
 document.getElementById("upload-track").onclick = () => document.getElementById("upload-input").click();
@@ -456,6 +465,74 @@ document.getElementById("anysound-upload-btn").onclick = () => document.getEleme
 document.getElementById("upload-input").onchange = async (e) => {
   const file = e.target.files[0];
   if (file) await handleUploadedFile(file);
+};
+
+// A direct URL to an audio file the user already controls/has rights to
+// (e.g. their own Dropbox/Drive direct-download link) — a plain HTTP
+// fetch, functionally identical to picking a local file. Streaming
+// platforms are explicitly rejected up front: YouTube's ToS prohibits
+// extracting audio regardless of purpose, and Spotify's API doesn't
+// expose full-track audio to third parties at any tier — neither is a
+// "we haven't built it yet" gap, so we say so immediately rather than
+// attempting a fetch that was never going to work.
+const BLOCKED_AUDIO_HOSTS = [
+  "youtube.com",
+  "youtu.be",
+  "music.youtube.com",
+  "spotify.com",
+  "open.spotify.com",
+  "soundcloud.com",
+  "tiktok.com",
+  "instagram.com",
+  "facebook.com",
+];
+
+function isBlockedAudioHost(hostname) {
+  return BLOCKED_AUDIO_HOSTS.some((h) => hostname === h || hostname.endsWith(`.${h}`));
+}
+
+async function handleUrlFetch(rawUrl) {
+  const statusEl = document.getElementById("anysound-status");
+  let url;
+  try {
+    url = new URL(rawUrl);
+  } catch {
+    statusEl.textContent = "That doesn't look like a valid URL.";
+    return;
+  }
+
+  if (isBlockedAudioHost(url.hostname)) {
+    statusEl.textContent =
+      "Can't fetch from YouTube/Spotify/SoundCloud/etc. — their terms don't allow extracting audio this way, regardless of purpose. Paste a direct file link instead (e.g. a Dropbox/Drive direct-download link to a file you have rights to).";
+    return;
+  }
+
+  statusEl.textContent = "Fetching…";
+  let response;
+  try {
+    response = await fetch(url.href);
+  } catch {
+    statusEl.textContent = "Couldn't fetch that link — check it's public and allows cross-origin access.";
+    return;
+  }
+  if (!response.ok) {
+    statusEl.textContent = `Fetch failed (${response.status}) — check the link is correct and public.`;
+    return;
+  }
+  const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("text/html")) {
+    statusEl.textContent = "That link points to a webpage, not a direct audio file.";
+    return;
+  }
+
+  const arrayBuffer = await response.arrayBuffer();
+  const name = decodeURIComponent(url.pathname.split("/").pop() || "linked-file");
+  await handleDecodedAudio(arrayBuffer, name);
+}
+
+document.getElementById("anysound-url-btn").onclick = () => {
+  const input = document.getElementById("anysound-url-input");
+  if (input.value.trim()) handleUrlFetch(input.value.trim());
 };
 
 // Drag a file straight onto the timeline as an alternative to the file
@@ -480,33 +557,52 @@ function wireSlider(id, valId, fmt) {
 }
 wireSlider("fx-pitch", "fx-pitch-val", (v) => `${v} st`);
 
-// Toggles which voice-effect dial is visible based on the paired
-// <select>'s value, for both the Any Sound row and the Voice row.
-function wireVoiceEffectSelect(selectId, roboticId, muffleId, distortionId) {
-  const select = document.getElementById(selectId);
-  const robotic = document.getElementById(roboticId);
-  const muffle = document.getElementById(muffleId);
-  const distortion = document.getElementById(distortionId);
-  select.onchange = () => {
-    robotic.style.display = select.value === "robotic" ? "inline-block" : "none";
-    muffle.style.display = select.value === "muffled" ? "inline-block" : "none";
-    distortion.style.display = select.value === "distortion" ? "inline-block" : "none";
-  };
-}
-wireVoiceEffectSelect("fx-voice-effect", "fx-robotic-hz", "fx-muffle-hz", "fx-distortion");
-wireVoiceEffectSelect("voice-effect", "voice-robotic-hz", "voice-muffle-hz", "voice-distortion");
+// A real vocal chain (per Sombr's own described process: "distortion
+// and reverb and compression, stock compression, stock EQ") stacks
+// several effects together, not just one — so each of these is an
+// independently toggleable checkbox rather than a single "pick one"
+// dropdown, and any combination can be applied at once.
+const EFFECT_STACK_DEFS = [
+  { key: "robotic", param: "roboticHz", slider: "robotic-hz" },
+  { key: "muffled", param: "muffleCutoffHz", slider: "muffle-hz" },
+  { key: "distortion", param: "distortionAmount", slider: "distortion", scale: 0.01 },
+  { key: "reverb", param: "reverbWet", slider: "reverb", scale: 0.01 },
+  { key: "delay", param: "delayWet", slider: "delay", scale: 0.01 },
+];
 
-function voiceEffectOptsFrom(selectId, roboticHzId, muffleHzId, distortionId) {
-  const effect = document.getElementById(selectId).value;
-  return {
-    roboticHz: effect === "robotic" ? Number(document.getElementById(roboticHzId).value) : 0,
-    muffleCutoffHz: effect === "muffled" ? Number(document.getElementById(muffleHzId).value) : 0,
-    distortionAmount: effect === "distortion" ? Number(document.getElementById(distortionId).value) / 100 : 0,
+function wireEffectStack(prefix) {
+  for (const def of EFFECT_STACK_DEFS) {
+    const checkbox = document.getElementById(`${prefix}-fx-${def.key}`);
+    const slider = document.getElementById(`${prefix}-${def.slider}`);
+    checkbox.onchange = () => {
+      slider.style.display = checkbox.checked ? "inline-block" : "none";
+    };
+  }
+}
+wireEffectStack("fx");
+wireEffectStack("voice");
+
+function effectStackOptsFrom(prefix) {
+  const opts = {
+    roboticHz: 0,
+    muffleCutoffHz: 0,
+    distortionAmount: 0,
+    reverbWet: 0,
+    reverbRoom: 0.5,
+    delayWet: 0,
+    delayMs: 250,
+    delayFeedback: 0.3,
   };
+  for (const def of EFFECT_STACK_DEFS) {
+    if (!document.getElementById(`${prefix}-fx-${def.key}`).checked) continue;
+    const slider = document.getElementById(`${prefix}-${def.slider}`);
+    opts[def.param] = Number(slider.value) * (def.scale ?? 1);
+  }
+  return opts;
 }
 
-function voiceEffectHasAnyEffect(opts) {
-  return opts.roboticHz > 0 || opts.muffleCutoffHz > 0 || opts.distortionAmount > 0;
+function effectStackHasAny(opts) {
+  return opts.roboticHz > 0 || opts.muffleCutoffHz > 0 || opts.distortionAmount > 0 || opts.reverbWet > 0 || opts.delayWet > 0;
 }
 
 document.getElementById("fx-apply-btn").onclick = async () => {
@@ -518,9 +614,9 @@ document.getElementById("fx-apply-btn").onclick = async () => {
   const semitones = Number(document.getElementById("fx-pitch").value);
   if (semitones !== 0) buffer = pitchShiftBuffer(engine.ctx, buffer, semitones);
 
-  const voiceOpts = voiceEffectOptsFrom("fx-voice-effect", "fx-robotic-hz", "fx-muffle-hz", "fx-distortion");
+  const voiceOpts = effectStackOptsFrom("fx");
   let finalBuffer = buffer;
-  if (voiceEffectHasAnyEffect(voiceOpts)) {
+  if (effectStackHasAny(voiceOpts)) {
     // Render the effect chain offline into a new buffer so it becomes a
     // real, independent track (not a live-only effect graph).
     const totalSamples = Math.ceil((buffer.duration + 1.0) * engine.ctx.sampleRate);
@@ -609,9 +705,9 @@ voiceRenderBtn.onclick = async () => {
     renderVoice(engine.ctx, rawBuffer, family, [n.note], n.startSec, n.durationSec, sampleRate);
   }
 
-  const voiceOpts = voiceEffectOptsFrom("voice-effect", "voice-robotic-hz", "voice-muffle-hz", "voice-distortion");
+  const voiceOpts = effectStackOptsFrom("voice");
   let finalBuffer = rawBuffer;
-  if (voiceEffectHasAnyEffect(voiceOpts)) {
+  if (effectStackHasAny(voiceOpts)) {
     const offlineCtx = new OfflineAudioContext(2, totalSamples, sampleRate);
     const source = offlineCtx.createBufferSource();
     source.buffer = rawBuffer;
