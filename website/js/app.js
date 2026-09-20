@@ -1,10 +1,11 @@
 import { Engine } from "./audio-engine.js";
 import { DEMO_SONGS } from "./demo-songs.js";
-import { INSTRUMENT_ICONS, renderVoice } from "./synth.js";
+import { renderVoice } from "./synth.js";
 import { reverseBuffer, pitchShiftBuffer, buildEffectChain } from "./effects.js";
 import { detectNotes, snapNotesToScale, MAJOR_SCALE, MINOR_SCALE } from "./pitch.js";
 import { STARTERS } from "./starter-patterns.js";
 import { paletteFor, soundLabel, createPattern, toggleStep, autoFillEveryBeats } from "./pattern-editor.js";
+import { instrumentIconSvg } from "./instrument-icons.js";
 
 const engine = new Engine();
 let currentSong = null;
@@ -15,17 +16,31 @@ let playheadTimer = null;
 // which sound from its palette is currently "armed" to place on tap.
 let activeTrackIndex = null;
 let armedSound = null;
+// Whether the "+" add-instrument menu is currently open in the timeline.
+let addInstrumentMenuOpen = false;
 
-const familyIcon = {
-  keys: INSTRUMENT_ICONS.keys,
-  guitar: INSTRUMENT_ICONS.guitar,
-  bass: INSTRUMENT_ICONS.bass,
-  lead: INSTRUMENT_ICONS.lead,
-  pad: INSTRUMENT_ICONS.pad,
-  brass: INSTRUMENT_ICONS.brass,
-  bell: INSTRUMENT_ICONS.bell,
-  flute: INSTRUMENT_ICONS.flute,
+// The four instruments always ready to go the moment the page loads —
+// tap any step, hear it immediately. Everything else is one tap away
+// behind "+".
+const DEFAULT_FAMILIES = ["drums", "keys", "guitar", "bass"];
+const EXTRA_FAMILIES = ["lead", "pad", "brass", "bell", "flute", "saxophone", "clarinet"];
+const FAMILY_DISPLAY_NAME = {
+  drums: "Drums",
+  keys: "Piano",
+  guitar: "Guitar",
+  bass: "Bass",
+  lead: "Lead",
+  pad: "Pad",
+  brass: "Brass",
+  bell: "Bell",
+  flute: "Flute",
+  saxophone: "Saxophone",
+  clarinet: "Clarinet",
 };
+
+function trackFamily(track, index) {
+  return track.pattern?.family || currentSong?.layers[index]?.family || null;
+}
 
 function renderSongPicker() {
   const el = document.getElementById("song-picker");
@@ -56,8 +71,8 @@ function renderTrackList() {
   const el = document.getElementById("track-list");
   el.innerHTML = "";
   engine.tracks.forEach((track, i) => {
-    const family = currentSong?.layers[i]?.family;
-    const icon = familyIcon[family] || "🎵";
+    const family = trackFamily(track, i);
+    const icon = family ? instrumentIconSvg(family, `instrument-icon--${family}`) : "🎵";
     const div = document.createElement("div");
     div.className = "instrument-track";
     div.innerHTML = `
@@ -65,7 +80,9 @@ function renderTrackList() {
       <div class="instrument-track__body">
         <div class="instrument-track__name">${track.name}</div>
         <div class="instrument-track__controls">
-          <button class="instrument-track__mute" data-index="${i}">Mute</button>
+          <button class="instrument-track__mute${track.muted ? " is-muted" : ""}" data-mute="${i}">Mute</button>
+          <button class="instrument-track__mute${track.solo ? " is-solo" : ""}" data-solo="${i}">Solo</button>
+          <input class="instrument-track__pan" type="range" min="-100" max="100" value="${Math.round(track.pan * 100)}" data-pan="${i}" title="Pan" />
           <button class="instrument-track__mute" data-move="up" data-index="${i}" title="Move up">↑</button>
           <button class="instrument-track__mute" data-move="down" data-index="${i}" title="Move down">↓</button>
           <button class="instrument-track__mute" data-remove="${i}" title="Remove">✕</button>
@@ -74,12 +91,27 @@ function renderTrackList() {
     el.appendChild(div);
   });
 
-  el.querySelectorAll("button[data-index]:not([data-move])").forEach((btn) => {
+  el.querySelectorAll("button[data-mute]").forEach((btn) => {
     btn.onclick = () => {
-      const i = Number(btn.dataset.index);
+      const i = Number(btn.dataset.mute);
       const track = engine.tracks[i];
       engine.setMuted(i, !track.muted);
       btn.classList.toggle("is-muted", track.muted);
+      renderWaveform();
+    };
+  });
+  el.querySelectorAll("button[data-solo]").forEach((btn) => {
+    btn.onclick = () => {
+      const i = Number(btn.dataset.solo);
+      const track = engine.tracks[i];
+      engine.setSolo(i, !track.solo);
+      btn.classList.toggle("is-solo", track.solo);
+      renderWaveform();
+    };
+  });
+  el.querySelectorAll("input[data-pan]").forEach((input) => {
+    input.oninput = () => {
+      engine.setPan(Number(input.dataset.pan), Number(input.value) / 100);
     };
   });
   el.querySelectorAll("button[data-move]").forEach((btn) => {
@@ -103,22 +135,19 @@ function renderTrackList() {
 
 function renderTimeline() {
   const el = document.getElementById("timeline");
-  if (!engine.tracks.length) {
-    el.innerHTML =
-      '<p class="daw-note">Tap an instrument above, or pick an example song from the sidebar, to see a layered project right away.</p>';
-    return;
-  }
   const maxDur = engine.maxDurationSec();
-  el.innerHTML = engine.tracks
+  const trackRows = engine.tracks
     .map((track, i) => {
       const isActive = i === activeTrackIndex;
+      const family = trackFamily(track, i);
       const pct = Math.max(2, (track.durationSec / maxDur) * 100);
+      const icon = family ? instrumentIconSvg(family, `instrument-icon--${family}`) : "";
       const body = track.pattern
         ? renderPatternGridHtml(track, i)
         : `<div class="timeline-layer__bar layer-color-${i % 6}" style="width:${pct}%"></div>`;
       return `
         <div class="timeline-layer${isActive ? " timeline-layer--active" : ""}">
-          <div class="timeline-layer__label" data-track-index="${i}">${track.name}</div>
+          <div class="timeline-layer__label" data-track-index="${i}">${icon}${track.name}</div>
           <div class="timeline-layer__track">
             ${body}
             <div class="timeline-layer__playhead" id="playhead-${i}" style="display:none"></div>
@@ -126,6 +155,34 @@ function renderTimeline() {
         </div>`;
     })
     .join("");
+
+  const emptyNote = engine.tracks.length
+    ? ""
+    : '<p class="daw-note">Every track was removed — tap "+" below or pick an example song to start again.</p>';
+
+  el.innerHTML = trackRows + emptyNote + renderAddInstrumentHtml();
+  renderWaveform();
+}
+
+// The "+" row at the end of the timeline for adding one of the
+// instruments not already present — Lead/Pad/Brass/Bell/Flute, beyond
+// the four ready to go by default.
+function renderAddInstrumentHtml() {
+  const present = new Set(engine.tracks.map((t) => t.pattern?.family).filter(Boolean));
+  const available = EXTRA_FAMILIES.filter((f) => !present.has(f));
+  if (!available.length) return "";
+  if (!addInstrumentMenuOpen) {
+    return `<button type="button" class="timeline-add-btn" id="add-instrument-btn">+ Add an instrument</button>`;
+  }
+  const options = available
+    .map(
+      (f) =>
+        `<button type="button" class="daw-starter__btn daw-starter__btn--${f}" data-add-family="${f}">
+          ${instrumentIconSvg(f, `instrument-icon--${f}`)}<span>${FAMILY_DISPLAY_NAME[f]}</span>
+        </button>`,
+    )
+    .join("");
+  return `<div class="timeline-add-menu">${options}</div>`;
 }
 
 // Renders one pattern-backed track's row as a grid of clickable steps —
@@ -133,7 +190,7 @@ function renderTimeline() {
 // filled step removes it (see the #timeline click-delegation below).
 function renderPatternGridHtml(track, trackIndex) {
   const palette = paletteFor(track.pattern.family);
-  let html = `<div class="pattern-grid" data-track-index="${trackIndex}">`;
+  let html = `<div class="pattern-grid pattern-grid--${track.pattern.family}" data-track-index="${trackIndex}">`;
   for (let step = 0; step < track.pattern.totalSteps; step++) {
     const hit = track.pattern.hits.find((h) => h.step === step);
     if (hit) {
@@ -158,15 +215,57 @@ function formatTime(sec) {
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
 
+// A YouTube/SoundCloud-style bar waveform of the whole current mix —
+// summed peak amplitude across every unmuted track at each of
+// `numBars` positions across the project's full length. This is a real
+// overview of what's actually loaded (not a decorative placeholder),
+// recomputed whenever the set of tracks or their patterns change.
+function computeWaveformPeaks(numBars) {
+  const maxDur = engine.maxDurationSec();
+  const peaks = new Array(numBars).fill(0);
+  if (!engine.tracks.length) return peaks;
+
+  const anySoloed = engine.tracks.some((t) => t.solo);
+  for (const track of engine.tracks) {
+    const audible = anySoloed ? track.solo : !track.muted;
+    if (!audible) continue;
+    const data = track.buffer.getChannelData(0);
+    const sampleRate = track.buffer.sampleRate;
+    for (let i = 0; i < numBars; i++) {
+      const tSec = (i / numBars) * maxDur;
+      if (tSec >= track.durationSec) continue;
+      const startSample = Math.floor(tSec * sampleRate);
+      const endSample = Math.min(data.length, Math.floor(((i + 1) / numBars) * maxDur * sampleRate));
+      let peak = 0;
+      for (let s = startSample; s < endSample; s += 4) {
+        const abs = Math.abs(data[s]);
+        if (abs > peak) peak = abs;
+      }
+      peaks[i] += peak;
+    }
+  }
+  const maxPeak = Math.max(...peaks, 0.001);
+  return peaks.map((p) => Math.min(1, p / maxPeak));
+}
+
+const WAVEFORM_BARS = 120;
+
+function renderWaveform() {
+  const el = document.getElementById("waveform");
+  const peaks = computeWaveformPeaks(WAVEFORM_BARS);
+  el.innerHTML = peaks
+    .map((p) => `<div class="waveform-bar" style="height:${Math.max(6, p * 100)}%"></div>`)
+    .join("");
+}
+
 function updateScrubber() {
   const maxDur = engine.maxDurationSec();
   const pos = engine.positionSec();
   const pct = engine.tracks.length ? Math.max(0, Math.min(100, (pos / maxDur) * 100)) : 0;
-  document.getElementById("scrubber-fill").style.width = `${pct}%`;
-  document.getElementById("scrubber-thumb").style.left = `${pct}%`;
+  document.getElementById("scrubber").style.left = `${pct}%`;
   document.getElementById("scrubber-time").textContent = engine.tracks.length
     ? `${formatTime(pos)} / ${formatTime(maxDur)}`
-    : "0:00";
+    : "0:00 / 0:00";
 }
 
 function updatePlayhead() {
@@ -199,31 +298,39 @@ document.getElementById("stop-btn").onclick = () => {
   updatePlayhead();
 };
 
-// --- Draggable scrubber: click anywhere on the bar to jump there, or
-// drag the thumb to scrub through the project while it plays. ---
-const scrubberEl = document.getElementById("scrubber");
+// --- Draggable preview scrubber: click anywhere on the waveform to jump
+// there, or drag the green line left/right to scrub through the project
+// — instantly audible, like scrubbing a YouTube video. The whole preview
+// area is the drag target (not just the thin line itself). ---
+const previewEl = document.getElementById("preview");
 let isScrubbing = false;
 
 function seekFromPointer(clientX) {
   if (!engine.tracks.length) return;
-  const rect = scrubberEl.getBoundingClientRect();
+  const rect = previewEl.getBoundingClientRect();
   const frac = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
   engine.seekTo(frac * engine.maxDurationSec());
   updateScrubber();
 }
 
-scrubberEl.addEventListener("pointerdown", (e) => {
+previewEl.addEventListener("pointerdown", (e) => {
   isScrubbing = true;
-  scrubberEl.setPointerCapture(e.pointerId);
+  try {
+    previewEl.setPointerCapture(e.pointerId);
+  } catch {
+    /* some input sources (synthetic events, certain browsers) don't
+       register an active pointer to capture — dragging still works via
+       pointermove bubbling, so this is safe to ignore. */
+  }
   seekFromPointer(e.clientX);
 });
-scrubberEl.addEventListener("pointermove", (e) => {
+previewEl.addEventListener("pointermove", (e) => {
   if (isScrubbing) seekFromPointer(e.clientX);
 });
-scrubberEl.addEventListener("pointerup", (e) => {
+previewEl.addEventListener("pointerup", (e) => {
   isScrubbing = false;
   try {
-    scrubberEl.releasePointerCapture(e.pointerId);
+    previewEl.releasePointerCapture(e.pointerId);
   } catch {
     /* already released */
   }
@@ -244,6 +351,16 @@ document.getElementById("timeline").addEventListener("click", (e) => {
     activeTrackIndex = Number(label.dataset.trackIndex);
     renderTimeline();
     renderSoundPicker();
+    return;
+  }
+  if (e.target.closest("#add-instrument-btn")) {
+    addInstrumentMenuOpen = true;
+    renderTimeline();
+    return;
+  }
+  const addFamilyBtn = e.target.closest("[data-add-family]");
+  if (addFamilyBtn) {
+    handleAddInstrumentTrack(addFamilyBtn.dataset.addFamily);
   }
 });
 
@@ -300,45 +417,42 @@ document.getElementById("sound-picker").addEventListener("click", (e) => {
   renderTimeline();
 });
 
-// --- "Tap an instrument, hear it right away" starter strip ---
-function renderStarterGrid() {
-  const el = document.getElementById("starter-grid");
-  el.innerHTML = STARTERS.map(
-    (s) =>
-      `<button type="button" class="daw-starter__btn daw-starter__btn--${s.key}" data-starter="${s.key}">
-        <span class="daw-starter__icon">${s.icon}</span><span>${s.label}</span>
-      </button>`,
-  ).join("");
-  el.querySelectorAll("button[data-starter]").forEach((btn) => {
-    btn.onclick = () => handleAddStarterInstrument(btn.dataset.starter);
-  });
+// --- The four instruments ready to go the moment the page loads, and
+// the "+" menu for adding any of the rest. ---
+function initializeDefaultTracks() {
+  for (const family of DEFAULT_FAMILIES) {
+    const starter = STARTERS.find((s) => s.family === family);
+    const pattern = createPattern(engine.ctx, engine.ctx.sampleRate, family, starter?.hits || []);
+    engine.addTrack(FAMILY_DISPLAY_NAME[family], pattern.buffer, pattern);
+  }
+  renderTrackList();
+  renderTimeline();
 }
 
-async function handleAddStarterInstrument(starterKey) {
-  const starter = STARTERS.find((s) => s.key === starterKey);
-  if (!starter) return;
-  await engine.resume();
-  const pattern = createPattern(engine.ctx, engine.ctx.sampleRate, starter.family, starter.hits);
-  engine.addTrack(starter.label, pattern.buffer, pattern);
+function handleAddInstrumentTrack(family) {
+  const starter = STARTERS.find((s) => s.family === family);
+  const pattern = createPattern(engine.ctx, engine.ctx.sampleRate, family, starter?.hits || []);
+  engine.addTrack(FAMILY_DISPLAY_NAME[family] || family, pattern.buffer, pattern);
   activeTrackIndex = engine.tracks.length - 1;
-  armedSound = paletteFor(starter.family)[0]?.key || null;
+  armedSound = paletteFor(family)[0]?.key || null;
+  addInstrumentMenuOpen = false;
   renderTrackList();
   renderTimeline();
   renderSoundPicker();
-  engine.play();
-  updatePlayhead();
 }
 
-// --- Upload + clip tools ---
+// --- Upload + Any Sound row ---
 async function handleUploadedFile(file) {
   await engine.resume();
   const arrayBuffer = await file.arrayBuffer();
   uploadedBuffer = await engine.ctx.decodeAudioData(arrayBuffer);
   uploadedName = file.name;
-  document.getElementById("effects-panel").style.display = "block";
+  document.getElementById("anysound-status").textContent = `Loaded ${file.name} — set reverse/pitch, then Apply.`;
+  document.getElementById("fx-apply-btn").disabled = false;
 }
 
 document.getElementById("upload-track").onclick = () => document.getElementById("upload-input").click();
+document.getElementById("anysound-upload-btn").onclick = () => document.getElementById("upload-input").click();
 document.getElementById("upload-input").onchange = async (e) => {
   const file = e.target.files[0];
   if (file) await handleUploadedFile(file);
@@ -361,39 +475,38 @@ timelineDropEl.addEventListener("drop", async (e) => {
 
 function wireSlider(id, valId, fmt) {
   const slider = document.getElementById(id);
-  const val = document.getElementById(valId);
-  slider.oninput = () => (val.textContent = fmt(slider.value));
+  const val = valId ? document.getElementById(valId) : null;
+  if (val) slider.oninput = () => (val.textContent = fmt(slider.value));
 }
 wireSlider("fx-pitch", "fx-pitch-val", (v) => `${v} st`);
-wireSlider("fx-eq-gain", "fx-eq-gain-val", (v) => `${v} dB`);
-wireSlider("fx-eq-freq", "fx-eq-freq-val", (v) => `${v} Hz`);
-wireSlider("fx-reverb", "fx-reverb-val", (v) => `${v}%`);
-wireSlider("fx-delay", "fx-delay-val", (v) => `${v}%`);
-wireSlider("fx-robotic-hz", "fx-robotic-hz-val", (v) => `${v} Hz`);
-wireSlider("fx-muffle-hz", "fx-muffle-hz-val", (v) => `${v} Hz`);
-wireSlider("voice-robotic-hz", "voice-robotic-hz-val", (v) => `${v} Hz`);
-wireSlider("voice-muffle-hz", "voice-muffle-hz-val", (v) => `${v} Hz`);
 
-// Toggles which voice-effect dial row is visible based on the paired
-// <select>'s value, for both the clip-tools panel and the voice panel.
-function wireVoiceEffectSelect(selectId, roboticRowId, muffleRowId) {
+// Toggles which voice-effect dial is visible based on the paired
+// <select>'s value, for both the Any Sound row and the Voice row.
+function wireVoiceEffectSelect(selectId, roboticId, muffleId, distortionId) {
   const select = document.getElementById(selectId);
-  const roboticRow = document.getElementById(roboticRowId);
-  const muffleRow = document.getElementById(muffleRowId);
+  const robotic = document.getElementById(roboticId);
+  const muffle = document.getElementById(muffleId);
+  const distortion = document.getElementById(distortionId);
   select.onchange = () => {
-    roboticRow.style.display = select.value === "robotic" ? "flex" : "none";
-    muffleRow.style.display = select.value === "muffled" ? "flex" : "none";
+    robotic.style.display = select.value === "robotic" ? "inline-block" : "none";
+    muffle.style.display = select.value === "muffled" ? "inline-block" : "none";
+    distortion.style.display = select.value === "distortion" ? "inline-block" : "none";
   };
 }
-wireVoiceEffectSelect("fx-voice-effect", "fx-robotic-row", "fx-muffle-row");
-wireVoiceEffectSelect("voice-effect", "voice-robotic-row", "voice-muffle-row");
+wireVoiceEffectSelect("fx-voice-effect", "fx-robotic-hz", "fx-muffle-hz", "fx-distortion");
+wireVoiceEffectSelect("voice-effect", "voice-robotic-hz", "voice-muffle-hz", "voice-distortion");
 
-function voiceEffectOptsFrom(selectId, roboticHzId, muffleHzId) {
+function voiceEffectOptsFrom(selectId, roboticHzId, muffleHzId, distortionId) {
   const effect = document.getElementById(selectId).value;
   return {
     roboticHz: effect === "robotic" ? Number(document.getElementById(roboticHzId).value) : 0,
     muffleCutoffHz: effect === "muffled" ? Number(document.getElementById(muffleHzId).value) : 0,
+    distortionAmount: effect === "distortion" ? Number(document.getElementById(distortionId).value) / 100 : 0,
   };
+}
+
+function voiceEffectHasAnyEffect(opts) {
+  return opts.roboticHz > 0 || opts.muffleCutoffHz > 0 || opts.distortionAmount > 0;
 }
 
 document.getElementById("fx-apply-btn").onclick = async () => {
@@ -405,37 +518,27 @@ document.getElementById("fx-apply-btn").onclick = async () => {
   const semitones = Number(document.getElementById("fx-pitch").value);
   if (semitones !== 0) buffer = pitchShiftBuffer(engine.ctx, buffer, semitones);
 
-  const eqGainDb = Number(document.getElementById("fx-eq-gain").value);
-  const eqFreqHz = Number(document.getElementById("fx-eq-freq").value);
-  const reverbWet = Number(document.getElementById("fx-reverb").value) / 100;
-  const delayWet = Number(document.getElementById("fx-delay").value) / 100;
+  const voiceOpts = voiceEffectOptsFrom("fx-voice-effect", "fx-robotic-hz", "fx-muffle-hz", "fx-distortion");
+  let finalBuffer = buffer;
+  if (voiceEffectHasAnyEffect(voiceOpts)) {
+    // Render the effect chain offline into a new buffer so it becomes a
+    // real, independent track (not a live-only effect graph).
+    const totalSamples = Math.ceil((buffer.duration + 1.0) * engine.ctx.sampleRate);
+    const offlineCtx = new OfflineAudioContext(2, totalSamples, engine.ctx.sampleRate);
+    const source = offlineCtx.createBufferSource();
+    source.buffer = buffer;
+    buildEffectChain(offlineCtx, source, voiceOpts).connect(offlineCtx.destination);
+    source.start();
+    finalBuffer = await offlineCtx.startRendering();
+  }
 
-  // Render the effect chain offline into a new buffer so it becomes a
-  // real, independent track (not a live-only effect graph).
-  const tailSec = 2.0 + (reverbWet > 0 ? 3 : 0) + (delayWet > 0 ? 1 : 0);
-  const totalSamples = Math.ceil((buffer.duration + tailSec) * engine.ctx.sampleRate);
-  const offlineCtx = new OfflineAudioContext(2, totalSamples, engine.ctx.sampleRate);
-  const source = offlineCtx.createBufferSource();
-  source.buffer = buffer;
-  const chainOut = buildEffectChain(offlineCtx, source, {
-    eqGainDb,
-    eqFreqHz,
-    eqQ: 1,
-    compressEnabled: false,
-    reverbWet,
-    reverbRoom: 0.5,
-    delayWet,
-    delayMs: 250,
-    delayFeedback: 0.3,
-    ...voiceEffectOptsFrom("fx-voice-effect", "fx-robotic-hz", "fx-muffle-hz"),
-  });
-  chainOut.connect(offlineCtx.destination);
-  source.start();
-  const rendered = await offlineCtx.startRendering();
-
-  engine.addTrack(`${uploadedName} (edited)`, rendered);
+  engine.addTrack(`${uploadedName} (edited)`, finalBuffer);
   renderTrackList();
   renderTimeline();
+
+  uploadedBuffer = null;
+  document.getElementById("fx-apply-btn").disabled = true;
+  document.getElementById("anysound-status").textContent = "Added to timeline.";
 };
 
 // --- Sing to instrument ---
@@ -506,9 +609,9 @@ voiceRenderBtn.onclick = async () => {
     renderVoice(engine.ctx, rawBuffer, family, [n.note], n.startSec, n.durationSec, sampleRate);
   }
 
-  const voiceOpts = voiceEffectOptsFrom("voice-effect", "voice-robotic-hz", "voice-muffle-hz");
+  const voiceOpts = voiceEffectOptsFrom("voice-effect", "voice-robotic-hz", "voice-muffle-hz", "voice-distortion");
   let finalBuffer = rawBuffer;
-  if (voiceOpts.roboticHz > 0 || voiceOpts.muffleCutoffHz > 0) {
+  if (voiceEffectHasAnyEffect(voiceOpts)) {
     const offlineCtx = new OfflineAudioContext(2, totalSamples, sampleRate);
     const source = offlineCtx.createBufferSource();
     source.buffer = rawBuffer;
@@ -518,14 +621,14 @@ voiceRenderBtn.onclick = async () => {
     finalBuffer = await offlineCtx.startRendering();
   }
 
-  engine.addTrack(`Voice as ${INSTRUMENT_ICONS[family] || ""} ${family}`.trim(), finalBuffer);
+  engine.addTrack(`Voice as ${FAMILY_DISPLAY_NAME[family] || family}`, finalBuffer);
   renderTrackList();
   renderTimeline();
   voiceStatus.textContent = "Added to timeline.";
 };
 
 renderSongPicker();
-renderStarterGrid();
+initializeDefaultTracks();
 updateScrubber();
 
 // If arriving from the Discover page's "Open a similar layered example"

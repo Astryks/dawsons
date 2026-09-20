@@ -36,6 +36,8 @@ const FAMILY_PALETTES = {
   brass: notePalette(60, "C"),
   bell: notePalette(72, "C"),
   flute: notePalette(72, "C"),
+  saxophone: notePalette(58, "C"),
+  clarinet: notePalette(62, "C"),
 };
 
 function paletteFor(family) {

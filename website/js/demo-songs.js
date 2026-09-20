@@ -91,7 +91,7 @@ function blueCorner() {
     genre: "Jazz",
     description: "Classic jazz turnaround (Dm7–G7–Cmaj7–Am7) — sax lead, piano, guitar comping, bass.",
     layers: [
-      { name: "Sax Lead", family: "brass", notes: lead },
+      { name: "Sax Lead", family: "saxophone", notes: lead },
       { name: "Guitar", family: "guitar", notes: guitar },
       { name: "Piano", family: "keys", notes: piano },
       { name: "Bass", family: "bass", notes: bass },
@@ -142,6 +142,148 @@ function firesideLoop() {
   }));
 }
 
-const DEMO_SONGS = [morningLoop(), blueCorner(), cornerGroove(), firesideLoop()];
+// Four-on-the-floor drum pattern (kick every beat, hi-hat on the
+// off-beats) — the foundational rhythm of house/techno/EDM production,
+// a genre-defining technique in the public domain, not any one track's
+// specific drum programming.
+function edmDrumBar() {
+  return [
+    { kind: "kick", dur: EIGHTH },
+    { kind: "hihat", dur: EIGHTH },
+    { kind: "kick", dur: EIGHTH },
+    { kind: "hihat", dur: EIGHTH },
+    { kind: "kick", dur: EIGHTH },
+    { kind: "hihat", dur: EIGHTH },
+    { kind: "kick", dur: EIGHTH },
+    { kind: "hihat", dur: EIGHTH },
+  ];
+}
+function fourBarEdmDrums() {
+  return [...edmDrumBar(), ...edmDrumBar(), ...edmDrumBar(), ...edmDrumBar()];
+}
+
+function neonPulse() {
+  const chords = [
+    [[45, 48, 52], 33, [57, 60, 64], [69, 67, 64, 60]],
+    [[41, 45, 48], 29, [53, 57, 60], [65, 64, 60, 57]],
+    [[43, 47, 50], 31, [55, 59, 62], [67, 65, 62, 59]],
+    [[38, 41, 45], 26, [50, 53, 57], [62, 60, 57, 53]],
+  ];
+  const pad = [];
+  const bass = [];
+  const arp = [];
+  const lead = [];
+  for (const [ch, root, arpNotes, mel] of chords) {
+    pad.push(chord(ch, BAR_SEC));
+    bass.push(...bassPulse(root));
+    arp.push(...arpeggio(arpNotes));
+    lead.push(...melodyPhrase(mel));
+  }
+  return {
+    title: "Neon Pulse",
+    genre: "Electronic",
+    description:
+      "Driving four-on-the-floor electronic loop (Am–Fm–Gm–Dm) — arpeggiated synth, pulsing sub bass, filtered pad, in the general style of filtered-synth dance/psytrance production, not any specific track.",
+    layers: [
+      { name: "Lead Synth", family: "lead", notes: lead },
+      { name: "Arp", family: "guitar", notes: arp },
+      { name: "Pad", family: "pad", notes: pad },
+      { name: "Bass", family: "bass", notes: bass },
+    ],
+    drums: fourBarEdmDrums(),
+  };
+}
+
+// A simple military-cadence drum pattern (kick on the downbeat, a
+// three-snare roll filling the rest of the bar) — standard marching
+// band rhythm vocabulary, not from any specific band's arrangement.
+function marchDrumBar() {
+  return [
+    { kind: "kick", dur: EIGHTH },
+    { kind: "snare", dur: EIGHTH },
+    { kind: "snare", dur: EIGHTH },
+    { kind: "snare", dur: EIGHTH },
+    { kind: "kick", dur: EIGHTH },
+    { kind: "snare", dur: EIGHTH },
+    { kind: "snare", dur: EIGHTH },
+    { kind: "snare", dur: EIGHTH },
+  ];
+}
+function fourBarMarchDrums() {
+  return [...marchDrumBar(), ...marchDrumBar(), ...marchDrumBar(), ...marchDrumBar()];
+}
+
+function fieldParade() {
+  const chords = [
+    [[53, 57, 60], 41, [65, 69, 72], [72, 74, 76, 77]],
+    [[58, 62, 65], 46, [70, 74, 77], [77, 76, 74, 72]],
+    [[60, 64, 67], 48, [72, 76, 79], [79, 77, 76, 74]],
+    [[53, 57, 60], 41, [65, 69, 72], [77, 76, 74, 72]],
+  ];
+  const harmony = [];
+  const bass = [];
+  const counter = [];
+  const melody = [];
+  for (const [ch, root, counterNotes, mel] of chords) {
+    harmony.push(chord(ch, BAR_SEC));
+    bass.push(...bassPulse(root));
+    counter.push(...arpeggio(counterNotes));
+    melody.push(...melodyPhrase(mel));
+  }
+  return {
+    title: "Field Parade",
+    genre: "Marching Band",
+    description:
+      "Bright brass march (Fmaj–Bbmaj–Cmaj–Fmaj) with a snare-roll cadence — bold brass melody and countermelody over a tuba-style bass pulse.",
+    layers: [
+      { name: "Brass Melody", family: "brass", notes: melody },
+      { name: "Brass Harmony", family: "saxophone", notes: counter },
+      { name: "Sousaphone", family: "bass", notes: bass },
+    ],
+    drums: fourBarMarchDrums(),
+  };
+}
+
+function risingOverture() {
+  const chords = [
+    [[45, 48, 52], 33, [57, 60, 64], [69, 72, 76, 79]],
+    [[41, 45, 48], 41, [53, 57, 60], [72, 71, 69, 67]],
+    [[48, 52, 55], 36, [60, 64, 67], [79, 77, 76, 74]],
+    [[43, 47, 50], 31, [55, 59, 62], [74, 72, 71, 69]],
+  ];
+  const strings = [];
+  const bass = [];
+  const brassAccent = [];
+  const vocal = [];
+  for (const [ch, root, brass_, mel] of chords) {
+    strings.push(chord(ch, BAR_SEC));
+    bass.push(...bassPulse(root));
+    brassAccent.push(...arpeggio(brass_));
+    vocal.push(...melodyPhrase(mel));
+  }
+  return {
+    title: "Rising Overture",
+    genre: "Opera & Symphony",
+    description:
+      "A dramatic orchestral/opera-style overture (Am–F–C–G) — a soaring choir/vocal lead over string pad, brass fanfare accents, and a bell shimmer, built the way a symphonic overture layers voices.",
+    layers: [
+      { name: "Choir Lead", family: "lead", notes: vocal },
+      { name: "Brass Fanfare", family: "brass", notes: brassAccent },
+      { name: "Strings", family: "pad", notes: strings },
+      { name: "Cello/Bass", family: "bass", notes: bass },
+    ],
+    drums: [],
+  };
+}
+
+const DEMO_SONGS = [
+  morningLoop(),
+  blueCorner(),
+  cornerGroove(),
+  firesideLoop(),
+  neonPulse(),
+  fieldParade(),
+  risingOverture(),
+];
 
 export { DEMO_SONGS, BAR_SEC };

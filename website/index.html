@@ -37,6 +37,7 @@
       </div>
       <nav class="daw-nav__links">
         <a href="discover.html">Discover genres</a>
+        <a href="app/index.html" target="_blank" rel="noopener">Voice Notes</a>
       </nav>
     </header>
 
@@ -65,142 +66,118 @@
       </aside>
 
       <main class="daw-main">
+        <div class="feature-callouts">
+          <div class="feature-callout">
+            <div class="feature-callout__title">🎵 Upload a song, see how it's built</div>
+            <p class="feature-callout__body">
+              The free desktop app splits any song into vocals/drums/bass/guitar/piano and detects its
+              tempo, key, and chords — a real breakdown of how the track was made, not a guess. This
+              browser version can't run that (it needs real local compute), but its <strong>Any Sound</strong>
+              row below lets you upload a clip and reverse or pitch-shift it right now, no install.
+            </p>
+          </div>
+          <div class="feature-callout">
+            <div class="feature-callout__title">🎤 Sing it, play it back as any instrument</div>
+            <p class="feature-callout__body">
+              Hum or sing into your mic and it's pitch-tracked note-by-note, then replayed through any of
+              8 instrument voices — auto-tuned into a key if you can't quite hold the note, with Robotic
+              or Muffled voice effects. Try it in the <strong>Voice</strong> row below — fully real, runs
+              right in this tab.
+            </p>
+          </div>
+        </div>
+
         <div class="daw-transport">
           <button class="is-primary" id="play-btn">▶ Play</button>
           <button id="pause-btn">Pause</button>
           <button id="stop-btn">Stop</button>
-          <div class="daw-scrubber" id="scrubber">
-            <div class="daw-scrubber__fill" id="scrubber-fill"></div>
-            <div class="daw-scrubber__thumb" id="scrubber-thumb"></div>
-          </div>
-          <span class="daw-scrubber__time" id="scrubber-time">0:00</span>
+          <span class="daw-preview__time" id="scrubber-time">0:00 / 0:00</span>
         </div>
 
-        <div class="daw-starter">
-          <span class="daw-starter__label">Tap an instrument — hear it right away:</span>
-          <div class="daw-starter__grid" id="starter-grid"></div>
+        <div class="daw-preview" id="preview">
+          <div class="daw-preview__waveform" id="waveform"></div>
+          <div class="daw-preview__scrubline" id="scrubber"></div>
         </div>
 
-        <div class="daw-timeline" id="timeline">
-          <p class="daw-note">Pick an example song from the sidebar to see a layered project right away.</p>
-        </div>
-
-        <div class="daw-effects" id="effects-panel" style="display: none">
-          <h3 style="margin: 0 0 0.5rem; font-size: 0.95rem">Clip tools (applied to your uploaded clip)</h3>
-          <div class="daw-effects__row">
-            <label>Reverse</label>
-            <input type="checkbox" id="fx-reverse" />
+        <div class="daw-timeline">
+          <div class="timeline-special" id="special-tracks">
+            <div class="timeline-layer timeline-layer--special">
+              <div class="timeline-layer__label">🎤 Voice</div>
+              <div class="timeline-layer__special-body">
+                <button id="voice-record-btn">🎤 Record</button>
+                <span id="voice-status" class="daw-note" style="margin: 0"></span>
+                <select id="voice-instrument" title="Instrument">
+                  <option value="keys">Piano</option>
+                  <option value="guitar">Guitar</option>
+                  <option value="bass">Bass</option>
+                  <option value="lead">Lead</option>
+                  <option value="pad">Pad</option>
+                  <option value="brass">Brass</option>
+                  <option value="bell">Bell</option>
+                  <option value="flute">Flute</option>
+                  <option value="saxophone">Saxophone</option>
+                  <option value="clarinet">Clarinet</option>
+                </select>
+                <label class="timeline-layer__inline-check">
+                  <input type="checkbox" id="voice-autotune" /> Auto-tune
+                </label>
+                <select id="voice-tonic" title="Key">
+                  <option value="0">C</option>
+                  <option value="1">C#</option>
+                  <option value="2">D</option>
+                  <option value="3">D#</option>
+                  <option value="4">E</option>
+                  <option value="5">F</option>
+                  <option value="6">F#</option>
+                  <option value="7">G</option>
+                  <option value="8">G#</option>
+                  <option value="9">A</option>
+                  <option value="10">A#</option>
+                  <option value="11">B</option>
+                </select>
+                <select id="voice-scale" title="Scale">
+                  <option value="major">Major</option>
+                  <option value="minor">Minor</option>
+                </select>
+                <select id="voice-effect" title="Voice effect">
+                  <option value="none">No effect</option>
+                  <option value="robotic">Robotic</option>
+                  <option value="muffled">Muffled</option>
+                  <option value="distortion">Distortion</option>
+                </select>
+                <input type="range" id="voice-robotic-hz" min="30" max="300" value="80" style="display: none" title="Carrier Hz" />
+                <input type="range" id="voice-muffle-hz" min="100" max="4000" value="600" style="display: none" title="Cutoff Hz" />
+                <input type="range" id="voice-distortion" min="0" max="100" value="40" style="display: none" title="Drive" />
+                <button class="is-primary" id="voice-render-btn" disabled>Add to timeline</button>
+              </div>
+            </div>
+            <div class="timeline-layer timeline-layer--special">
+              <div class="timeline-layer__label">🔊 Any Sound</div>
+              <div class="timeline-layer__special-body">
+                <button id="anysound-upload-btn">📁 Upload a clip</button>
+                <span id="anysound-status" class="daw-note" style="margin: 0"></span>
+                <label class="timeline-layer__inline-check">
+                  <input type="checkbox" id="fx-reverse" /> Reverse
+                </label>
+                <label class="timeline-layer__inline-range">
+                  Pitch
+                  <input type="range" id="fx-pitch" min="-24" max="24" value="0" />
+                  <span id="fx-pitch-val">0 st</span>
+                </label>
+                <select id="fx-voice-effect" title="Voice effect">
+                  <option value="none">No effect</option>
+                  <option value="robotic">Robotic</option>
+                  <option value="muffled">Muffled</option>
+                  <option value="distortion">Distortion</option>
+                </select>
+                <input type="range" id="fx-robotic-hz" min="30" max="300" value="80" style="display: none" title="Carrier Hz" />
+                <input type="range" id="fx-muffle-hz" min="100" max="4000" value="600" style="display: none" title="Cutoff Hz" />
+                <input type="range" id="fx-distortion" min="0" max="100" value="40" style="display: none" title="Drive" />
+                <button class="is-primary" id="fx-apply-btn" disabled>Apply &amp; add to timeline</button>
+              </div>
+            </div>
           </div>
-          <div class="daw-effects__row">
-            <label>Pitch</label>
-            <input type="range" id="fx-pitch" min="-24" max="24" value="0" />
-            <span id="fx-pitch-val">0 st</span>
-          </div>
-          <div class="daw-effects__row">
-            <label>EQ gain</label>
-            <input type="range" id="fx-eq-gain" min="-24" max="24" value="0" />
-            <span id="fx-eq-gain-val">0 dB</span>
-          </div>
-          <div class="daw-effects__row">
-            <label>EQ freq</label>
-            <input type="range" id="fx-eq-freq" min="60" max="12000" value="1000" />
-            <span id="fx-eq-freq-val">1000 Hz</span>
-          </div>
-          <div class="daw-effects__row">
-            <label>Reverb</label>
-            <input type="range" id="fx-reverb" min="0" max="100" value="0" />
-            <span id="fx-reverb-val">0%</span>
-          </div>
-          <div class="daw-effects__row">
-            <label>Delay</label>
-            <input type="range" id="fx-delay" min="0" max="100" value="0" />
-            <span id="fx-delay-val">0%</span>
-          </div>
-          <div class="daw-effects__row">
-            <label>Voice effect</label>
-            <select id="fx-voice-effect">
-              <option value="none">None</option>
-              <option value="robotic">Robotic</option>
-              <option value="muffled">Muffled</option>
-            </select>
-          </div>
-          <div class="daw-effects__row" id="fx-robotic-row" style="display: none">
-            <label>Carrier</label>
-            <input type="range" id="fx-robotic-hz" min="30" max="300" value="80" />
-            <span id="fx-robotic-hz-val">80 Hz</span>
-          </div>
-          <div class="daw-effects__row" id="fx-muffle-row" style="display: none">
-            <label>Cutoff</label>
-            <input type="range" id="fx-muffle-hz" min="100" max="4000" value="600" />
-            <span id="fx-muffle-hz-val">600 Hz</span>
-          </div>
-          <button class="is-primary" id="fx-apply-btn">Apply &amp; add to timeline</button>
-        </div>
-
-        <div class="daw-effects" id="voice-panel">
-          <h3 style="margin: 0 0 0.5rem; font-size: 0.95rem">Sing to instrument</h3>
-          <p class="daw-note" style="margin: 0 0 0.5rem">
-            Record a few bars of singing or humming — it's pitch-tracked and replayed through any
-            instrument below. Recording stays in this tab; nothing is uploaded.
-          </p>
-          <div class="daw-effects__row">
-            <button id="voice-record-btn">🎤 Start recording</button>
-            <span id="voice-status" class="daw-note" style="margin: 0"></span>
-          </div>
-          <div class="daw-effects__row">
-            <label>Instrument</label>
-            <select id="voice-instrument">
-              <option value="keys">Keys</option>
-              <option value="guitar">Guitar</option>
-              <option value="bass">Bass</option>
-              <option value="lead">Lead</option>
-              <option value="pad">Pad</option>
-              <option value="brass">Brass</option>
-              <option value="bell">Bell</option>
-              <option value="flute">Flute</option>
-            </select>
-          </div>
-          <div class="daw-effects__row">
-            <label>Auto-tune</label>
-            <input type="checkbox" id="voice-autotune" />
-            <select id="voice-tonic">
-              <option value="0">C</option>
-              <option value="1">C#</option>
-              <option value="2">D</option>
-              <option value="3">D#</option>
-              <option value="4">E</option>
-              <option value="5">F</option>
-              <option value="6">F#</option>
-              <option value="7">G</option>
-              <option value="8">G#</option>
-              <option value="9">A</option>
-              <option value="10">A#</option>
-              <option value="11">B</option>
-            </select>
-            <select id="voice-scale">
-              <option value="major">Major</option>
-              <option value="minor">Minor</option>
-            </select>
-          </div>
-          <div class="daw-effects__row">
-            <label>Voice effect</label>
-            <select id="voice-effect">
-              <option value="none">None</option>
-              <option value="robotic">Robotic</option>
-              <option value="muffled">Muffled</option>
-            </select>
-          </div>
-          <div class="daw-effects__row" id="voice-robotic-row" style="display: none">
-            <label>Carrier</label>
-            <input type="range" id="voice-robotic-hz" min="30" max="300" value="80" />
-            <span id="voice-robotic-hz-val">80 Hz</span>
-          </div>
-          <div class="daw-effects__row" id="voice-muffle-row" style="display: none">
-            <label>Cutoff</label>
-            <input type="range" id="voice-muffle-hz" min="100" max="4000" value="600" />
-            <span id="voice-muffle-hz-val">600 Hz</span>
-          </div>
-          <button class="is-primary" id="voice-render-btn" disabled>Add to timeline</button>
+          <div id="timeline"></div>
         </div>
 
         <p class="daw-note daw-note--upsell">

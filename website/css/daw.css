@@ -22,6 +22,15 @@
   --ochre: #d1a85c;
   --teal: #5fa8a0;
   --danger: #e0708a;
+
+  /* Pastel accents for the always-ready default instrument tracks and
+     the "+" add-instrument menu — lighter/softer than the main palette
+     above, so they read clearly as distinct instrument identities. */
+  --pastel-peach: #f5c9a8;
+  --pastel-lilac: #d7c4f0;
+  --pastel-mint: #b9e3d0;
+  --pastel-pink: #f2bfd3;
+  --pastel-sky: #b9d6f0;
 }
 
 * {
@@ -204,8 +213,19 @@ body {
   border-color: var(--danger);
 }
 
+.instrument-track__mute.is-solo {
+  background: var(--ochre);
+  color: #1e1a2e;
+  border-color: var(--ochre);
+}
+
+.instrument-track__pan {
+  width: 44px;
+  flex: 0 0 auto;
+  accent-color: var(--purple);
+}
+
 .instrument-track input[type="range"] {
-  flex: 1;
   accent-color: var(--purple);
 }
 
@@ -225,6 +245,7 @@ body {
   gap: 0.6rem;
   margin-bottom: 1rem;
   flex-wrap: wrap;
+  flex-shrink: 0;
 }
 
 .daw-transport button {
@@ -276,6 +297,8 @@ body {
 }
 
 .timeline-layer__label {
+  display: flex;
+  align-items: center;
   width: 130px;
   flex-shrink: 0;
   font-size: 0.8rem;
@@ -370,68 +393,129 @@ body {
 
 /* --- Draggable transport scrubber --- */
 
-.daw-scrubber {
-  position: relative;
-  flex: 1;
-  min-width: 140px;
-  height: 8px;
-  background: var(--panel-alt);
-  border-radius: 999px;
-  cursor: pointer;
-}
+/* --- Feature callouts: what the two flagship capabilities actually do --- */
 
-.daw-scrubber__fill {
-  position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  width: 0%;
-  background: linear-gradient(90deg, var(--purple-deep), var(--purple));
-  border-radius: 999px;
-  pointer-events: none;
-}
-
-.daw-scrubber__thumb {
-  position: absolute;
-  top: 50%;
-  left: 0%;
-  width: 14px;
-  height: 14px;
-  background: #fff;
-  border-radius: 50%;
-  transform: translate(-50%, -50%);
-  box-shadow: 0 0 0 3px var(--purple-deep);
-  pointer-events: none;
-}
-
-.daw-scrubber__time {
-  font-size: 0.8rem;
-  color: var(--text-dim);
-  min-width: 3.2em;
-  text-align: right;
-}
-
-/* --- "Tap an instrument, hear it right away" starter strip --- */
-
-.daw-starter {
+.feature-callouts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
   margin-bottom: 1rem;
-  padding: 0.75rem 1rem;
+  flex-shrink: 0;
+}
+
+.feature-callout {
+  flex: 1;
+  min-width: 260px;
+  padding: 0.9rem 1rem;
   background: var(--panel);
   border: 1px solid var(--border);
   border-radius: 10px;
 }
 
-.daw-starter__label {
-  display: block;
-  font-size: 0.8rem;
-  color: var(--text-dim);
-  margin-bottom: 0.6rem;
+.feature-callout__title {
+  font-weight: 700;
+  margin-bottom: 0.35rem;
 }
 
-.daw-starter__grid {
+.feature-callout__body {
+  font-size: 0.82rem;
+  color: var(--text-dim);
+  margin: 0;
+  line-height: 1.4;
+}
+
+.feature-callout__body strong {
+  color: var(--text);
+}
+
+/* --- YouTube/SoundCloud-style waveform preview + draggable scrub line --- */
+
+.daw-preview__time {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  margin-left: auto;
+}
+
+.daw-preview {
+  position: relative;
+  flex-shrink: 0;
+  height: 64px;
+  margin-bottom: 1rem;
+  padding: 0 2px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  overflow: hidden;
+  touch-action: none;
+}
+
+.daw-preview__waveform {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 0 4px;
+}
+
+.waveform-bar {
+  flex: 1;
+  min-width: 1px;
+  background: linear-gradient(180deg, var(--purple), var(--rose));
+  border-radius: 1px;
+  opacity: 0.85;
+}
+
+.daw-preview__scrubline {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0%;
+  width: 4px;
+  margin-left: -2px;
+  background: #4ade80;
+  box-shadow: 0 0 8px 1px rgba(74, 222, 128, 0.7);
+  border-radius: 2px;
+  pointer-events: none;
+}
+
+.daw-preview__scrubline::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  background: #4ade80;
+  border-radius: 50%;
+  transform: translateX(-50%);
+  box-shadow: 0 0 6px 1px rgba(74, 222, 128, 0.7);
+}
+
+/* --- "+" add-instrument control at the end of the timeline --- */
+
+.timeline-add-btn {
+  margin-top: 0.6rem;
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: 1px dashed var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.timeline-add-btn:hover {
+  color: var(--text);
+  border-color: var(--purple);
+}
+
+.timeline-add-menu {
   display: flex;
   flex-wrap: wrap;
   gap: 0.6rem;
+  margin-top: 0.6rem;
 }
 
 .daw-starter__btn {
@@ -459,24 +543,33 @@ body {
   transform: translateY(0);
 }
 
-.daw-starter__icon {
-  font-size: 1.4rem;
-}
-
-.daw-starter__btn--drums {
-  border-color: var(--ochre);
-}
-.daw-starter__btn--keys {
-  border-color: var(--purple);
-}
-.daw-starter__btn--bass {
-  border-color: var(--blue);
-}
-.daw-starter__btn--guitar {
-  border-color: var(--olive);
-}
 .daw-starter__btn--lead {
-  border-color: var(--rose);
+  border-color: var(--pastel-sky);
+  color: var(--pastel-sky);
+}
+.daw-starter__btn--pad {
+  border-color: var(--pastel-lilac);
+  color: var(--pastel-lilac);
+}
+.daw-starter__btn--brass {
+  border-color: var(--pastel-peach);
+  color: var(--pastel-peach);
+}
+.daw-starter__btn--bell {
+  border-color: var(--pastel-mint);
+  color: var(--pastel-mint);
+}
+.daw-starter__btn--flute {
+  border-color: var(--pastel-pink);
+  color: var(--pastel-pink);
+}
+.daw-starter__btn--saxophone {
+  border-color: var(--ochre);
+  color: var(--ochre);
+}
+.daw-starter__btn--clarinet {
+  border-color: var(--teal);
+  color: var(--teal);
 }
 
 /* --- Click-to-place beat/note grid on a pattern-backed track --- */
@@ -525,6 +618,143 @@ body {
   background: linear-gradient(135deg, var(--purple), var(--rose));
   color: #1e1a2e;
   font-weight: 700;
+}
+
+/* Each default instrument gets its own pastel identity, consistently
+   applied everywhere it appears: the filled grid steps here, and the
+   icon color via .instrument-icon--{family} below. */
+.pattern-grid--drums .pattern-grid__step.is-filled {
+  background: var(--pastel-peach);
+}
+.pattern-grid--keys .pattern-grid__step.is-filled {
+  background: var(--pastel-lilac);
+}
+.pattern-grid--guitar .pattern-grid__step.is-filled {
+  background: var(--pastel-mint);
+}
+.pattern-grid--bass .pattern-grid__step.is-filled {
+  background: var(--pastel-pink);
+}
+.pattern-grid--lead .pattern-grid__step.is-filled {
+  background: var(--pastel-sky);
+}
+
+/* --- Original line-art instrument icons (instrument-icons.js) — one
+   consistent stroke style, each family tinted with its own pastel via
+   currentColor. --- */
+
+.instrument-icon {
+  width: 1.15rem;
+  height: 1.15rem;
+  display: inline-block;
+  vertical-align: middle;
+  margin-right: 0.4rem;
+  flex-shrink: 0;
+}
+
+.instrument-track__icon .instrument-icon {
+  width: 1.3rem;
+  height: 1.3rem;
+  margin-right: 0;
+}
+
+.instrument-icon--drums {
+  color: var(--pastel-peach);
+}
+.instrument-icon--keys {
+  color: var(--pastel-lilac);
+}
+.instrument-icon--guitar {
+  color: var(--pastel-mint);
+}
+.instrument-icon--bass {
+  color: var(--pastel-pink);
+}
+.instrument-icon--lead {
+  color: var(--pastel-sky);
+}
+.instrument-icon--pad {
+  color: var(--pastel-lilac);
+}
+.instrument-icon--brass {
+  color: var(--pastel-peach);
+}
+.instrument-icon--bell {
+  color: var(--pastel-mint);
+}
+.instrument-icon--flute {
+  color: var(--pastel-pink);
+}
+.instrument-icon--saxophone {
+  color: var(--ochre);
+}
+.instrument-icon--clarinet {
+  color: var(--teal);
+}
+
+/* --- Special always-present timeline rows: Voice and Any Sound --- */
+
+.timeline-special {
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.timeline-layer--special {
+  align-items: flex-start;
+  flex-wrap: wrap;
+}
+
+.timeline-layer__special-body {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.timeline-layer__special-body select,
+.timeline-layer__special-body button {
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel-alt);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.timeline-layer__special-body button.is-primary {
+  background: var(--purple-deep);
+  border-color: var(--purple-deep);
+  color: #fff;
+}
+
+.timeline-layer__special-body button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.timeline-layer__inline-check {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.timeline-layer__inline-range {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+}
+
+.timeline-layer__inline-range input[type="range"] {
+  width: 100px;
+  accent-color: var(--purple);
 }
 
 /* --- Left-sidebar sound picker for the active pattern track --- */

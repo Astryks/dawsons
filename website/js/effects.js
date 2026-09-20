@@ -70,6 +70,22 @@ function buildRoboticNode(ctx, carrierHz) {
   return ring;
 }
 
+// A soft-clip (tanh) saturation curve for WaveShaperNode — the classic,
+// simple distortion technique (drive a signal into a compressive curve
+// so peaks flatten instead of clipping harshly), a real vocal-chain
+// staple; not derived from any specific plugin.
+function makeDistortionCurve(amount) {
+  const n = 44100;
+  const curve = new Float32Array(n);
+  const drive = Math.max(0.001, amount * 20);
+  const normalize = Math.tanh(drive);
+  for (let i = 0; i < n; i++) {
+    const x = (i / (n - 1)) * 2 - 1;
+    curve[i] = Math.tanh(drive * x) / normalize;
+  }
+  return curve;
+}
+
 // Builds a Web Audio graph applying the requested effect chain to
 // `sourceNode`, returning the final node to connect onward (e.g. to the
 // destination or a track's gain node).
@@ -88,6 +104,14 @@ function buildEffectChain(ctx, sourceNode, opts) {
     muffle.frequency.value = opts.muffleCutoffHz;
     node.connect(muffle);
     node = muffle;
+  }
+
+  if (opts.distortionAmount && opts.distortionAmount > 0) {
+    const shaper = ctx.createWaveShaper();
+    shaper.curve = makeDistortionCurve(opts.distortionAmount);
+    shaper.oversample = "4x";
+    node.connect(shaper);
+    node = shaper;
   }
 
   if (opts.eqGainDb && opts.eqGainDb !== 0) {
