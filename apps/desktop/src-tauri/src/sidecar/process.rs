@@ -53,8 +53,14 @@ fn sidecar_dir() -> PathBuf {
 /// scripts/build_sidecar.sh and tauri.conf.json's `bundle.resources`) —
 /// a real end user's machine has no Python at all.
 enum SidecarLaunch {
-    Frozen { executable: PathBuf, working_dir: PathBuf },
-    DevPython { python: PathBuf, working_dir: PathBuf },
+    Frozen {
+        executable: PathBuf,
+        working_dir: PathBuf,
+    },
+    DevPython {
+        python: PathBuf,
+        working_dir: PathBuf,
+    },
 }
 
 fn resolve_launch(app: &AppHandle) -> Result<SidecarLaunch, String> {
@@ -69,7 +75,10 @@ fn resolve_launch(app: &AppHandle) -> Result<SidecarLaunch, String> {
                 .parent()
                 .expect("executable path always has a parent")
                 .to_path_buf();
-            return Ok(SidecarLaunch::Frozen { executable, working_dir });
+            return Ok(SidecarLaunch::Frozen {
+                executable,
+                working_dir,
+            });
         }
     }
 
@@ -80,18 +89,27 @@ fn resolve_launch(app: &AppHandle) -> Result<SidecarLaunch, String> {
             "no frozen sidecar bundled and no dev venv found at {python:?} — run ./scripts/setup_dev.sh first"
         ));
     }
-    Ok(SidecarLaunch::DevPython { python, working_dir: dir })
+    Ok(SidecarLaunch::DevPython {
+        python,
+        working_dir: dir,
+    })
 }
 
 fn spawn_child(app: &AppHandle) -> Result<(Child, u16), String> {
     let launch = resolve_launch(app)?;
     let mut command = match &launch {
-        SidecarLaunch::Frozen { executable, working_dir } => {
+        SidecarLaunch::Frozen {
+            executable,
+            working_dir,
+        } => {
             let mut c = Command::new(executable);
             c.current_dir(working_dir);
             c
         }
-        SidecarLaunch::DevPython { python, working_dir } => {
+        SidecarLaunch::DevPython {
+            python,
+            working_dir,
+        } => {
             let mut c = Command::new(python);
             c.args(["-m", "app.main"]).current_dir(working_dir);
             c
