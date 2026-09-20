@@ -88,3 +88,21 @@ body {
   color: #e06e6e;
   font-size: 0.85rem;
 }
+
+.debug-panel__hint {
+  color: #9aa0a8;
+  font-size: 0.85rem;
+  margin: 0 0 0.75rem;
+}
+
+.debug-panel__field {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  margin-bottom: 0.6rem;
+}
+
+.debug-panel__field input[type="range"] {
+  flex: 1;
+}

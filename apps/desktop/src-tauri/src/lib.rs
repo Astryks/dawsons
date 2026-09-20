@@ -22,6 +22,7 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             commands::greet,
             commands::transport::debug_play_test_tone,
+            commands::transport::debug_play_reversed_pitched_tone,
             commands::transport::transport_play,
             commands::transport::transport_pause,
             commands::transport::transport_stop,

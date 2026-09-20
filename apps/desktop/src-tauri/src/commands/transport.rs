@@ -27,6 +27,33 @@ pub fn debug_play_test_tone(state: State<AppState>) -> Result<(), String> {
     transport::play(&handle.mixer)
 }
 
+/// "Reverse & re-pitch" tool: applies reverse and/or a pitch shift (the
+/// vari-speed tape technique) to the bundled test tone and plays it.
+/// Real user-supplied clips land once file import (M4) exists; this proves
+/// the effect chain end to end first.
+#[tauri::command]
+pub fn debug_play_reversed_pitched_tone(
+    state: State<AppState>,
+    reverse: bool,
+    semitones: f64,
+) -> Result<(), String> {
+    let audio = state
+        .audio
+        .lock()
+        .map_err(|_| "audio state poisoned".to_string())?;
+    let handle = require_audio(&audio)?;
+    let asset_path =
+        std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("test-assets/test-tone.wav");
+    transport::load_test_track_with_effects(
+        &handle.mixer,
+        &handle.engine_config,
+        &asset_path,
+        reverse,
+        semitones as f32,
+    )?;
+    transport::play(&handle.mixer)
+}
+
 #[tauri::command]
 pub fn transport_play(state: State<AppState>) -> Result<(), String> {
     let audio = state
