@@ -65,7 +65,7 @@ const CHORD_QUALITIES = [
   { value: "diminished", label: "Diminished" },
 ];
 
-const GENRES = ["All", "Pop", "Jazz", "Hip-Hop", "Holiday", "R&B / Soul", "Folk / Acoustic"];
+const GENRES = ["All", "Pop", "Jazz", "Hip-Hop", "Holiday", "Funk / Rock", "R&B / Soul", "Folk / Acoustic"];
 
 // Factual reference points only (song title / artist / year) — real songs
 // people already know, used purely to show what each genre sounds like.
@@ -101,6 +101,60 @@ const GENRE_INSPIRATION: Record<string, { title: string; artist: string; year?: 
     { title: "White Christmas", artist: "Bing Crosby", year: 1942 },
   ],
 };
+
+// A handful of official YouTube videos (verified official-channel uploads,
+// embedded via YouTube's own player — the officially supported way to show
+// a video from the platform, unlike extracting/downloading its audio,
+// which is a different thing this app deliberately never does) paired
+// with one of our original example songs built in a similar style, so
+// users can watch the real thing and then open a comparable layered
+// project of their own to explore. Video IDs: verified via web search
+// against official artist/label channel uploads.
+const SONG_SPOTLIGHTS: {
+  title: string;
+  artist: string;
+  youtubeId: string;
+  note: string;
+  exampleSongTitle: string;
+  explicit?: boolean;
+}[] = [
+  {
+    title: "Love Story",
+    artist: "Taylor Swift",
+    youtubeId: "LHxXaY7NR3w",
+    note: "A story-song built around a simple I–V–vi–IV-family progression under the vocal.",
+    exampleSongTitle: "Storybook Sky",
+  },
+  {
+    title: "Beat It",
+    artist: "Michael Jackson",
+    youtubeId: "aV4ZFhIUGEU",
+    note: "Driving funk-rock groove, famous for its Eddie Van Halen guitar solo.",
+    exampleSongTitle: "Night Funk Signal",
+  },
+  {
+    title: "Gin and Juice",
+    artist: "Snoop Dogg",
+    youtubeId: "fWCZse1iwE0",
+    note: "Classic laid-back G-funk: whiny synth lead, deep bass, funky keys.",
+    exampleSongTitle: "West Coast Cruise",
+    explicit: true,
+  },
+  {
+    title: "My Funny Valentine",
+    artist: "Chet Baker",
+    youtubeId: "EGPRCu2kupE",
+    note: "A 1954 jazz standard recording built on trumpet/vocal, piano, bass, and brushed drums.",
+    exampleSongTitle: "Blue Corner",
+  },
+  {
+    title: "Last Christmas",
+    artist: "Wham!",
+    youtubeId: "E8gmARGvPlI",
+    note: "Warm holiday-pop with a sparkly synth hook over a simple major-key loop.",
+    exampleSongTitle: "Fireside Loop",
+  },
+];
 
 interface Project {
   id: string;
@@ -202,6 +256,11 @@ export default function App() {
     } finally {
       setLoadingDemoSong(null);
     }
+  }
+
+  async function handleLoadDemoSongByTitle(title: string) {
+    const song = demoSongs.find((s) => s.title === title);
+    if (song) await handleLoadDemoSong(song.index);
   }
 
   async function runCommand(command: string, args?: Record<string, unknown>) {
@@ -540,6 +599,37 @@ export default function App() {
               ))}
           </div>
           {demoSongError && <p className="debug-panel__error">{demoSongError}</p>}
+        </section>
+
+        <section className="hero">
+          <h1 className="hero__title">Pay attention to the layers</h1>
+          <p className="hero__subtitle">
+            Your favorite artists build songs the same way you're about to — vocal, guitar, bass,
+            keys, drums, each on its own layer. Let's look at a few, then open a similarly-built
+            example right in Dawsons to see how it comes apart.
+          </p>
+          <div className="example-grid">
+            {SONG_SPOTLIGHTS.map((spotlight) => (
+              <div key={spotlight.youtubeId} className="example-card">
+                <div className="spotlight-embed">
+                  <iframe
+                    src={`https://www.youtube-nocookie.com/embed/${spotlight.youtubeId}`}
+                    title={`${spotlight.title} — ${spotlight.artist}`}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                </div>
+                <h3>
+                  {spotlight.title} — {spotlight.artist}
+                  {spotlight.explicit ? " 🅴" : ""}
+                </h3>
+                <p>{spotlight.note}</p>
+                <button onClick={() => handleLoadDemoSongByTitle(spotlight.exampleSongTitle)}>
+                  Open a similar layered example: "{spotlight.exampleSongTitle}"
+                </button>
+              </div>
+            ))}
+          </div>
         </section>
 
         {tracks.length > 0 && (

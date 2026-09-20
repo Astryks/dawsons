@@ -79,6 +79,20 @@ breakdowns — both times the resolution was the same split above: real
 facts for inspiration, original compositions for anything actually
 playable.)
 
+A third piece sits alongside these two: a "Pay attention to the layers"
+section that embeds a handful of official YouTube videos (via YouTube's
+own iframe embed player — the feature YouTube provides specifically for
+showing its videos on other sites, not the same thing as extracting or
+downloading the audio, which this app doesn't do) for real songs named
+above, each paired with a button to open the corresponding original
+example. Embedding is fine because nothing is copied, hosted, or
+distributed by Dawsons — the video plays from YouTube's own servers under
+YouTube's own terms, same as any blog or tutorial site embedding a video.
+Video IDs are pinned to verified official artist/label channel uploads
+rather than a specific song's first search result, and picked to be
+embeddable (some official uploads, e.g. one "Beat It" upload, disable
+embedding — a different one from the same rights holder was used instead).
+
 ## Multiple projects & export (concrete requirement for M6)
 
 Storage: a `projects` table in the existing local SQLite DB (`id`, `name`,
