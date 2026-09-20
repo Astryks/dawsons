@@ -22,6 +22,15 @@ struct TrackLaneView: View {
     let onTapStep: (Int) -> Void
     let onDragClip: (UUID, Double) -> Void
 
+    /// `DragGesture`'s `translation` is cumulative from the gesture's
+    /// start, not incremental — so the drag target must be computed
+    /// from the clip's position AT DRAG START, captured once here.
+    /// Reading the clip's live `startSec` instead (which this same
+    /// gesture is mutating via `onDragClip`) would feed each tick's
+    /// output back in as the next tick's baseline, compounding into
+    /// runaway drift far past the actual finger position.
+    @State private var dragOriginSec: [UUID: Double] = [:]
+
     var body: some View {
         ZStack(alignment: .topLeading) {
             RoundedRectangle(cornerRadius: 14)
@@ -47,8 +56,15 @@ struct TrackLaneView: View {
                 .gesture(
                     DragGesture()
                         .onChanged { value in
-                            let newStart = max(0, Double((CGFloat(clip.startSec) * pixelsPerSecond + value.translation.width) / pixelsPerSecond))
+                            let origin = dragOriginSec[clip.id] ?? clip.startSec
+                            if dragOriginSec[clip.id] == nil {
+                                dragOriginSec[clip.id] = origin
+                            }
+                            let newStart = max(0, origin + Double(value.translation.width / pixelsPerSecond))
                             onDragClip(clip.id, newStart)
+                        }
+                        .onEnded { _ in
+                            dragOriginSec[clip.id] = nil
                         }
                 )
             }
