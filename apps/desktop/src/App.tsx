@@ -36,6 +36,72 @@ const GM_INSTRUMENTS = [
 
 const POPULAR_INSTRUMENTS = [0, 4, 24, 27, 33, 40, 48, 56, 65, 73, 80, 88];
 
+// Note names for the chord-starter feature, mapped to MIDI note numbers in
+// the octave starting at middle C (C4 = 60) — "press C, hear a C major
+// chord" on any of the 128 instruments, the same idea as a guitar's open
+// chord shapes.
+const CHORD_ROOTS: { name: string; note: number }[] = [
+  { name: "C", note: 60 },
+  { name: "C#", note: 61 },
+  { name: "D", note: 62 },
+  { name: "D#", note: 63 },
+  { name: "E", note: 64 },
+  { name: "F", note: 65 },
+  { name: "F#", note: 66 },
+  { name: "G", note: 67 },
+  { name: "G#", note: 68 },
+  { name: "A", note: 69 },
+  { name: "A#", note: 70 },
+  { name: "B", note: 71 },
+];
+
+const CHORD_QUALITIES = [
+  { value: "major", label: "Major" },
+  { value: "minor", label: "Minor" },
+  { value: "dominant7", label: "7th" },
+  { value: "major7", label: "Major 7th" },
+  { value: "minor7", label: "Minor 7th" },
+  { value: "sus4", label: "Sus4" },
+  { value: "diminished", label: "Diminished" },
+];
+
+const GENRES = ["All", "Pop", "Jazz", "Hip-Hop", "Holiday", "R&B / Soul", "Folk / Acoustic"];
+
+// Factual reference points only (song title / artist / year) — real songs
+// people already know, used purely to show what each genre sounds like.
+// Not chord charts, not transcriptions, not audio: see demo_songs.rs for
+// why the actual playable examples below are original Dawsons
+// compositions in each style rather than reconstructions of these tracks.
+const GENRE_INSPIRATION: Record<string, { title: string; artist: string; year?: number }[]> = {
+  Pop: [
+    { title: "Love Story", artist: "Taylor Swift", year: 2008 },
+    { title: "Last Christmas", artist: "Wham!", year: 1984 },
+    { title: "Without You", artist: "Mariah Carey", year: 1994 },
+    { title: "Beat It", artist: "Michael Jackson", year: 1983 },
+    { title: "Rolling in the Deep", artist: "Adele", year: 2010 },
+  ],
+  Jazz: [
+    { title: "My Funny Valentine", artist: "Chet Baker", year: 1954 },
+    { title: "Almost Blue", artist: "Chet Baker (an Elvis Costello song)", year: 1987 },
+    { title: "I'm a Fool to Want You", artist: "Chet Baker" },
+    { title: "So What", artist: "Miles Davis", year: 1959 },
+    { title: "My Favorite Things", artist: "John Coltrane", year: 1961 },
+  ],
+  "Hip-Hop": [
+    { title: "Gin and Juice", artist: "Snoop Dogg", year: 1993 },
+    { title: "Still D.R.E.", artist: "Dr. Dre ft. Snoop Dogg", year: 1999 },
+    { title: "Nuthin' but a 'G' Thang", artist: "Dr. Dre ft. Snoop Dogg", year: 1992 },
+    { title: "Lose Yourself", artist: "Eminem", year: 2002 },
+    { title: "Without Me", artist: "Eminem", year: 2002 },
+  ],
+  Holiday: [
+    { title: "Last Christmas", artist: "Wham!", year: 1984 },
+    { title: "All I Want for Christmas Is You", artist: "Mariah Carey", year: 1994 },
+    { title: "Rockin' Around the Christmas Tree", artist: "Brenda Lee", year: 1958 },
+    { title: "White Christmas", artist: "Bing Crosby", year: 1942 },
+  ],
+};
+
 interface Project {
   id: string;
   name: string;
@@ -60,6 +126,7 @@ interface TrackInfo {
 interface DemoSongInfo {
   index: number;
   title: string;
+  genre: string;
   description: string;
 }
 
@@ -108,6 +175,10 @@ export default function App() {
     newLayer: boolean;
   } | null>(null);
   const [layerNameOverride, setLayerNameOverride] = useState("");
+  const [selectedGenre, setSelectedGenre] = useState("All");
+  const [chordRoot, setChordRoot] = useState(60);
+  const [chordQuality, setChordQuality] = useState("major");
+  const [chordError, setChordError] = useState<string | null>(null);
 
   useEffect(() => {
     // M3 wires this up to a real `sidecar:status` Tauri event; until then
@@ -192,6 +263,15 @@ export default function App() {
       setInstrumentError(null);
     } catch (err) {
       setInstrumentError(String(err));
+    }
+  }
+
+  async function handlePlayChord() {
+    try {
+      await invoke("play_instrument_chord", { program: instrumentProgram, rootNote: chordRoot, quality: chordQuality });
+      setChordError(null);
+    } catch (err) {
+      setChordError(String(err));
     }
   }
 
@@ -410,18 +490,54 @@ export default function App() {
         <section className="hero">
           <h1 className="hero__title">Create a song</h1>
           <p className="hero__subtitle">
-            Load an example to see a layered project right away, or upload your own song below.
+            Pick a genre to get inspired, load an example to see a layered project right away, or
+            upload your own song below.
           </p>
-          <div className="example-grid">
-            {demoSongs.map((song) => (
-              <div key={song.index} className="example-card">
-                <h3>{song.title}</h3>
-                <p>{song.description}</p>
-                <button onClick={() => handleLoadDemoSong(song.index)} disabled={loadingDemoSong === song.index}>
-                  {loadingDemoSong === song.index ? "Loading…" : "Load example"}
-                </button>
-              </div>
+          <div className="debug-panel__buttons" style={{ marginBottom: "0.75rem" }}>
+            {GENRES.map((genre) => (
+              <button
+                key={genre}
+                onClick={() => setSelectedGenre(genre)}
+                style={genre === selectedGenre ? { fontWeight: 700 } : undefined}
+              >
+                {genre}
+              </button>
             ))}
+          </div>
+          {selectedGenre !== "All" && GENRE_INSPIRATION[selectedGenre] && (
+            <div className="layered-tracks" style={{ marginBottom: "1rem" }}>
+              <h2>Songs that shaped {selectedGenre}</h2>
+              <p className="debug-panel__hint">
+                For inspiration — see docs/UX_DESIGN.md for why the example below is an original
+                Dawsons composition in this style rather than a reconstruction of these tracks.
+              </p>
+              <ul className="voice-note-list">
+                {GENRE_INSPIRATION[selectedGenre].map((song) => (
+                  <li key={song.title + song.artist} className="voice-note-list__item">
+                    <span>
+                      {song.title} — {song.artist}
+                      {song.year ? ` (${song.year})` : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <div className="example-grid">
+            {demoSongs
+              .filter((song) => selectedGenre === "All" || song.genre === selectedGenre)
+              .map((song) => (
+                <div key={song.index} className="example-card">
+                  <h3>{song.title}</h3>
+                  <p className="debug-panel__hint" style={{ margin: "0 0 0.4rem" }}>
+                    {song.genre}
+                  </p>
+                  <p>{song.description}</p>
+                  <button onClick={() => handleLoadDemoSong(song.index)} disabled={loadingDemoSong === song.index}>
+                    {loadingDemoSong === song.index ? "Loading…" : "Load example"}
+                  </button>
+                </div>
+              ))}
           </div>
           {demoSongError && <p className="debug-panel__error">{demoSongError}</p>}
         </section>
@@ -679,6 +795,31 @@ export default function App() {
             <button onClick={() => handlePlayInstrument(instrumentProgram)}>Play</button>
           </div>
           {instrumentError && <p className="debug-panel__error">{instrumentError}</p>}
+
+          <h3 style={{ marginBottom: "0.4rem" }}>Chord starter</h3>
+          <p className="debug-panel__hint">
+            Pressing a guitar's open C shape always plays a full C major chord — this does the same
+            for {GM_INSTRUMENTS[instrumentProgram]} and every other instrument above: pick a root
+            and a chord type, and get the whole chord back, not just one note.
+          </p>
+          <div className="debug-panel__field">
+            <select value={chordRoot} onChange={(e) => setChordRoot(Number(e.target.value))}>
+              {CHORD_ROOTS.map((r) => (
+                <option key={r.name} value={r.note}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+            <select value={chordQuality} onChange={(e) => setChordQuality(e.target.value)}>
+              {CHORD_QUALITIES.map((q) => (
+                <option key={q.value} value={q.value}>
+                  {q.label}
+                </option>
+              ))}
+            </select>
+            <button onClick={handlePlayChord}>Play chord</button>
+          </div>
+          {chordError && <p className="debug-panel__error">{chordError}</p>}
         </section>
 
         <section className="debug-panel">

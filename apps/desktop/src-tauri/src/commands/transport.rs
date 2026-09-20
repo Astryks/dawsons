@@ -172,3 +172,57 @@ pub fn play_instrument_note(state: State<AppState>, program: u8, note: i32) -> R
     mixer.playing = true;
     Ok(())
 }
+
+/// Semitone offsets from the root for each supported chord quality — the
+/// same idea as a guitar's open chord shapes (a C shape always plays a C
+/// major triad no matter the instrument), generalized to any of the 128
+/// GM instruments. Unrecognized qualities fall back to major so the
+/// easy-start feature never silently does nothing.
+fn chord_intervals(quality: &str) -> &'static [i32] {
+    match quality {
+        "minor" => &[0, 3, 7],
+        "dominant7" => &[0, 4, 7, 10],
+        "major7" => &[0, 4, 7, 11],
+        "minor7" => &[0, 3, 7, 10],
+        "sus4" => &[0, 5, 7],
+        "diminished" => &[0, 3, 6],
+        _ => &[0, 4, 7], // major
+    }
+}
+
+/// The easy-start "press a note, hear a chord" tool: builds the chord for
+/// `root_note` + `quality` and plays it through the chosen GM instrument —
+/// so a brand new user gets a full, in-key chord out of piano, sax, synth,
+/// or anything else, the same way pressing C on a guitar always gives a
+/// full C major chord.
+#[tauri::command]
+pub fn play_instrument_chord(
+    state: State<AppState>,
+    program: u8,
+    root_note: i32,
+    quality: String,
+) -> Result<(), String> {
+    let audio = state
+        .audio
+        .lock()
+        .map_err(|_| "audio state poisoned".to_string())?;
+    let handle = require_audio(&audio)?;
+    let pitches: Vec<i32> = chord_intervals(&quality)
+        .iter()
+        .map(|offset| root_note + offset)
+        .collect();
+    let samples = synth::render_chord(&handle.engine_config, program, &pitches, 100, 1.5)?;
+    let mut mixer = handle
+        .mixer
+        .lock()
+        .map_err(|_| "mixer lock poisoned".to_string())?;
+    mixer.tracks = vec![crate::audio_engine::mixer::TrackBuffer {
+        name: format!("chord-{program}-{quality}"),
+        samples: std::sync::Arc::new(samples),
+        gain: 1.0,
+        muted: false,
+    }];
+    mixer.position = 0;
+    mixer.playing = true;
+    Ok(())
+}

@@ -33,6 +33,7 @@ pub fn run() {
             commands::transport::set_track_muted,
             commands::transport::soundfont_available,
             commands::transport::play_instrument_note,
+            commands::transport::play_instrument_chord,
             commands::sidecar::sidecar_status,
             commands::analysis::start_analysis,
             commands::analysis::analysis_status,

@@ -18,8 +18,10 @@ first for what's actually done vs. planned.
 - **M5 — Tempo/key/chord/section detection**: real librosa-based tempo/key, a custom chroma+template chord detector (avoids GPL Chordino), novelty-based sections — all assembled into the full schema-validated Scene Graph fragment, persisted per-project in SQLite
 - **Instrument library** — 128 General MIDI instruments playable via `rustysynth` + a free MIT-licensed SoundFont (FluidR3_GM, fetched via `scripts/download_soundfont.sh`, never committed — same pattern as model weights)
 - **Voice-to-instrument** — the second flagship capability from the original vision. YIN pitch tracking (classical DSP, not a model) turns a recording into MIDI notes, played back through any of the 128 GM instruments.
+- **Chord starter** — the "press C, hear a C major chord" easy-start feature, generalized across all 128 instruments (major/minor/7th/maj7/min7/sus4/diminished)
+- **Genre-based example songs** — 6 original demo compositions across Pop, Jazz, Hip-Hop, Holiday, R&B/Soul, and Folk/Acoustic, filterable by a genre picker on the home screen, paired with a factual (title/artist/year only) inspiration list of real famous songs per genre — see the "Example songs & genre inspiration" section in `docs/UX_DESIGN.md` for why the playable examples are original compositions rather than transcriptions of the real songs referenced
 
-40 Rust unit tests + 10 Python tests (including real end-to-end runs — Demucs inference, the full M5 pipeline, and clip classification, not mocked) passing. Everything above runs 100% locally — no server, no cloud cost, per the project's core constraint.
+41 Rust unit tests + 10 Python tests (including real end-to-end runs — Demucs inference, the full M5 pipeline, and clip classification, not mocked) passing. Everything above runs 100% locally — no server, no cloud cost, per the project's core constraint.
 
 ## Open-source model inventory (what's actually integrated vs. discussed)
 

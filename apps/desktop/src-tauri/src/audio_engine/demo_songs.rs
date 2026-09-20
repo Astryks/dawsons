@@ -1,15 +1,20 @@
-//! Three short, fully original demo compositions — shown as "example
-//! songs" on the home screen so new users see a populated, layered
-//! project immediately instead of an empty state.
+//! Six short, fully original demo compositions across several genres —
+//! shown as "example songs" on the home screen (filterable by genre) so
+//! new users see a populated, layered project immediately instead of an
+//! empty state, and get a feel for how different styles are put together.
 //!
-//! These are hand-authored here (standard chord progressions, like
-//! C-G-Am-F, aren't copyrightable — only a specific melodic/lyrical
-//! realization is, and these melodies are original), not transcriptions
-//! of any existing song. See docs/UX_DESIGN.md for why real songs (e.g.
-//! current commercial releases) are deliberately not used for this —
-//! bundling a transcription of one into shipped demo content is a
-//! meaningfully different (and real) copyright exposure than a user
-//! analyzing their own copy of a song for personal use.
+//! These are hand-authored here (standard chord progressions and jazz
+//! turnarounds, like C-G-Am-F or a ii-V-I, aren't copyrightable — only a
+//! specific melodic/lyrical realization is, and these melodies are
+//! original), not transcriptions of any existing song, including the
+//! real, famous songs referenced by name in the frontend's genre
+//! inspiration lists (title/artist/year only — factual reference points,
+//! not sources these compositions are derived from). See
+//! docs/UX_DESIGN.md for why real songs (e.g. current commercial
+//! releases) are deliberately not transcribed for this — bundling a
+//! transcription or arrangement reconstruction of one into shipped demo
+//! content is a meaningfully different (and real) copyright exposure than
+//! a user analyzing their own copy of a song for personal use.
 
 use super::synth::ScoreNote;
 
@@ -25,6 +30,7 @@ pub struct DemoLayer {
 
 pub struct DemoSong {
     pub title: &'static str,
+    pub genre: &'static str,
     pub description: &'static str,
     pub layers: Vec<DemoLayer>,
     /// Percussion is rendered separately (fixed GM drum-kit key numbers,
@@ -94,6 +100,7 @@ fn morning_loop() -> DemoSong {
 
     DemoSong {
         title: "Morning Loop",
+        genre: "Pop",
         description: "Upbeat pop progression (C–G–Am–F) — piano, bass, guitar, and a choir lead.",
         layers: vec![
             DemoLayer {
@@ -143,6 +150,7 @@ fn night_drive() -> DemoSong {
 
     DemoSong {
         title: "Night Drive",
+        genre: "R&B / Soul",
         description:
             "Slower minor-key loop (Am–F–C–G) — electric piano, synth bass, and a synth-voice lead.",
         layers: vec![
@@ -194,6 +202,7 @@ fn sunset_stroll() -> DemoSong {
 
     DemoSong {
         title: "Sunset Stroll",
+        genre: "Folk / Acoustic",
         description:
             "Laid-back major-key loop (G–Em–C–D) — acoustic guitar, piano, and a flute lead.",
         layers: vec![
@@ -222,8 +231,171 @@ fn sunset_stroll() -> DemoSong {
     }
 }
 
+/// "Blue Corner" — a classic jazz turnaround (ii–V–I–vi: Dm7–G7–Cmaj7–Am7),
+/// original melodic content over that (uncopyrightable) chord skeleton.
+fn blue_corner() -> DemoSong {
+    let chords: [ChordSpec; 4] = [
+        (vec![50, 53, 57, 60], 38, [62, 65, 69], [69, 67, 65, 62]), // Dm7
+        (vec![55, 59, 62, 65], 43, [67, 71, 74], [74, 72, 71, 69]), // G7
+        (vec![48, 52, 55, 59], 36, [60, 64, 67], [67, 65, 64, 62]), // Cmaj7
+        (vec![57, 60, 64, 67], 45, [69, 72, 76], [76, 74, 72, 69]), // Am7
+    ];
+
+    let mut piano = Vec::new();
+    let mut bass = Vec::new();
+    let mut guitar = Vec::new();
+    let mut lead = Vec::new();
+    for (chord, root, arp_tones, mel) in chords {
+        piano.push(ScoreNote::chord(chord, BAR_SEC));
+        bass.extend(bass_pulse(root));
+        guitar.extend(arpeggio(arp_tones));
+        lead.extend(melody_phrase(mel));
+    }
+
+    DemoSong {
+        title: "Blue Corner",
+        genre: "Jazz",
+        description:
+            "Classic jazz turnaround (Dm7–G7–Cmaj7–Am7) — tenor sax lead over piano, guitar comping, and upright bass.",
+        layers: vec![
+            DemoLayer {
+                name: "Sax Lead",
+                program: 66,
+                notes: lead,
+            }, // Tenor Sax
+            DemoLayer {
+                name: "Guitar",
+                program: 26,
+                notes: guitar,
+            }, // Electric Guitar (jazz)
+            DemoLayer {
+                name: "Piano",
+                program: 4,
+                notes: piano,
+            }, // Electric Piano 1
+            DemoLayer {
+                name: "Bass",
+                program: 32,
+                notes: bass,
+            }, // Acoustic Bass
+        ],
+        drums: four_bar_drums(),
+    }
+}
+
+/// "Corner Groove" — a boom-bap style loop (i–VII–VI–VII: Am–G–F–G), the
+/// same kind of short, repeating minor-key loop the genre is built on.
+fn corner_groove() -> DemoSong {
+    let chords: [ChordSpec; 4] = [
+        (vec![57, 60, 64], 45, [69, 72, 76], [76, 74, 72, 69]), // Am
+        (vec![55, 59, 62], 43, [67, 71, 74], [74, 72, 71, 67]), // G
+        (vec![53, 57, 60], 41, [65, 69, 72], [72, 69, 65, 60]), // F
+        (vec![55, 59, 62], 43, [67, 71, 74], [71, 69, 67, 62]), // G
+    ];
+
+    let mut piano = Vec::new();
+    let mut bass = Vec::new();
+    let mut synth_riff = Vec::new();
+    let mut horn_stabs = Vec::new();
+    for (chord, root, arp_tones, mel) in chords {
+        piano.push(ScoreNote::chord(chord, BAR_SEC));
+        bass.extend(bass_pulse(root));
+        synth_riff.extend(arpeggio(arp_tones));
+        horn_stabs.extend(melody_phrase(mel));
+    }
+
+    DemoSong {
+        title: "Corner Groove",
+        genre: "Hip-Hop",
+        description:
+            "Boom-bap style loop (Am–G–F–G) — horn-stab hook, synth riff, electric piano stabs, and deep synth bass.",
+        layers: vec![
+            DemoLayer {
+                name: "Horn Stabs",
+                program: 61,
+                notes: horn_stabs,
+            }, // Brass Section
+            DemoLayer {
+                name: "Synth Riff",
+                program: 81,
+                notes: synth_riff,
+            }, // Lead 2 (sawtooth)
+            DemoLayer {
+                name: "Piano",
+                program: 5,
+                notes: piano,
+            }, // Electric Piano 2
+            DemoLayer {
+                name: "Bass",
+                program: 39,
+                notes: bass,
+            }, // Synth Bass 2
+        ],
+        drums: four_bar_drums(),
+    }
+}
+
+/// "Fireside Loop" — a warm holiday-pop progression (I–IV–V–I: F–Bb–C–F),
+/// the same major-key, glockenspiel-sparkle territory the genre lives in.
+fn fireside_loop() -> DemoSong {
+    let chords: [ChordSpec; 4] = [
+        (vec![53, 57, 60], 41, [65, 69, 72], [72, 74, 76, 77]), // F
+        (vec![58, 62, 65], 46, [70, 74, 77], [77, 76, 74, 72]), // Bb
+        (vec![60, 64, 67], 48, [72, 76, 79], [79, 77, 76, 74]), // C
+        (vec![53, 57, 60], 41, [65, 69, 72], [72, 69, 65, 60]), // F
+    ];
+
+    let mut piano = Vec::new();
+    let mut bass = Vec::new();
+    let mut sparkle = Vec::new();
+    let mut lead = Vec::new();
+    for (chord, root, arp_tones, mel) in chords {
+        piano.push(ScoreNote::chord(chord, BAR_SEC));
+        bass.extend(bass_pulse(root));
+        sparkle.extend(arpeggio(arp_tones));
+        lead.extend(melody_phrase(mel));
+    }
+
+    DemoSong {
+        title: "Fireside Loop",
+        genre: "Holiday",
+        description:
+            "Warm holiday-pop loop (F–Bb–C–F) — glockenspiel sparkle, piano, bass, and a choir lead.",
+        layers: vec![
+            DemoLayer {
+                name: "Choir Lead",
+                program: 52,
+                notes: lead,
+            }, // Choir Aahs
+            DemoLayer {
+                name: "Sparkle",
+                program: 9,
+                notes: sparkle,
+            }, // Glockenspiel
+            DemoLayer {
+                name: "Piano",
+                program: 0,
+                notes: piano,
+            },
+            DemoLayer {
+                name: "Bass",
+                program: 33,
+                notes: bass,
+            },
+        ],
+        drums: four_bar_drums(),
+    }
+}
+
 pub fn all_demo_songs() -> Vec<DemoSong> {
-    vec![morning_loop(), night_drive(), sunset_stroll()]
+    vec![
+        morning_loop(),
+        night_drive(),
+        sunset_stroll(),
+        blue_corner(),
+        corner_groove(),
+        fireside_loop(),
+    ]
 }
 
 pub fn demo_song(index: usize) -> Option<DemoSong> {
@@ -235,7 +407,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn all_three_demo_songs_have_five_layers_including_drums() {
+    fn all_demo_songs_have_four_layers_plus_drums() {
+        assert_eq!(all_demo_songs().len(), 6);
         for song in all_demo_songs() {
             assert_eq!(
                 song.layers.len(),
