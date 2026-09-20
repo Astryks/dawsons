@@ -4,7 +4,6 @@
 
 # Node
 node_modules/
-dist/
 .vite/
 apps/desktop/dist/
 
@@ -26,7 +25,14 @@ services/ai-sidecar/.dawsons-work/
 *.safetensors
 
 # Build/bundle artifacts
-services/ai-sidecar/dist/
+# dist/dawsons-sidecar/ is a special case: its README.md IS committed
+# (Tauri's build script checks this path exists at compile time — see
+# that README for why), but the actual frozen binary/support files
+# scripts/build_sidecar.sh writes there are not.
+services/ai-sidecar/dist/*
+!services/ai-sidecar/dist/dawsons-sidecar
+services/ai-sidecar/dist/dawsons-sidecar/*
+!services/ai-sidecar/dist/dawsons-sidecar/README.md
 services/ai-sidecar/build/
 services/ai-sidecar/*.spec
 *.dmg
