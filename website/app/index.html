@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Dawsons Companion</title>
+  <meta name="description" content="Record voice notes and play back audio on the go — a free, local-only companion to the Dawsons desktop app. Nothing is uploaded anywhere." />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="apple-touch-icon" href="icon-192.png" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="theme-color" content="#0d0f13" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <span class="topbar__title">Dawsons Companion</span>
+    <span class="topbar__badge">100% on this device</span>
+  </header>
+
+  <main>
+    <section class="card">
+      <h2>Voice Notes</h2>
+      <p class="hint">Recorded and stored only in this browser on this device — nothing is uploaded, nothing syncs. Export a note to move it to the desktop app.</p>
+      <div class="row">
+        <button id="recordBtn" class="btn btn--primary">Start recording</button>
+        <span id="recordStatus" class="hint"></span>
+      </div>
+      <ul id="noteList" class="list"></ul>
+    </section>
+
+    <section class="card">
+      <h2>Play an audio file</h2>
+      <p class="hint">Open any audio file on this device — e.g. a mix exported from the desktop app — and play it back here.</p>
+      <input id="fileInput" type="file" accept="audio/*" />
+      <audio id="filePlayer" controls style="width: 100%; margin-top: 0.75rem; display: none"></audio>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
