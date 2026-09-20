@@ -16,8 +16,14 @@ first for what's actually done vs. planned.
 - **M4 — Real song analysis**: real Demucs stem separation via `htdemucs_6s` (6 stems: vocals/drums/bass/guitar/piano/other — a genuinely different model checkpoint than the default 4-stem one), job tracking (`POST /analyze` → poll → done), stems load as independently mutable tracks
 - **M5 — Tempo/key/chord/section detection**: real librosa-based tempo/key, a custom chroma+template chord detector (avoids GPL Chordino), novelty-based sections — all assembled into the full schema-validated Scene Graph fragment, persisted per-project in SQLite
 - **Instrument library** — 128 General MIDI instruments playable via `rustysynth` + a free MIT-licensed SoundFont (FluidR3_GM, fetched via `scripts/download_soundfont.sh`, never committed — same pattern as model weights)
+- **Voice-to-instrument** — the second flagship capability from the original vision. YIN pitch tracking (classical DSP, not a model) turns a recording into MIDI notes, played back through any of the 128 GM instruments.
 
-29 Rust unit tests + 4 Python tests (including real end-to-end runs — Demucs inference and the full M5 pipeline, not mocked) passing. Everything above runs 100% locally — no server, no cloud cost, per the project's core constraint.
+32 Rust unit tests + 4 Python tests (including real end-to-end runs — Demucs inference and the full M5 pipeline, not mocked) passing. Everything above runs 100% locally — no server, no cloud cost, per the project's core constraint.
+
+## Open-source model inventory (what's actually integrated vs. discussed)
+
+- **Integrated**: Demucs (`htdemucs_6s`), librosa (tempo/key), a custom chroma+template chord detector (replaces Chordino/GPL), YIN pitch tracking (replaces CREPE for this use case — see reasoning in the voice-to-instrument commit).
+- **Discussed, not yet integrated**: CREPE (optional higher-accuracy pitch mode — tractable, queued), DDSP (real timbre-preserving voice-to-instrument, bigger effort — queued), MT3/Omnizart (polyphonic transcription to populate real note-level data in stems — needs research into current install paths, historically finicky JAX-based setup), ACE-Step/YuE2 (full generative models — Phase 5, likely too heavy for the 16GB M1 Pro this was built on; correctly deferred per the original roadmap's own "generation only after editing is solid" principle).
 
 ## Not started yet
 
