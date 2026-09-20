@@ -1,7 +1,9 @@
 use tauri::{AppHandle, Manager, State};
 use uuid::Uuid;
 
-use crate::audio_engine::{capture, transport, wav_writer};
+use crate::audio_engine::{
+    capture, decode, mixer::TrackBuffer, pitch, synth, transport, wav_writer,
+};
 use crate::scene_graph::{store, VoiceNote};
 use crate::state::AppState;
 
@@ -114,4 +116,41 @@ pub fn play_voice_note(state: State<AppState>, file_path: String) -> Result<(), 
         std::path::Path::new(&file_path),
     )?;
     transport::play(&handle.mixer)
+}
+
+/// Voice-to-instrument: pitch-tracks a recorded voice note (YIN — fast,
+/// local, no model download) and re-renders the detected melody through
+/// the chosen GM instrument. The "sing it, hear any instrument" flagship
+/// feature.
+#[tauri::command]
+pub fn play_voice_note_as_instrument(
+    state: State<AppState>,
+    file_path: String,
+    program: u8,
+) -> Result<(), String> {
+    let decoded = decode::decode_file(std::path::Path::new(&file_path))?;
+    let notes = pitch::extract_notes(&decoded.samples, decoded.channels, decoded.sample_rate);
+
+    let audio = state
+        .audio
+        .lock()
+        .map_err(|_| "audio state poisoned".to_string())?;
+    let handle = audio
+        .as_ref()
+        .ok_or_else(|| "audio engine unavailable".to_string())?;
+    let rendered = synth::render_melody(&handle.engine_config, program, &notes)?;
+
+    let mut mixer = handle
+        .mixer
+        .lock()
+        .map_err(|_| "mixer lock poisoned".to_string())?;
+    mixer.tracks = vec![TrackBuffer {
+        name: format!("voice-as-instrument-{program}"),
+        samples: std::sync::Arc::new(rendered),
+        gain: 1.0,
+        muted: false,
+    }];
+    mixer.position = 0;
+    mixer.playing = true;
+    Ok(())
 }

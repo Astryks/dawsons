@@ -274,6 +274,14 @@ export default function App() {
     }
   }
 
+  async function handlePlayVoiceNoteAsInstrument(filePath: string) {
+    try {
+      await invoke("play_voice_note_as_instrument", { filePath, program: instrumentProgram });
+    } catch (err) {
+      setVoiceNoteError(String(err));
+    }
+  }
+
   async function handleDeleteVoiceNote(id: string) {
     try {
       await invoke("delete_voice_note", { id });
@@ -471,6 +479,9 @@ export default function App() {
                 </span>
                 <span className="voice-note-list__actions">
                   <button onClick={() => handlePlayVoiceNote(note.file_path)}>Play</button>
+                  <button onClick={() => handlePlayVoiceNoteAsInstrument(note.file_path)}>
+                    Play as {GM_INSTRUMENTS[instrumentProgram]}
+                  </button>
                   <button onClick={() => handleDeleteVoiceNote(note.id)}>Delete</button>
                 </span>
               </li>
