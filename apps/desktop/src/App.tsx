@@ -185,6 +185,47 @@ interface DemoSongInfo {
   description: string;
 }
 
+interface ConfidentValue {
+  value: number;
+  confidence: number;
+  source: string;
+}
+
+interface SongKey {
+  tonic: string;
+  mode: string;
+  confidence: number;
+  source: string;
+}
+
+interface ChordInfo {
+  symbol: string;
+  startSec: number;
+  endSec: number;
+  confidence: number;
+}
+
+interface SectionInfo {
+  id: string;
+  label: string;
+  startSec: number;
+  endSec: number;
+  confidence?: number;
+}
+
+interface GraphTrackInfo {
+  name: string;
+  confidence?: number;
+}
+
+interface SongGraph {
+  bpm: ConfidentValue;
+  key: SongKey;
+  chords?: ChordInfo[];
+  sections?: SectionInfo[];
+  tracks?: GraphTrackInfo[];
+}
+
 interface AnalysisStatus {
   job_id: string;
   status: "pending" | "running" | "done" | "failed";
@@ -192,8 +233,18 @@ interface AnalysisStatus {
   progress: number;
   // Full Scene-Graph-shaped fragment once done — see
   // packages/scene-graph-schema/schema/scene-graph.schema.json.
-  result: Record<string, unknown> | null;
+  result: { song: SongGraph } | null;
   error: string | null;
+}
+
+// Renders an AI-detected value's confidence as a small colored badge —
+// the Scene Graph carries a confidence score on every AI-derived field
+// (bpm, key, chords, sections, track source), so users can tell "the
+// model is sure about this" apart from "this is a rough guess."
+function confidenceBadge(confidence: number) {
+  const pct = Math.round(confidence * 100);
+  const level = confidence >= 0.75 ? "high" : confidence >= 0.5 ? "medium" : "low";
+  return <span className={`confidence-badge confidence-badge--${level}`}>{pct}%</span>;
 }
 
 export default function App() {
@@ -859,18 +910,61 @@ export default function App() {
             </p>
           )}
           {analysisError && <p className="debug-panel__error">{analysisError}</p>}
-          <ul className="voice-note-list">
-            {tracks.map((t, i) => (
-              <li key={t.name + i} className="voice-note-list__item">
-                <span>{t.name}</span>
-                <span className="voice-note-list__actions">
-                  <label>
-                    <input type="checkbox" checked={t.muted} onChange={(e) => handleToggleMute(i, e.target.checked)} />
-                    Mute
-                  </label>
+          {analysis?.result?.song && (
+            <div className="analysis-summary">
+              <div className="analysis-summary__row">
+                <span>Tempo: {Math.round(analysis.result.song.bpm.value)} BPM</span>
+                {confidenceBadge(analysis.result.song.bpm.confidence)}
+              </div>
+              <div className="analysis-summary__row">
+                <span>
+                  Key: {analysis.result.song.key.tonic} {analysis.result.song.key.mode}
                 </span>
-              </li>
-            ))}
+                {confidenceBadge(analysis.result.song.key.confidence)}
+              </div>
+              {!!analysis.result.song.chords?.length && (
+                <div className="analysis-summary__row analysis-summary__row--wrap">
+                  <span className="analysis-summary__label">Chords:</span>
+                  {analysis.result.song.chords.slice(0, 16).map((c, i) => (
+                    <span key={i} className="chord-chip">
+                      {c.symbol} {confidenceBadge(c.confidence)}
+                    </span>
+                  ))}
+                  {analysis.result.song.chords.length > 16 && (
+                    <span className="debug-panel__hint">+{analysis.result.song.chords.length - 16} more</span>
+                  )}
+                </div>
+              )}
+              {!!analysis.result.song.sections?.length && (
+                <div className="analysis-summary__row analysis-summary__row--wrap">
+                  <span className="analysis-summary__label">Sections:</span>
+                  {analysis.result.song.sections.map((s) => (
+                    <span key={s.id} className="chord-chip">
+                      {s.label} ({Math.round(s.startSec)}s–{Math.round(s.endSec)}s)
+                      {s.confidence !== undefined && confidenceBadge(s.confidence)}
+                    </span>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          <ul className="voice-note-list">
+            {tracks.map((t, i) => {
+              const graphTrack = analysis?.result?.song.tracks?.find((gt) => gt.name === t.name);
+              return (
+                <li key={t.name + i} className="voice-note-list__item">
+                  <span>
+                    {t.name} {graphTrack?.confidence !== undefined && confidenceBadge(graphTrack.confidence)}
+                  </span>
+                  <span className="voice-note-list__actions">
+                    <label>
+                      <input type="checkbox" checked={t.muted} onChange={(e) => handleToggleMute(i, e.target.checked)} />
+                      Mute
+                    </label>
+                  </span>
+                </li>
+              );
+            })}
             {tracks.length === 0 && <li className="debug-panel__hint">No tracks loaded yet.</li>}
           </ul>
         </section>

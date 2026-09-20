@@ -345,3 +345,62 @@ body {
   cursor: pointer;
   font-size: 0.8rem;
 }
+
+.confidence-badge {
+  display: inline-block;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  font-size: 0.7rem;
+  font-weight: 600;
+  margin-left: 0.3rem;
+}
+
+.confidence-badge--high {
+  background: #1f3a26;
+  color: #6ee08a;
+}
+
+.confidence-badge--medium {
+  background: #3a3320;
+  color: #e0c368;
+}
+
+.confidence-badge--low {
+  background: #3a1f1f;
+  color: #e06e6e;
+}
+
+.analysis-summary {
+  margin: 0.75rem 0;
+  padding: 0.6rem 0.75rem;
+  background: #1a1d22;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  font-size: 0.85rem;
+}
+
+.analysis-summary__row {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+.analysis-summary__row--wrap {
+  flex-wrap: wrap;
+}
+
+.analysis-summary__label {
+  color: #9aa0a8;
+  margin-right: 0.2rem;
+}
+
+.chord-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  background: #23262c;
+  border-radius: 6px;
+  font-size: 0.8rem;
+}
