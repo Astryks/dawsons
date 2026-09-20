@@ -181,9 +181,9 @@ private struct RestyleBar: View {
             Text("Restyle:")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Button("⚡ Electronic", action: onElectronic)
+            Button(action: onElectronic) { Label("Electronic", systemImage: "bolt.fill") }
                 .font(.caption).buttonStyle(.bordered)
-            Button("🎷 Jazzy", action: onJazz)
+            Button(action: onJazz) { Label("Jazzy", systemImage: "music.quarternote.3") }
                 .font(.caption).buttonStyle(.bordered)
         }
         .padding(.horizontal)
