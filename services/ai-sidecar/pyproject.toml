@@ -12,6 +12,8 @@ dependencies = [
     "torchaudio>=2.4",
     "numpy>=1.26",
     "soundfile>=0.12",
+    "librosa>=0.10",
+    "jsonschema>=4.20",
 ]
 
 # librosa/soundfile land with M5 (tempo/key/chord detection) — not needed

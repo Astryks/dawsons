@@ -30,7 +30,9 @@ interface AnalysisStatus {
   status: "pending" | "running" | "done" | "failed";
   stage: string | null;
   progress: number;
-  result: { stems: Record<string, string> } | null;
+  // Full Scene-Graph-shaped fragment once done — see
+  // packages/scene-graph-schema/schema/scene-graph.schema.json.
+  result: Record<string, unknown> | null;
   error: string | null;
 }
 
@@ -173,7 +175,10 @@ export default function App() {
         setAnalysis(status);
         if (status.status === "done" && status.result) {
           clearInterval(interval);
-          await invoke("load_stems", { stems: status.result.stems });
+          await invoke("load_stems_from_result", { result: status.result });
+          if (currentProjectId) {
+            await invoke("save_scene_graph", { projectId: currentProjectId, data: status.result });
+          }
           await refreshTracks();
         } else if (status.status === "failed") {
           clearInterval(interval);

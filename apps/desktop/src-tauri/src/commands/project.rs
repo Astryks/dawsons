@@ -42,3 +42,37 @@ pub fn rename_project(state: State<AppState>, id: String, name: String) -> Resul
 pub fn delete_project(state: State<AppState>, id: String) -> Result<(), String> {
     with_db(&state, |conn| store::delete_project(conn, &id))
 }
+
+/// Persists a completed analysis result (or any Scene-Graph-shaped value)
+/// against a project. `data` is stored as-is (already schema-validated on
+/// the Python side); `schema_version` is read out of it here so the two
+/// never drift apart.
+#[tauri::command]
+pub fn save_scene_graph(
+    state: State<AppState>,
+    project_id: String,
+    data: serde_json::Value,
+) -> Result<(), String> {
+    let schema_version = data
+        .get("schemaVersion")
+        .and_then(|v| v.as_str())
+        .ok_or_else(|| "missing schemaVersion".to_string())?
+        .to_string();
+    let serialized = serde_json::to_string(&data)
+        .map_err(|e| format!("failed to serialize scene graph: {e}"))?;
+    with_db(&state, |conn| {
+        store::save_scene_graph(conn, &project_id, &schema_version, &serialized)
+    })
+}
+
+/// Returns a project's saved Scene Graph, if it has one — e.g. to restore
+/// a previous analysis when the user switches back to that project.
+#[tauri::command]
+pub fn get_scene_graph(
+    state: State<AppState>,
+    project_id: String,
+) -> Result<Option<serde_json::Value>, String> {
+    let raw = with_db(&state, |conn| store::get_scene_graph(conn, &project_id))?;
+    raw.map(|s| serde_json::from_str(&s).map_err(|e| format!("stored scene graph is corrupt: {e}")))
+        .transpose()
+}

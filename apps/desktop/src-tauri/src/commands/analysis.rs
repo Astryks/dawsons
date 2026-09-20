@@ -3,7 +3,6 @@
 //! sidecar's HTTP API rather than exposing it to the frontend directly
 //! (see ADR 0001) — the frontend only ever calls these Tauri commands.
 
-use std::collections::HashMap;
 use std::path::PathBuf;
 use std::time::Duration;
 
@@ -14,18 +13,19 @@ use crate::audio_engine::transport;
 use crate::sidecar::SidecarStatus;
 use crate::state::AppState;
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct AnalysisResult {
-    pub stems: HashMap<String, String>,
-}
-
+/// `result` is kept as a raw JSON `Value` rather than a fixed struct: it's
+/// the full Scene-Graph-shaped fragment (see
+/// packages/scene-graph-schema/schema/scene-graph.schema.json), which is
+/// validated on the Python side already — Rust just needs to read a few
+/// fields out of it (see `load_stems_from_result`) and persist the rest
+/// verbatim into the project's `scene_graphs` row.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AnalysisStatus {
     pub job_id: String,
     pub status: String,
     pub stage: Option<String>,
     pub progress: f64,
-    pub result: Option<AnalysisResult>,
+    pub result: Option<serde_json::Value>,
     pub error: Option<String>,
 }
 
@@ -104,10 +104,34 @@ pub fn analysis_status(state: State<AppState>, job_id: String) -> Result<Analysi
         .map_err(|e| format!("failed to parse status: {e}"))
 }
 
-/// Loads a completed job's stems into the audio engine as separate,
-/// independently mutable tracks.
+/// Pulls `{name, audioFilePath}` out of each entry in `result.song.tracks`
+/// and loads them into the audio engine as separate, independently
+/// mutable tracks.
 #[tauri::command]
-pub fn load_stems(state: State<AppState>, stems: HashMap<String, String>) -> Result<(), String> {
+pub fn load_stems_from_result(
+    state: State<AppState>,
+    result: serde_json::Value,
+) -> Result<(), String> {
+    let tracks = result
+        .get("song")
+        .and_then(|s| s.get("tracks"))
+        .and_then(|t| t.as_array())
+        .ok_or_else(|| "analysis result has no song.tracks array".to_string())?;
+
+    let mut paths: Vec<(String, PathBuf)> = Vec::with_capacity(tracks.len());
+    for track in tracks {
+        let name = track
+            .get("name")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| "track missing name".to_string())?
+            .to_string();
+        let path = track
+            .get("audioFilePath")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| format!("track {name} missing audioFilePath"))?;
+        paths.push((name, PathBuf::from(path)));
+    }
+
     let audio = state
         .audio
         .lock()
@@ -115,9 +139,5 @@ pub fn load_stems(state: State<AppState>, stems: HashMap<String, String>) -> Res
     let handle = audio
         .as_ref()
         .ok_or_else(|| "audio engine unavailable".to_string())?;
-    let paths: Vec<(String, PathBuf)> = stems
-        .into_iter()
-        .map(|(name, path)| (name, PathBuf::from(path)))
-        .collect();
     transport::load_stems(&handle.mixer, &handle.engine_config, &paths)
 }

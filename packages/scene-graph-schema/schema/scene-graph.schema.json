@@ -89,7 +89,7 @@
         "type": { "type": "string", "enum": ["audio", "midi"], "description": "Phase 1 tracks are all audio (stems); midi is reserved for later transcription phases" },
         "instrument": { "type": "string", "description": "e.g. vocals, drums, bass, other, piano, guitar" },
         "audioFilePath": { "type": "string", "description": "path to the separated stem audio file" },
-        "sourceStem": { "type": "string", "enum": ["vocals", "drums", "bass", "other"], "description": "which Demucs stem this track came from" },
+        "sourceStem": { "type": "string", "enum": ["vocals", "drums", "bass", "guitar", "piano", "other"], "description": "which Demucs stem this track came from" },
         "gainDb": { "type": "number", "default": 0 },
         "muted": { "type": "boolean", "default": false },
         "solo": { "type": "boolean", "default": false },
