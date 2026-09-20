@@ -49,6 +49,7 @@ pub fn run() {
             commands::voice_notes::list_voice_notes,
             commands::voice_notes::delete_voice_note,
             commands::voice_notes::play_voice_note,
+            commands::voice_notes::play_voice_note_as_instrument,
         ])
         .run(tauri::generate_context!())
         .expect("error while running dawsons");
