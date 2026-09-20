@@ -568,10 +568,15 @@ const EFFECT_STACK_DEFS = [
   { key: "distortion", param: "distortionAmount", slider: "distortion", scale: 0.01 },
   { key: "reverb", param: "reverbWet", slider: "reverb", scale: 0.01 },
   { key: "delay", param: "delayWet", slider: "delay", scale: 0.01 },
+  // Compression is a plain on/off toggle, no slider — matching how it's
+  // actually used ("stock compression": a fixed, sensible default, not
+  // something tweaked per-take).
+  { key: "compress", param: "compressEnabled", slider: null },
 ];
 
 function wireEffectStack(prefix) {
   for (const def of EFFECT_STACK_DEFS) {
+    if (!def.slider) continue;
     const checkbox = document.getElementById(`${prefix}-fx-${def.key}`);
     const slider = document.getElementById(`${prefix}-${def.slider}`);
     checkbox.onchange = () => {
@@ -592,9 +597,15 @@ function effectStackOptsFrom(prefix) {
     delayWet: 0,
     delayMs: 250,
     delayFeedback: 0.3,
+    compressEnabled: false,
   };
   for (const def of EFFECT_STACK_DEFS) {
-    if (!document.getElementById(`${prefix}-fx-${def.key}`).checked) continue;
+    const checked = document.getElementById(`${prefix}-fx-${def.key}`).checked;
+    if (!checked) continue;
+    if (!def.slider) {
+      opts[def.param] = true;
+      continue;
+    }
     const slider = document.getElementById(`${prefix}-${def.slider}`);
     opts[def.param] = Number(slider.value) * (def.scale ?? 1);
   }
@@ -602,7 +613,14 @@ function effectStackOptsFrom(prefix) {
 }
 
 function effectStackHasAny(opts) {
-  return opts.roboticHz > 0 || opts.muffleCutoffHz > 0 || opts.distortionAmount > 0 || opts.reverbWet > 0 || opts.delayWet > 0;
+  return (
+    opts.roboticHz > 0 ||
+    opts.muffleCutoffHz > 0 ||
+    opts.distortionAmount > 0 ||
+    opts.reverbWet > 0 ||
+    opts.delayWet > 0 ||
+    opts.compressEnabled
+  );
 }
 
 document.getElementById("fx-apply-btn").onclick = async () => {
