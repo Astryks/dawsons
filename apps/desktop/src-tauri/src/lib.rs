@@ -63,6 +63,9 @@ pub fn run() {
             commands::generate::start_music_generation,
             commands::generate::music_generation_status,
             commands::generate::load_generated_clip,
+            commands::pitch_crepe::start_high_accuracy_pitch_detection,
+            commands::pitch_crepe::high_accuracy_pitch_detection_status,
+            commands::pitch_crepe::play_crepe_notes_as_instrument,
         ])
         .run(tauri::generate_context!())
         .expect("error while running dawsons");

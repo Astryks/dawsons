@@ -32,11 +32,14 @@ revenue-gated license) — see "Models used" below for the full trail.
 |---|---|---|
 | **Demucs** (`htdemucs_6s`) | MIT | Real stem separation — splits an uploaded song into vocals/drums/bass/guitar/piano/other. Also powers Smart Upload's stem-energy classifier and the clip-tools "isolate a sound" step. |
 | **librosa** | ISC | Tempo detection, Krumhansl-Schmuckler key detection, chroma features feeding the chord detector, novelty-curve section boundaries. |
-| **Custom chroma+template chord detector** (our own code, `chords.py`) | N/A (original code) | Chord recognition — built in-house specifically to avoid Chordino (GPL-2.0). Covers 8 chord qualities (maj/min/dom7/maj7/min7/sus4/sus2/dim), with HPSS-based noise rejection and a full Viterbi/HMM temporal decoder — the same *published, uncopyrightable technique* (NNLS-style deconvolution + probabilistic temporal smoothing) that makes academic detectors like Chordino accurate, reimplemented as our own code rather than depending on their GPL binary (see Test results). |
+| **Custom chroma+template chord detector** (our own code, `chords.py`) | N/A (original code) | Chord recognition — built in-house specifically to avoid Chordino (GPL-2.0). Covers 12 chord qualities (maj/min/dom7/maj7/min7/sus4/sus2/dim/aug/dim7/hdim7/dom7sus4 — 144 templates), with HPSS-based noise rejection and a full Viterbi/HMM temporal decoder — the same *published, uncopyrightable technique* (NNLS-style deconvolution + probabilistic temporal smoothing) that makes academic detectors like Chordino accurate, reimplemented as our own code rather than depending on their GPL binary (see Test results). |
 | **YIN pitch tracking** (our own code, `pitch.rs`) | N/A (classical DSP algorithm, not a model) | Powers voice-to-instrument — turns a sung/hummed recording into MIDI notes. Chosen over CREPE for this specific use case (no neural-network runtime needed in the Rust engine). |
 | **rustysynth + FluidR3_GM.sf2** | MIT (both) | The 128-instrument General MIDI synth — renders detected notes/chords/demo songs through any instrument. |
-| **ACE-Step** (`ACE-Step-v1-3.5B`) | Apache-2.0 (**verified directly against the LICENSE file and the Hugging Face model card's `license` field**, not just a description) | New: text-prompt-to-original-instrumental generation ("Generate with AI"). Diffusion-based, ~8.3GB of weights, runs locally via `diffusers`/`transformers`/`accelerate`. Instrumental-only by design (no lyrics/vocal cloning). |
+| **ACE-Step** (`ACE-Step-v1-3.5B`) | Apache-2.0 (**verified directly against the LICENSE file and the Hugging Face model card's `license` field**, not just a description) | Text-prompt-to-original-instrumental generation ("Generate with AI"). Diffusion-based, ~8.3GB of weights, runs locally via `diffusers`/`transformers`/`accelerate`. Instrumental-only by design (no lyrics/vocal cloning). |
 | **Schroeder reverb, biquad EQ, envelope-follower compressor, feedback delay** (our own code, `effects.rs`) | N/A (classical/textbook DSP algorithms) | The clip-tools effect chain — reverse, pitch, EQ, compression, delay, reverb, all from scratch, no dependency. |
+| **faster-whisper** (CTranslate2 reimplementation of OpenAI Whisper) | MIT (verified directly against the LICENSE file; OpenAI's own Whisper code+weights separately verified MIT) | Time-synced lyric transcription of a song's own isolated vocals stem, wired into the `/analyze` pipeline. Runs on CPU/CUDA only (CTranslate2 has no MPS backend). |
+| **torchcrepe** (PyTorch port of CREPE) | MIT (verified directly against the LICENSE file) | Optional "high accuracy" pitch mode for voice-to-instrument, via a new sidecar `/pitch` endpoint. The default path stays the pure-Rust YIN implementation (no model, no sidecar round-trip); CREPE is for quiet/breathy/noisy recordings YIN struggles with. |
+| **Web Audio API** (browser-native) | N/A (browser platform capability) | The entire in-browser DAW at mydawsons.com — playback/mixing, EQ (`BiquadFilterNode`), compression (`DynamicsCompressorNode`), delay (`DelayNode`), reverb (`ConvolverNode` + a generated impulse), reverse/pitch-shift (direct `AudioBuffer` manipulation), and an original oscillator-based synth (no SoundFont — 148MB isn't reasonable on a marketing page). |
 
 ### Explicitly evaluated and rejected (with the actual reason)
 
@@ -54,39 +57,45 @@ revenue-gated license) — see "Models used" below for the full trail.
 
 ### Evaluated for future features, license-clean but not yet built
 
-- **RVC** (MIT, code + pretrained base models) and **DDSP-SVC** (`yxlllc/DDSP-SVC`, MIT — verified directly against the LICENSE file) — both are genuinely usable, unlike Diff-SVC/so-vits-svc above. They'd enable real audio-domain timbre transfer (e.g. hum → violin, preserving actual breath/dynamics/expression) instead of today's "detect notes, replay through GM synth" approach. **Blocker: not a licensing issue but a resource one.** Their published pretrained models are almost entirely trained on real human voices (raising the exact voice-cloning/impersonation misuse concern flagged during evaluation — most public RVC models are of real, often non-consenting, identifiable people). Getting safe *instrument*-timbre conversion instead means training our own model on instrument recordings, which needs real data curation and training compute this project doesn't currently have. Explicitly not pursuing training a model from scratch for this reason — revisit if that changes.
-- **Whisper** (OpenAI, MIT — code and weights) — verified clean, no dual-use concern (transcription, not voice generation). Good candidate for lyric transcription of a user's own uploaded/recorded audio. Not yet built.
+- **RVC** (MIT, code + pretrained base models) and **DDSP-SVC** (`yxlllc/DDSP-SVC`, MIT — verified directly against the LICENSE file) — both are genuinely usable, unlike Diff-SVC/so-vits-svc above. They'd enable real audio-domain timbre transfer (e.g. hum → violin, preserving actual breath/dynamics/expression) instead of today's "detect notes, replay through GM synth" approach. **Blocker: not a licensing issue but a resource one.** Their published pretrained models are almost entirely trained on real human voices (raising the exact voice-cloning/impersonation misuse concern flagged during evaluation — most public RVC models are of real, often non-consenting, identifiable people). Getting safe *instrument*-timbre conversion instead means training our own model on instrument recordings, which needs real data curation and training compute this project doesn't currently have. Explicitly declined for now given no training budget — revisit if that changes.
 - **AI Sampler** (type a prompt, get a one-off SFX/drum-break sample) — no permissively-licensed candidate identified yet; Stable Audio Open and AudioLDM 2 (the two obvious candidates) are both excluded above.
 
 ### Queued, not yet integrated
 
-- **CREPE** — optional higher-accuracy pitch mode (MIT). Tractable; would need a new sidecar endpoint since it requires a Python ML runtime, unlike the current pure-Rust YIN implementation.
 - **MT3 / Omnizart** — polyphonic/drum transcription for real note-level data in stems. Needs research into current install paths (historically a finicky JAX-based setup).
 
 ## Test results
 
 - **Rust**: 58 unit tests passing (`cargo test`), 0 clippy warnings with `-D warnings`.
-- **Python**: 19 fast tests + 3 real end-to-end tests (Demucs stem separation, the full M5 analysis pipeline, Smart Upload classification) — all real inference, nothing mocked, all passing. A 4th real end-to-end test (ACE-Step generation) is written and gated to run only when the model weights are actually present locally (same skip-if-missing pattern as the SoundFont-gated Rust synth tests) — **not yet confirmed passing**, see "In progress" below.
-- **Chord detector accuracy** (the one place this project has done real, repeated before/after measurement): on the same real 2-minute audio clip, over two rounds of fixes — (1) HPSS + majority-vote smoothing cut 335 segments/0.26s avg (physically impossible for real music) down to 64/2.8s avg; (2) replacing majority-vote with a proper Viterbi/HMM temporal decoder cut that further to 38 segments/4.74s avg, solidly in the realistic range for actual chord-change rates. Each round verified with synthesized ground-truth chord fixtures built from publicly documented, uncopyrightable chord names, not real recordings — including a real bug caught and fixed *during this work* (a numpy broadcasting error silently made the first Viterbi implementation ignore genuine chord changes; caught via test failures, not shipped unverified).
-- **Frontend**: `tsc --noEmit` clean throughout; the effects panel, genre picker, YouTube embeds, and timeline reorder/playhead were all visually verified in a live browser session, not just typechecked.
+- **Python**: 26 fast tests + 3 real end-to-end tests (Demucs stem separation, the full M5 analysis pipeline, Smart Upload classification) passing — all real inference, nothing mocked. A 4th real end-to-end test (ACE-Step generation) is written and gated to run only when the model weights are actually present locally (same skip-if-missing pattern as the SoundFont-gated Rust synth tests) — see "ACE-Step generation" below for its actual status.
+- **Chord detector accuracy** (the one place this project has done real, repeated before/after measurement): on the same real 2-minute audio clip, over two rounds of fixes — (1) HPSS + majority-vote smoothing cut 335 segments/0.26s avg (physically impossible for real music) down to 64/2.8s avg; (2) replacing majority-vote with a proper Viterbi/HMM temporal decoder cut that further to 38 segments/4.74s avg, solidly in the realistic range for actual chord-change rates. Each round verified with synthesized ground-truth chord fixtures built from publicly documented, uncopyrightable chord names, not real recordings — including two real bugs caught and fixed *during this work*, not shipped unverified: a numpy broadcasting error that silently made the first Viterbi implementation crash, and a wrong intuition about "sticky" transition probabilities in a 96-state space that then made it silently ignore genuine chord changes (fixed by empirically sweeping the self-transition constant against every existing test case).
+- **A real, previously-uncaught bug found and fixed**: `scene_graph/builder.py` was filtering the final Scene Graph's chords down to `quality in ("maj", "min")` — silently discarding every 7th/sus/dim/aug/compound chord the detector correctly found, in the actual shipped pipeline output, for who knows how long before this session. No existing test exercised this path; added one (`test_builder.py`).
+- **Lyric transcription**: tested with speech synthesized locally via macOS's own `say` command from original sentences written for this test (never a real recording of anyone's copyrighted lyrics) — correctly transcribed with real per-segment confidence scores derived from Whisper's own `avg_logprob`/`no_speech_prob`, not a hardcoded placeholder.
+- **CREPE pitch detection**: tested against synthesized sine waves at named reference frequencies (A4=440Hz, C5=523.25Hz) — correctly detects both notes; a minimum-run-length filter removes ~5ms transient blips at pitch transitions (the same class of fix as the chord detector's transient-noise problem).
+- **Frontend**: `tsc --noEmit` clean throughout; the effects panel, genre picker, YouTube embeds, timeline reorder/playhead, and confidence badges were all visually verified in a live browser session, not just typechecked.
+- **Browser DAW** (mydawsons.com): visually verified end-to-end in a live browser — demo song playback with audible synthesis, mute/reorder/remove, moving playhead, and the Discover page's "open a similar layered example" handoff into the DAW via URL param, all confirmed working, not just built.
 
-## In progress
+## ACE-Step generation — real status
 
-- **ACE-Step generation**: code is fully wired end-to-end (sidecar `/generate` endpoint, Rust commands, "Generate with AI" UI panel with prompt/duration/polling/"Add to timeline"), and installing it was itself verified safe — the install upgraded/downgraded several existing sidecar dependencies (FastAPI 0.115→0.141, soundfile 0.14→0.13, huggingface-hub 1.32→0.36), so the *entire* existing test suite (including real Demucs inference) was re-run afterward to confirm nothing broke. What's **not yet confirmed**: an actual real generation has not finished — the first-run 8.3GB weight download was still in progress as of this update. Next session: check on it, and if generation fails or produces bad audio, debug before calling this feature done.
+Fully wired end-to-end (sidecar `/generate` endpoint, Rust commands, "Generate with AI" UI panel), and the install itself was verified safe — it upgraded/downgraded several existing sidecar dependencies (FastAPI 0.115→0.141, soundfile 0.14→0.13, huggingface-hub 1.32→0.36), so the entire existing test suite (including real Demucs inference) was re-run afterward to confirm nothing broke.
+
+A real generation was attempted twice:
+1. **CPU run**: the actual diffusion computation completed successfully after ~18 minutes, then failed at the final save step — `torchaudio.save()` needed `torchcodec`, which wasn't installed. A real, now-fixed bug, not a fundamental incompatibility.
+2. **MPS (GPU) retry**, after installing `torchcodec`: was still running as of this update. Genuinely slow for this 3.5B-parameter model on this hardware — worth knowing honestly rather than assuming MPS makes it fast.
+
+Bottom line: the pipeline is proven correct (weights load, inference runs, the only failure was a missing save-path dependency that's now fixed) but a full successful run + audible output has not yet been confirmed. Check on it next session.
 
 ## Not started yet
 
-- M6 — Timeline + AI-breakdown UI (track add/remove/reorder, song-browser dropdown, confidence badges)
 - M6b — Voice Notes UI polish / promoting a note into a project
 - M7 — Real model weight download flow with first-run progress UX
 - M8 — Packaging (PyInstaller-frozen sidecar bundled into the Tauri app)
 - M9 — Hardening (crash/restart testing, bad-file handling)
 - Cloud-generation Pro tier (needs a backend, billing, accounts — see `docs/MONETIZATION.md`; not built, and would need its own zero-marginal-cost-until-scale design given the project's cost constraint)
 - Local profile (name + picture, "your songs" list) — designed, not built; explicitly *not* a multi-user social network (that needs a paid server/hosting decision first, see `docs/UX_DESIGN.md`)
-- Compound-quality chords (e.g. 7sus4) in the chord detector — still only approximated by the closest single-quality template
-- M6's full draggable multi-region timeline (layers are now proportional/reorderable/removable with a live playhead, but not yet drag-to-move/trim regions)
-- Confidence badges on the timeline (the Scene Graph already carries per-value confidence; not yet surfaced in the UI)
-- CREPE, DDSP, MT3/Omnizart (see "Queued, not yet integrated" above)
+- M6's full draggable multi-region timeline in the **desktop app** (layers are proportional/reorderable/removable with a live playhead, but not yet drag-to-move/trim regions) — the browser DAW has the same limitation
+- MT3/Omnizart (polyphonic transcription), DDSP-SVC/RVC instrument-timbre conversion (see above)
+- Folding the standalone PWA (`website/app/`) into the new browser DAW — now redundant, both are lightweight local-only web surfaces
 
 ## Everything done this session (chronological, for continuity)
 
@@ -95,10 +104,16 @@ revenue-gated license) — see "Models used" below for the full trail.
 3. Added a chord-starter "press C, hear a C major chord" feature across all 128 instruments.
 4. Added 9 genre-tagged original demo songs (declined — twice — to ship transcriptions of real commercial songs as demo content; original compositions instead, with real songs referenced only as factual title/artist/year inspiration).
 5. Added a "Pay attention to the layers" section embedding 5 real, verified official YouTube videos (legitimate embedding, distinct from the audio-extraction we've consistently declined).
-6. Found and fixed a real chord-detector bug via actual QA (analyzing a user's own screen-recorded song), then closed the exact accuracy gap it exposed (triad-only → 8 chord qualities).
+6. Found and fixed a real chord-detector bug via actual QA (analyzing a user's own screen-recorded song), then closed the exact accuracy gap it exposed (triad-only → 8 chord qualities, later 12 with compounds).
 7. Added EQ, compression, and delay effects (from-scratch DSP), unified into one `EffectChain`.
-8. Upgraded the timeline: proportional layer widths, reorder/remove, a live playhead.
-9. Researched and license-verified ACE-Step, then built the full generative-music feature end to end (pending final validation once the model finishes downloading).
+8. Upgraded the desktop timeline: proportional layer widths, reorder/remove, a live playhead.
+9. Researched and license-verified ACE-Step, built the full generative-music feature end to end (real generation still pending final confirmation — see above).
+10. Surfaced confidence badges (bpm/key/chords/sections/tracks) on the timeline — the Scene Graph had carried this data since M5, never shown.
+11. Replaced the chord detector's majority-vote smoothing with a real Viterbi/HMM decoder, and expanded to 12 chord qualities (aug/dim7/hdim7/dom7sus4 added) — closing every documented gap from earlier in the session.
+12. Evaluated RVC, Diff-SVC, so-vits-svc, Whisper, AudioLDM2 for voice/instrument conversion and lyric transcription; built Whisper lyric transcription (with a scrolling, playhead-synced lyrics panel) and declined RVC/DDSP-SVC pending training resources.
+13. While wiring lyrics into the pipeline, found and fixed the `builder.py` chord-filtering bug above.
+14. Added CREPE as an optional high-accuracy pitch-detection path (new sidecar `/pitch` endpoint + Rust commands), alongside the default YIN path.
+15. Built a real, functional browser-based DAW at mydawsons.com (`website/index.html` + `website/discover.html`) — a scoped subset of the desktop app (original demo songs via an oscillator-based synth, multi-track mixing, EQ/compression/delay/reverb via native Web Audio nodes, reverse/pitch-shift, upload) since a static free site can't run Demucs/ACE-Step's real compute. New Rothko-inspired color palette (soft purple/olive/blue, replacing the earlier green-heavy scheme) and a sidebar-plus-timeline layout modeled on the general DAW paradigm every product in the category shares, not any one product's specific design. Genre/song-inspiration content moved to a separate Discover page, linked back into the DAW via a URL param handoff.
 
 ## Known issues / notes for next session
 

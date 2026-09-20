@@ -1,0 +1,122 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Dawsons — discover genres</title>
+  <meta name="description" content="Pay attention to the layers in your favorite artists' songs, then open a similarly-built original example right in the Dawsons DAW." />
+  <link rel="stylesheet" href="css/daw.css" />
+  <style>
+    .discover-main {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 1.5rem 1.25rem 3rem;
+    }
+    .genre-tabs {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.5rem;
+      margin: 1rem 0 1.5rem;
+    }
+    .genre-tabs button {
+      padding: 0.4rem 0.9rem;
+      border-radius: 999px;
+      border: 1px solid var(--border);
+      background: var(--panel-alt);
+      color: var(--text);
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
+    .genre-tabs button.is-active {
+      background: var(--purple-deep);
+      border-color: var(--purple-deep);
+      color: #fff;
+    }
+    .inspiration-list {
+      list-style: none;
+      padding: 0;
+      margin: 0 0 2rem;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 0.75rem 1rem;
+    }
+    .inspiration-list li {
+      padding: 0.3rem 0;
+      font-size: 0.9rem;
+      color: var(--text-dim);
+    }
+    .spotlight-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 1.25rem;
+    }
+    .spotlight-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem;
+    }
+    .spotlight-embed {
+      position: relative;
+      width: 100%;
+      aspect-ratio: 16/9;
+      border-radius: 6px;
+      overflow: hidden;
+      margin-bottom: 0.6rem;
+      background: #000;
+    }
+    .spotlight-embed iframe {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+      border: 0;
+    }
+    .spotlight-card h3 {
+      margin: 0 0 0.3rem;
+      font-size: 1rem;
+    }
+    .spotlight-card p {
+      margin: 0 0 0.7rem;
+      font-size: 0.85rem;
+      color: var(--text-dim);
+    }
+    .spotlight-card button {
+      width: 100%;
+      padding: 0.5rem;
+      border-radius: 8px;
+      border: 1px solid var(--purple-deep);
+      background: var(--purple-deep);
+      color: #fff;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div class="daw-shell">
+    <header class="daw-nav">
+      <span class="daw-nav__logo">Dawsons</span>
+      <nav class="daw-nav__links">
+        <a href="index.html">Open the DAW</a>
+        <a href="https://github.com/Astryks/dawsons" target="_blank" rel="noopener">GitHub</a>
+      </nav>
+    </header>
+
+    <main class="discover-main">
+      <h1 style="margin-bottom: 0.3rem">Pay attention to the layers</h1>
+      <p class="daw-note" style="font-size: 0.95rem">
+        Your favorite artists build songs the same way you're about to — vocal, guitar, bass, keys,
+        drums, each on its own layer. Let's look at a few, then open a similarly-built original
+        example right in the Dawsons DAW to see how it comes apart.
+      </p>
+
+      <div class="genre-tabs" id="genre-tabs"></div>
+      <ul class="inspiration-list" id="inspiration-list"></ul>
+      <div class="spotlight-grid" id="spotlight-grid"></div>
+    </main>
+  </div>
+
+  <script type="module" src="js/discover.js"></script>
+</body>
+</html>

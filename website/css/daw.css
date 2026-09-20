@@ -1,0 +1,338 @@
+/* Dawsons browser DAW — an original color palette (soft lavender-purple +
+   deep olive-green + muted blue, loosely mood-inspired by color-field
+   painting, not a reproduction of any specific artwork) replacing the
+   earlier neon-green scheme, and a sidebar-plus-timeline layout (the
+   same general structure shared by virtually every DAW — Logic,
+   Ableton, GarageBand, FL Studio — not a copy of any one product's
+   specific icons or visual design). */
+
+:root {
+  --bg: #15121e;
+  --panel: #1e1a2e;
+  --panel-alt: #241f38;
+  --border: #332c4a;
+  --text: #ece8f5;
+  --text-dim: #a89bc4;
+  --purple: #b48ee0;
+  --purple-deep: #8a63bd;
+  --olive: #8a9257;
+  --olive-deep: #656d38;
+  --blue: #7a93c9;
+  --rose: #c98aa0;
+  --ochre: #d1a85c;
+  --teal: #5fa8a0;
+  --danger: #e0708a;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.daw-shell {
+  display: flex;
+  flex-direction: column;
+  height: 100vh;
+}
+
+.daw-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.6rem 1.2rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+  flex-shrink: 0;
+}
+
+.daw-nav__logo {
+  font-weight: 700;
+  font-size: 1.05rem;
+  background: linear-gradient(135deg, var(--purple), var(--rose));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+.daw-nav__links {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.daw-nav__links a {
+  color: var(--text-dim);
+  text-decoration: none;
+  font-size: 0.9rem;
+  padding: 0.35rem 0.8rem;
+  border-radius: 6px;
+}
+
+.daw-nav__links a:hover {
+  color: var(--text);
+  background: var(--panel-alt);
+}
+
+.daw-nav__links a.daw-nav__cta {
+  background: var(--purple-deep);
+  color: #fff;
+}
+
+.daw-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+/* Sidebar: track list with instrument icon, mute, volume — the layout
+   pattern every DAW shares, rendered with our own original iconography
+   (simple emoji/glyphs, not any product's specific icon set). */
+.daw-sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 0.75rem;
+}
+
+.daw-sidebar__section-title {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-dim);
+  margin: 0.75rem 0 0.4rem;
+}
+
+.instrument-track {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem;
+  border-radius: 8px;
+  margin-bottom: 0.35rem;
+  background: var(--panel-alt);
+  cursor: pointer;
+  border: 1px solid transparent;
+}
+
+.instrument-track:hover {
+  border-color: var(--purple-deep);
+}
+
+.instrument-track__icon {
+  font-size: 1.3rem;
+  width: 2rem;
+  text-align: center;
+}
+
+.instrument-track__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.instrument-track__name {
+  font-size: 0.85rem;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.instrument-track__controls {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.2rem;
+}
+
+.instrument-track__mute {
+  font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.instrument-track__mute.is-muted {
+  background: var(--danger);
+  color: #fff;
+  border-color: var(--danger);
+}
+
+.instrument-track input[type="range"] {
+  flex: 1;
+  accent-color: var(--purple);
+}
+
+/* Main area: transport + timeline */
+.daw-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  padding: 1rem 1.25rem;
+  overflow-y: auto;
+}
+
+.daw-transport {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.daw-transport button {
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel-alt);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.daw-transport button.is-primary {
+  background: var(--purple-deep);
+  border-color: var(--purple-deep);
+  color: #fff;
+}
+
+.daw-transport button:hover {
+  filter: brightness(1.15);
+}
+
+.daw-transport select {
+  padding: 0.45rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel-alt);
+  color: var(--text);
+}
+
+.daw-timeline {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  flex: 1;
+}
+
+.timeline-layer {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+}
+
+.timeline-layer:last-child {
+  border-bottom: none;
+}
+
+.timeline-layer__label {
+  width: 130px;
+  flex-shrink: 0;
+  font-size: 0.8rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.timeline-layer__track {
+  flex: 1;
+  position: relative;
+  height: 26px;
+}
+
+.timeline-layer__bar {
+  height: 100%;
+  border-radius: 6px;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+}
+
+.timeline-layer__playhead {
+  position: absolute;
+  top: -2px;
+  bottom: -2px;
+  width: 2px;
+  background: #fff;
+  box-shadow: 0 0 6px 1px rgba(255, 255, 255, 0.8);
+}
+
+.layer-color-0 {
+  background: linear-gradient(135deg, var(--purple), var(--purple-deep));
+}
+.layer-color-1 {
+  background: linear-gradient(135deg, var(--olive), var(--olive-deep));
+}
+.layer-color-2 {
+  background: linear-gradient(135deg, var(--blue), #4f6aa0);
+}
+.layer-color-3 {
+  background: linear-gradient(135deg, var(--rose), #a5607a);
+}
+.layer-color-4 {
+  background: linear-gradient(135deg, var(--ochre), #a87f3c);
+}
+.layer-color-5 {
+  background: linear-gradient(135deg, var(--teal), #3d7d76);
+}
+
+.daw-effects {
+  margin-top: 1rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+}
+
+.daw-effects__row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin-bottom: 0.5rem;
+  font-size: 0.85rem;
+}
+
+.daw-effects__row label {
+  width: 110px;
+  flex-shrink: 0;
+  color: var(--text-dim);
+}
+
+.daw-effects__row input[type="range"] {
+  flex: 1;
+  accent-color: var(--purple);
+}
+
+.daw-note {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  margin: 0.5rem 0 0;
+}
+
+.daw-note--upsell {
+  padding: 0.6rem 0.8rem;
+  background: var(--panel-alt);
+  border-radius: 8px;
+  border: 1px dashed var(--border);
+}
+
+.daw-note--upsell a {
+  color: var(--purple);
+}

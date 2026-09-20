@@ -17,6 +17,7 @@ from app.api import (
     routes_classify,
     routes_generate,
     routes_health,
+    routes_pitch,
 )
 
 app = FastAPI(title="dawsons-ai-sidecar")
@@ -25,6 +26,7 @@ app.include_router(routes_health.router)
 app.include_router(routes_analyze.router)
 app.include_router(routes_classify.router)
 app.include_router(routes_generate.router)
+app.include_router(routes_pitch.router)
 app.include_router(routes_admin.router)
 
 
