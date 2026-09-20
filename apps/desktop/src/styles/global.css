@@ -404,3 +404,24 @@ body {
   border-radius: 6px;
   font-size: 0.8rem;
 }
+
+.lyrics-track {
+  margin-top: 0.3rem;
+  max-height: 10rem;
+  overflow-y: auto;
+  background: #14161a;
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+}
+
+.lyrics-track__line {
+  margin: 0.3rem 0;
+  color: #9aa0a8;
+  font-size: 0.85rem;
+  transition: color 0.15s ease;
+}
+
+.lyrics-track__line--active {
+  color: #e6e6e6;
+  font-weight: 600;
+}

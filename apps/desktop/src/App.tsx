@@ -218,12 +218,20 @@ interface GraphTrackInfo {
   confidence?: number;
 }
 
+interface LyricLine {
+  text: string;
+  startSec: number;
+  endSec: number;
+  confidence: number;
+}
+
 interface SongGraph {
   bpm: ConfidentValue;
   key: SongKey;
   chords?: ChordInfo[];
   sections?: SectionInfo[];
   tracks?: GraphTrackInfo[];
+  lyrics?: LyricLine[];
 }
 
 interface AnalysisStatus {
@@ -944,6 +952,27 @@ export default function App() {
                       {s.confidence !== undefined && confidenceBadge(s.confidence)}
                     </span>
                   ))}
+                </div>
+              )}
+              {!!analysis.result.song.lyrics?.length && (
+                <div>
+                  <span className="analysis-summary__label">
+                    Lyrics (transcribed from this song's own vocals stem):
+                  </span>
+                  <div className="lyrics-track">
+                    {analysis.result.song.lyrics.map((line, i) => {
+                      const isActive =
+                        isPlaying && playbackPositionSec >= line.startSec && playbackPositionSec < line.endSec;
+                      return (
+                        <p
+                          key={i}
+                          className={`lyrics-track__line${isActive ? " lyrics-track__line--active" : ""}`}
+                        >
+                          {line.text} {confidenceBadge(line.confidence)}
+                        </p>
+                      );
+                    })}
+                  </div>
                 </div>
               )}
             </div>

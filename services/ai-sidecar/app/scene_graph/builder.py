@@ -21,6 +21,7 @@ def build_fragment(
     tempo_key: TempoKeyResult,
     chords: list[ChordSegment],
     sections: list[Section],
+    lyric_lines: list[dict] | None = None,
 ) -> dict:
     tracks = []
     for stem_name, path in stem_paths.items():
@@ -80,7 +81,17 @@ def build_fragment(
                     "source": "chord-detector-v1",
                 }
                 for c in chords
-                if c.quality in ("maj", "min")  # schema's Chord.quality enum excludes our internal "other"/no-chord marker
+                if c.quality != "other"  # excludes only our internal "N"/no-chord marker, not real chord qualities
+            ],
+            "lyrics": [
+                {
+                    "text": line["text"],
+                    "startSec": line["start_sec"],
+                    "endSec": line["end_sec"],
+                    "confidence": line["confidence"],
+                    "source": "whisper",
+                }
+                for line in (lyric_lines or [])
             ],
             "automation": [],
         },

@@ -11,3 +11,5 @@ soundfile==0.13.1
 librosa==0.11.0
 jsonschema==4.26.0
 ace-step==0.2.0
+torchcodec==0.16.0
+faster-whisper==1.2.1

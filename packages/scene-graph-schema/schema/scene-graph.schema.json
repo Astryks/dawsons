@@ -46,6 +46,11 @@
           "type": "array",
           "items": { "$ref": "#/$defs/Chord" }
         },
+        "lyrics": {
+          "type": "array",
+          "description": "Time-synced transcription of this song's own vocals stem — never a lookup of published lyrics from elsewhere.",
+          "items": { "$ref": "#/$defs/LyricLine" }
+        },
         "automation": {
           "type": "array",
           "items": { "$ref": "#/$defs/AutomationCurve" }
@@ -57,7 +62,18 @@
     "Source": {
       "type": "string",
       "description": "Which model/algorithm produced this value, or 'user' for a manual edit.",
-      "enum": ["demucs", "librosa-tempo", "librosa-key", "chord-detector-v1", "section-detector-v1", "user"]
+      "enum": ["demucs", "librosa-tempo", "librosa-key", "chord-detector-v1", "section-detector-v1", "whisper", "user"]
+    },
+    "LyricLine": {
+      "type": "object",
+      "required": ["text", "startSec", "endSec", "confidence", "source"],
+      "properties": {
+        "text": { "type": "string" },
+        "startSec": { "type": "number", "minimum": 0 },
+        "endSec": { "type": "number", "minimum": 0 },
+        "confidence": { "type": "number", "minimum": 0, "maximum": 1 },
+        "source": { "$ref": "#/$defs/Source" }
+      }
     },
     "ConfidentValue": {
       "type": "object",
