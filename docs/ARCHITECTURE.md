@@ -57,7 +57,9 @@ canonical Scene Graph and the sidecar stays stateless.
 See the Phase 1 plan for the full ordered list (M1–M9): repo scaffold →
 audio engine → sidecar supervision → stems playable → tempo/key/chords/
 sections → timeline + text breakdown → weight download flow → packaging →
-hardening.
+hardening. M6's concrete UI requirements (track add/remove/reorder, the
+song-browser dropdown, confidence badges) and the new M6b (local-only
+Voice Notes) are detailed in [`UX_DESIGN.md`](UX_DESIGN.md).
 
 ## License policy
 
