@@ -52,51 +52,37 @@ pub fn load_test_track_with_effects(
     reverse: bool,
     semitones: f32,
 ) -> Result<(), String> {
-    load_file_with_effects(mixer, config, path, reverse, semitones, 0.0, 0.0)
+    load_file_with_effects(
+        mixer,
+        config,
+        path,
+        &effects::EffectChain {
+            reverse,
+            semitones,
+            ..Default::default()
+        },
+    )
 }
 
-/// Loads a file with reverse, pitch shift, and/or reverb applied — the
-/// full "isolate a sound, then reshape it" clip-tools chain. `reverb_wet`
-/// and `reverb_room` are both 0..1; `reverb_wet` of 0 skips reverb
-/// entirely (no cost paid for an effect that isn't in use).
-#[allow(clippy::too_many_arguments)]
+/// Loads a file with the given effect chain applied — the full "isolate a
+/// sound, then reshape it" clip-tools pipeline (reverse, pitch, EQ,
+/// compression, delay, reverb). See `EffectChain::apply` for the order
+/// and for why each stage is free when left at its default.
 pub fn load_file_with_effects(
     mixer: &SharedMixer,
     config: &EngineConfig,
     path: &Path,
-    reverse: bool,
-    semitones: f32,
-    reverb_wet: f32,
-    reverb_room: f32,
+    chain: &effects::EffectChain,
 ) -> Result<(), String> {
     let decoded = decode::decode_file(path)?;
-    let mut converted = decode::to_engine_format(&decoded, config.sample_rate, config.channels);
-    if reverse {
-        converted = effects::reverse(&converted, config.channels);
-    }
-    if semitones != 0.0 {
-        converted = effects::pitch_shift_by_resampling(
-            &converted,
-            config.channels,
-            config.sample_rate,
-            semitones,
-        );
-    }
-    if reverb_wet > 0.0 {
-        converted = effects::reverb(
-            &converted,
-            config.channels,
-            config.sample_rate,
-            reverb_wet,
-            reverb_room,
-        );
-    }
+    let converted = decode::to_engine_format(&decoded, config.sample_rate, config.channels);
+    let processed = chain.apply(&converted, config.channels, config.sample_rate);
     let name = path
         .file_stem()
         .and_then(|s| s.to_str())
         .unwrap_or("track")
         .to_string();
-    load_samples(mixer, vec![(name, converted)]);
+    load_samples(mixer, vec![(name, processed)]);
     Ok(())
 }
 

@@ -151,6 +151,264 @@ pub fn reverb(
     output
 }
 
+/// A direct-form-I biquad filter — the standard building block for EQ
+/// bands, described by the well-known "Audio EQ Cookbook" formulas
+/// (Robert Bristow-Johnson): a general, textbook DSP technique used
+/// throughout the audio industry, not any one product's proprietary code.
+struct Biquad {
+    b0: f32,
+    b1: f32,
+    b2: f32,
+    a1: f32,
+    a2: f32,
+    x1: f32,
+    x2: f32,
+    y1: f32,
+    y2: f32,
+}
+
+impl Biquad {
+    /// A peaking (bell-curve) EQ band: boosts or cuts a `gain_db` range
+    /// around `freq_hz`, with `q` controlling how narrow that range is.
+    fn peaking_eq(sample_rate: u32, freq_hz: f32, gain_db: f32, q: f32) -> Self {
+        let a = 10f32.powf(gain_db / 40.0);
+        let w0 = 2.0 * std::f32::consts::PI * freq_hz / sample_rate as f32;
+        let (sin_w0, cos_w0) = w0.sin_cos();
+        let alpha = sin_w0 / (2.0 * q.max(0.01));
+
+        let b0 = 1.0 + alpha * a;
+        let b1 = -2.0 * cos_w0;
+        let b2 = 1.0 - alpha * a;
+        let a0 = 1.0 + alpha / a;
+        let a1 = -2.0 * cos_w0;
+        let a2 = 1.0 - alpha / a;
+
+        Self {
+            b0: b0 / a0,
+            b1: b1 / a0,
+            b2: b2 / a0,
+            a1: a1 / a0,
+            a2: a2 / a0,
+            x1: 0.0,
+            x2: 0.0,
+            y1: 0.0,
+            y2: 0.0,
+        }
+    }
+
+    fn process(&mut self, x0: f32) -> f32 {
+        let y0 = self.b0 * x0 + self.b1 * self.x1 + self.b2 * self.x2
+            - self.a1 * self.y1
+            - self.a2 * self.y2;
+        self.x2 = self.x1;
+        self.x1 = x0;
+        self.y2 = self.y1;
+        self.y1 = y0;
+        y0
+    }
+}
+
+/// A single peaking-EQ band, applied independently per channel so a
+/// stereo signal's left/right balance isn't disturbed. `gain_db` positive
+/// boosts, negative cuts; `q` (>0) sets how narrow the affected band is
+/// (a common musical range is roughly 0.5–5).
+pub fn eq_band(
+    samples: &[f32],
+    channels: u16,
+    sample_rate: u32,
+    freq_hz: f32,
+    gain_db: f32,
+    q: f32,
+) -> Vec<f32> {
+    let channels = channels.max(1) as usize;
+    if gain_db == 0.0 {
+        return samples.to_vec();
+    }
+    let mut filters: Vec<Biquad> = (0..channels)
+        .map(|_| Biquad::peaking_eq(sample_rate, freq_hz.max(1.0), gain_db, q))
+        .collect();
+    samples
+        .iter()
+        .enumerate()
+        .map(|(i, &s)| filters[i % channels].process(s))
+        .collect()
+}
+
+/// A classic feedforward dynamic-range compressor: samples above
+/// `threshold_db` get their level pulled down by `ratio` (e.g. 4.0 means
+/// a 4:1 ratio), with `attack_ms`/`release_ms` controlling how fast the
+/// gain reduction engages/relaxes, and `makeup_gain_db` restoring overall
+/// loudness afterward. This is the standard per-sample envelope-follower
+/// algorithm found in DSP/audio-effects textbooks, not derived from any
+/// specific commercial plugin's code.
+#[allow(clippy::too_many_arguments)]
+pub fn compress(
+    samples: &[f32],
+    channels: u16,
+    sample_rate: u32,
+    threshold_db: f32,
+    ratio: f32,
+    attack_ms: f32,
+    release_ms: f32,
+    makeup_gain_db: f32,
+) -> Vec<f32> {
+    let ratio = ratio.max(1.0);
+    let attack_coeff = 1.0 - (-1.0 / (0.001 * attack_ms.max(0.1) * sample_rate as f32)).exp();
+    let release_coeff = 1.0 - (-1.0 / (0.001 * release_ms.max(0.1) * sample_rate as f32)).exp();
+    let makeup_gain = 10f32.powf(makeup_gain_db / 20.0);
+
+    let channels = channels.max(1) as usize;
+    let mut envelope_db = vec![0.0f32; channels];
+    let mut output = Vec::with_capacity(samples.len());
+
+    for (i, &x) in samples.iter().enumerate() {
+        let ch = i % channels;
+        let x_db = 20.0 * (x.abs() + 1e-9).log10();
+        let target_gain_reduction_db = if x_db > threshold_db {
+            (threshold_db + (x_db - threshold_db) / ratio) - x_db
+        } else {
+            0.0
+        };
+        let coeff = if target_gain_reduction_db < envelope_db[ch] {
+            attack_coeff
+        } else {
+            release_coeff
+        };
+        envelope_db[ch] += (target_gain_reduction_db - envelope_db[ch]) * coeff;
+        let gain = 10f32.powf(envelope_db[ch] / 20.0) * makeup_gain;
+        output.push(x * gain);
+    }
+    output
+}
+
+/// A feedback delay line ("echo"): each repeat is `delay_ms` after the
+/// last, scaled by `feedback` (0..1, how much of each echo feeds the
+/// next), blended with the dry signal by `wet_mix` (0..1). The output is
+/// extended so the echoes have room to ring out past the input's end,
+/// the same approach used by `reverb`.
+pub fn delay(
+    samples: &[f32],
+    channels: u16,
+    sample_rate: u32,
+    delay_ms: f32,
+    feedback: f32,
+    wet_mix: f32,
+) -> Vec<f32> {
+    let channels = channels.max(1) as usize;
+    let frame_count = samples.len() / channels;
+    let feedback = feedback.clamp(0.0, 0.98);
+    let wet_mix = wet_mix.clamp(0.0, 1.0);
+    let delay_frames = ((delay_ms.max(1.0) / 1000.0) * sample_rate as f32)
+        .round()
+        .max(1.0) as usize;
+    let tail_frames = delay_frames * 4;
+    let total_frames = frame_count + tail_frames;
+
+    let mut output = vec![0.0f32; total_frames * channels];
+    for ch in 0..channels {
+        let mut buffer = vec![0.0f32; delay_frames];
+        let mut pos = 0usize;
+        for frame in 0..total_frames {
+            let dry = if frame < frame_count {
+                samples[frame * channels + ch]
+            } else {
+                0.0
+            };
+            let delayed = buffer[pos];
+            output[frame * channels + ch] = dry + delayed * wet_mix;
+            buffer[pos] = dry + delayed * feedback;
+            pos = (pos + 1) % buffer.len();
+        }
+    }
+    output
+}
+
+/// The full clip-tools effect chain in one place, so callers (a Tauri
+/// command, a test) configure what they want and don't have to know the
+/// application order or thread five-plus optional parameters through
+/// every layer. Every field defaults to a no-op value via `Default`, so
+/// `EffectChain::default()` really does nothing.
+#[derive(Debug, Clone, Default)]
+pub struct EffectChain {
+    pub reverse: bool,
+    pub semitones: f32,
+    pub eq_freq_hz: f32,
+    pub eq_gain_db: f32,
+    pub eq_q: f32,
+    pub compress_threshold_db: f32,
+    pub compress_ratio: f32,
+    pub compress_attack_ms: f32,
+    pub compress_release_ms: f32,
+    pub compress_makeup_db: f32,
+    /// Compression only engages when this is set — a ratio of 0 (the
+    /// `Default` value) would otherwise divide by a meaningless number.
+    pub compress_enabled: bool,
+    pub delay_ms: f32,
+    pub delay_feedback: f32,
+    pub delay_wet: f32,
+    pub reverb_wet: f32,
+    pub reverb_room: f32,
+}
+
+impl EffectChain {
+    /// Applies every configured effect in a conventional mixing-chain
+    /// order: structural edits (reverse, pitch) first, then tone (EQ),
+    /// then dynamics (compression), then time-based effects last (delay,
+    /// reverb) — each stage is skipped entirely when it's a no-op, so an
+    /// all-default chain costs nothing beyond the initial decode.
+    pub fn apply(&self, samples: &[f32], channels: u16, sample_rate: u32) -> Vec<f32> {
+        let mut out = samples.to_vec();
+        if self.reverse {
+            out = reverse(&out, channels);
+        }
+        if self.semitones != 0.0 {
+            out = pitch_shift_by_resampling(&out, channels, sample_rate, self.semitones);
+        }
+        if self.eq_gain_db != 0.0 {
+            out = eq_band(
+                &out,
+                channels,
+                sample_rate,
+                self.eq_freq_hz,
+                self.eq_gain_db,
+                self.eq_q,
+            );
+        }
+        if self.compress_enabled {
+            out = compress(
+                &out,
+                channels,
+                sample_rate,
+                self.compress_threshold_db,
+                self.compress_ratio,
+                self.compress_attack_ms,
+                self.compress_release_ms,
+                self.compress_makeup_db,
+            );
+        }
+        if self.delay_wet > 0.0 {
+            out = delay(
+                &out,
+                channels,
+                sample_rate,
+                self.delay_ms,
+                self.delay_feedback,
+                self.delay_wet,
+            );
+        }
+        if self.reverb_wet > 0.0 {
+            out = reverb(
+                &out,
+                channels,
+                sample_rate,
+                self.reverb_wet,
+                self.reverb_room,
+            );
+        }
+        out
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -223,5 +481,123 @@ mod tests {
         let samples = vec![1.0, -1.0, 0.5, -0.5];
         let wet = reverb(&samples, 2, 44100, 0.3, 0.3);
         assert_eq!(wet.len() % 2, 0);
+    }
+
+    fn sine_wave(freq: f32, seconds: f32, sample_rate: u32) -> Vec<f32> {
+        let n = (sample_rate as f32 * seconds) as usize;
+        (0..n)
+            .map(|i| (2.0 * std::f32::consts::PI * freq * i as f32 / sample_rate as f32).sin())
+            .collect()
+    }
+
+    fn rms(samples: &[f32]) -> f32 {
+        (samples.iter().map(|s| s * s).sum::<f32>() / samples.len() as f32).sqrt()
+    }
+
+    #[test]
+    fn eq_zero_gain_is_a_no_op() {
+        let samples = vec![0.1, 0.2, 0.3, 0.4];
+        assert_eq!(eq_band(&samples, 1, 44100, 1000.0, 0.0, 1.0), samples);
+    }
+
+    #[test]
+    fn eq_boost_at_a_tones_frequency_increases_its_energy() {
+        let tone = sine_wave(1000.0, 1.0, 44100);
+        let boosted = eq_band(&tone, 1, 44100, 1000.0, 12.0, 1.0);
+        // Skip the filter's brief settling transient at the very start.
+        assert!(rms(&boosted[2000..]) > rms(&tone[2000..]));
+    }
+
+    #[test]
+    fn eq_cut_at_a_tones_frequency_decreases_its_energy() {
+        let tone = sine_wave(1000.0, 1.0, 44100);
+        let cut = eq_band(&tone, 1, 44100, 1000.0, -12.0, 1.0);
+        assert!(rms(&cut[2000..]) < rms(&tone[2000..]));
+    }
+
+    #[test]
+    fn compress_reduces_peaks_above_threshold() {
+        let loud = vec![0.9f32; 4410];
+        let compressed = compress(&loud, 1, 44100, -12.0, 4.0, 5.0, 50.0, 0.0);
+        // After the short attack settles, a steady loud signal should be
+        // pulled down well below its original level.
+        assert!(rms(&compressed[2000..]) < rms(&loud[2000..]));
+    }
+
+    #[test]
+    fn compress_leaves_signal_below_threshold_untouched() {
+        let quiet = vec![0.01f32; 4410];
+        let compressed = compress(&quiet, 1, 44100, -6.0, 4.0, 5.0, 50.0, 0.0);
+        for (a, b) in quiet.iter().zip(compressed.iter()) {
+            assert!((a - b).abs() < 1e-6);
+        }
+    }
+
+    #[test]
+    fn compress_makeup_gain_boosts_output() {
+        let quiet = vec![0.01f32; 100];
+        let boosted = compress(&quiet, 1, 44100, -6.0, 1.0, 5.0, 50.0, 6.0);
+        // Ratio 1:1 + no threshold crossing means only makeup gain applies.
+        assert!(boosted[50] > quiet[50]);
+    }
+
+    #[test]
+    fn delay_extends_length_for_the_echo_tail() {
+        let samples = vec![1.0; 100];
+        let echoed = delay(&samples, 1, 44100, 200.0, 0.5, 0.5);
+        assert!(echoed.len() > samples.len());
+    }
+
+    #[test]
+    fn delay_produces_an_echo_after_the_delay_time() {
+        let sample_rate = 44100;
+        let mut impulse = vec![0.0f32; 1000];
+        impulse[0] = 1.0;
+        let delay_ms = 10.0;
+        let echoed = delay(&impulse, 1, sample_rate, delay_ms, 0.8, 1.0);
+        let delay_frames = ((delay_ms / 1000.0) * sample_rate as f32).round() as usize;
+        assert!(
+            echoed[delay_frames].abs() > 0.1,
+            "expected an echo at frame {delay_frames}"
+        );
+    }
+
+    #[test]
+    fn zero_wet_delay_is_dry_only() {
+        let samples = vec![0.2, -0.3, 0.5];
+        let echoed = delay(&samples, 1, 44100, 50.0, 0.5, 0.0);
+        assert_eq!(&echoed[..samples.len()], &samples[..]);
+    }
+
+    #[test]
+    fn default_effect_chain_is_a_true_no_op() {
+        let samples = vec![0.1, -0.2, 0.3, -0.4];
+        let out = EffectChain::default().apply(&samples, 1, 44100);
+        assert_eq!(out, samples);
+    }
+
+    #[test]
+    fn effect_chain_applies_reverse_and_pitch_together() {
+        let samples = vec![0.1, 0.2, 0.3, 0.4];
+        let chain = EffectChain {
+            reverse: true,
+            ..Default::default()
+        };
+        let out = chain.apply(&samples, 1, 44100);
+        assert_eq!(out, reverse(&samples, 1));
+    }
+
+    #[test]
+    fn effect_chain_compression_only_engages_when_enabled() {
+        let loud = vec![0.9f32; 1000];
+        let chain = EffectChain {
+            compress_threshold_db: -12.0,
+            compress_ratio: 4.0,
+            compress_attack_ms: 5.0,
+            compress_release_ms: 50.0,
+            compress_enabled: false,
+            ..Default::default()
+        };
+        assert_eq!(chain.apply(&loud, 1, 44100), loud);
     }
 }

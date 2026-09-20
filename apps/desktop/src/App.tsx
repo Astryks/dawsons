@@ -175,6 +175,7 @@ interface VoiceNote {
 interface TrackInfo {
   name: string;
   muted: boolean;
+  duration_sec: number;
 }
 
 interface DemoSongInfo {
@@ -203,6 +204,17 @@ export default function App() {
   const [clipPath, setClipPath] = useState<string | null>(null);
   const [reverbWet, setReverbWet] = useState(0);
   const [reverbRoom, setReverbRoom] = useState(0.5);
+  const [eqFreqHz, setEqFreqHz] = useState(1000);
+  const [eqGainDb, setEqGainDb] = useState(0);
+  const [eqQ, setEqQ] = useState(1);
+  const [compressEnabled, setCompressEnabled] = useState(false);
+  const [compressThresholdDb, setCompressThresholdDb] = useState(-18);
+  const [compressRatio, setCompressRatio] = useState(4);
+  const [delayWet, setDelayWet] = useState(0);
+  const [delayMs, setDelayMs] = useState(250);
+  const [delayFeedback, setDelayFeedback] = useState(0.3);
+  const [playbackPositionSec, setPlaybackPositionSec] = useState(0);
+  const [isPlaying, setIsPlaying] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [newProjectName, setNewProjectName] = useState("");
@@ -244,6 +256,20 @@ export default function App() {
     invoke<boolean>("soundfont_available").then(setSoundfontReady).catch(() => setSoundfontReady(false));
     invoke<DemoSongInfo[]>("list_demo_songs").then(setDemoSongs).catch((err) => setDemoSongError(String(err)));
   }, []);
+
+  useEffect(() => {
+    if (!isPlaying) return;
+    const interval = setInterval(async () => {
+      try {
+        const status = await invoke<{ position_sec: number; playing: boolean }>("transport_status");
+        setPlaybackPositionSec(status.position_sec);
+        if (!status.playing) setIsPlaying(false);
+      } catch {
+        setIsPlaying(false);
+      }
+    }, 150);
+    return () => clearInterval(interval);
+  }, [isPlaying]);
 
   async function handleLoadDemoSong(index: number) {
     setLoadingDemoSong(index);
@@ -371,6 +397,44 @@ export default function App() {
     } catch (err) {
       setAnalysisError(String(err));
     }
+  }
+
+  async function handleMoveTrack(index: number, direction: -1 | 1) {
+    const to = index + direction;
+    if (to < 0 || to >= tracks.length) return;
+    try {
+      await invoke("move_track", { from: index, to });
+      await refreshTracks();
+    } catch (err) {
+      setAnalysisError(String(err));
+    }
+  }
+
+  async function handleRemoveTrack(index: number) {
+    try {
+      await invoke("remove_track", { index });
+      await refreshTracks();
+      setIsPlaying(false);
+      setPlaybackPositionSec(0);
+    } catch (err) {
+      setAnalysisError(String(err));
+    }
+  }
+
+  async function handleTransportPlay() {
+    await runCommand("transport_play");
+    setIsPlaying(true);
+  }
+
+  async function handleTransportPause() {
+    await runCommand("transport_pause");
+    setIsPlaying(false);
+  }
+
+  async function handleTransportStop() {
+    await runCommand("transport_stop");
+    setIsPlaying(false);
+    setPlaybackPositionSec(0);
   }
 
   async function handleSmartUpload() {
@@ -537,6 +601,8 @@ export default function App() {
     }
   }
 
+  const maxTrackDuration = tracks.reduce((max, t) => Math.max(max, t.duration_sec), 0.001);
+
   return (
     <div className="app-shell">
       <header className="app-shell__titlebar">
@@ -639,18 +705,42 @@ export default function App() {
               <div key={t.name + i} className={`layer layer--${i % 6}`}>
                 <div className="layer__header">
                   <span className="layer__name">{t.name}</span>
+                  <span className="layer__duration">{t.duration_sec.toFixed(1)}s</span>
                   <label className="layer__mute">
                     <input type="checkbox" checked={t.muted} onChange={(e) => handleToggleMute(i, e.target.checked)} />
                     Mute
                   </label>
+                  <span className="layer__reorder">
+                    <button onClick={() => handleMoveTrack(i, -1)} disabled={i === 0} title="Move layer up">
+                      ↑
+                    </button>
+                    <button
+                      onClick={() => handleMoveTrack(i, 1)}
+                      disabled={i === tracks.length - 1}
+                      title="Move layer down"
+                    >
+                      ↓
+                    </button>
+                    <button onClick={() => handleRemoveTrack(i)} title="Remove this layer">
+                      ✕
+                    </button>
+                  </span>
                 </div>
-                <div className="layer__bar" />
+                <div className="layer__track">
+                  <div className="layer__bar" style={{ width: `${Math.max(2, (t.duration_sec / maxTrackDuration) * 100)}%` }} />
+                  {isPlaying && (
+                    <div
+                      className="layer__playhead"
+                      style={{ left: `${Math.min(100, (playbackPositionSec / maxTrackDuration) * 100)}%` }}
+                    />
+                  )}
+                </div>
               </div>
             ))}
             <div className="debug-panel__buttons" style={{ marginTop: "0.75rem" }}>
-              <button onClick={() => runCommand("transport_play")}>Play</button>
-              <button onClick={() => runCommand("transport_pause")}>Pause</button>
-              <button onClick={() => runCommand("transport_stop")}>Stop</button>
+              <button onClick={handleTransportPlay}>Play</button>
+              <button onClick={handleTransportPause}>Pause</button>
+              <button onClick={handleTransportStop}>Stop</button>
             </div>
           </section>
         )}
@@ -783,11 +873,11 @@ export default function App() {
         </section>
 
         <section className="debug-panel">
-          <h2>Clip tools: reverse, re-pitch &amp; reverb</h2>
+          <h2>Clip tools: reverse, re-pitch, EQ, compression, delay &amp; reverb</h2>
           <p className="debug-panel__hint">
-            Flip a clip backwards, shift its pitch, or drop it in a room — the classic tricks (a
-            favorite of producers like Charlie Puth) for turning an isolated sound — a Demucs stem,
-            an exported clip, any audio file — into something new.
+            Flip a clip backwards, shift its pitch, shape its tone, tame its dynamics, or drop it in
+            a room — the classic tricks (a favorite of producers like Charlie Puth) for turning an
+            isolated sound — a Demucs stem, an exported clip, any audio file — into something new.
           </p>
           <div className="debug-panel__buttons">
             <button onClick={handlePickClip}>Pick a clip…</button>
@@ -809,6 +899,105 @@ export default function App() {
               onChange={(e) => setSemitones(Number(e.target.value))}
             />
           </label>
+
+          <h3 style={{ marginBottom: "0.4rem" }}>EQ</h3>
+          <label className="debug-panel__field">
+            Frequency: {Math.round(eqFreqHz)} Hz
+            <input
+              type="range"
+              min={60}
+              max={12000}
+              step={10}
+              value={eqFreqHz}
+              onChange={(e) => setEqFreqHz(Number(e.target.value))}
+            />
+          </label>
+          <label className="debug-panel__field">
+            Gain: {eqGainDb > 0 ? "+" : ""}
+            {eqGainDb} dB
+            <input
+              type="range"
+              min={-24}
+              max={24}
+              value={eqGainDb}
+              onChange={(e) => setEqGainDb(Number(e.target.value))}
+            />
+          </label>
+          <label className="debug-panel__field">
+            Width (Q): {eqQ.toFixed(1)}
+            <input
+              type="range"
+              min={0.1}
+              max={10}
+              step={0.1}
+              value={eqQ}
+              onChange={(e) => setEqQ(Number(e.target.value))}
+            />
+          </label>
+
+          <h3 style={{ marginBottom: "0.4rem" }}>Compression</h3>
+          <label className="debug-panel__field">
+            <input
+              type="checkbox"
+              checked={compressEnabled}
+              onChange={(e) => setCompressEnabled(e.target.checked)}
+            />
+            Enabled
+          </label>
+          <label className="debug-panel__field">
+            Threshold: {compressThresholdDb} dB
+            <input
+              type="range"
+              min={-48}
+              max={0}
+              value={compressThresholdDb}
+              onChange={(e) => setCompressThresholdDb(Number(e.target.value))}
+            />
+          </label>
+          <label className="debug-panel__field">
+            Ratio: {compressRatio}:1
+            <input
+              type="range"
+              min={1}
+              max={20}
+              value={compressRatio}
+              onChange={(e) => setCompressRatio(Number(e.target.value))}
+            />
+          </label>
+
+          <h3 style={{ marginBottom: "0.4rem" }}>Delay</h3>
+          <label className="debug-panel__field">
+            Delay: {Math.round(delayWet * 100)}% wet
+            <input
+              type="range"
+              min={0}
+              max={100}
+              value={Math.round(delayWet * 100)}
+              onChange={(e) => setDelayWet(Number(e.target.value) / 100)}
+            />
+          </label>
+          <label className="debug-panel__field">
+            Time: {Math.round(delayMs)} ms
+            <input
+              type="range"
+              min={10}
+              max={1000}
+              value={delayMs}
+              onChange={(e) => setDelayMs(Number(e.target.value))}
+            />
+          </label>
+          <label className="debug-panel__field">
+            Feedback: {Math.round(delayFeedback * 100)}%
+            <input
+              type="range"
+              min={0}
+              max={95}
+              value={Math.round(delayFeedback * 100)}
+              onChange={(e) => setDelayFeedback(Number(e.target.value) / 100)}
+            />
+          </label>
+
+          <h3 style={{ marginBottom: "0.4rem" }}>Reverb</h3>
           <label className="debug-panel__field">
             Reverb: {Math.round(reverbWet * 100)}% wet
             <input
@@ -833,12 +1022,26 @@ export default function App() {
             <button
               onClick={() =>
                 clipPath
-                  ? runCommand("apply_reverse_pitch_to_file", {
+                  ? runCommand("apply_effects_to_file", {
                       filePath: clipPath,
-                      reverse,
-                      semitones,
-                      reverbWet,
-                      reverbRoom,
+                      effects: {
+                        reverse,
+                        semitones,
+                        eqFreqHz,
+                        eqGainDb,
+                        eqQ,
+                        compressEnabled,
+                        compressThresholdDb,
+                        compressRatio,
+                        compressAttackMs: 10,
+                        compressReleaseMs: 100,
+                        compressMakeupDb: 0,
+                        delayMs,
+                        delayFeedback,
+                        delayWet,
+                        reverbWet,
+                        reverbRoom,
+                      },
                     })
                   : runCommand("debug_play_reversed_pitched_tone", { reverse, semitones })
               }
