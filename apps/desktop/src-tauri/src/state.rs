@@ -1,7 +1,10 @@
 use std::sync::mpsc::Sender;
 use std::sync::{Arc, Mutex};
 
+use tauri::AppHandle;
+
 use crate::audio_engine::{self, EngineConfig, SharedMixer};
+use crate::sidecar;
 
 /// Handle to a running audio engine: the shared mixer state plus a
 /// shutdown sender for the dedicated audio thread that owns the actual
@@ -17,13 +20,15 @@ pub struct AudioEngineHandle {
 ///
 /// `audio` is `None` until `init_audio` succeeds (or if no output device
 /// is available at all — the shell still boots, playback commands just
-/// report "audio engine unavailable" instead of panicking).
+/// report "audio engine unavailable" instead of panicking). `sidecar_handle`
+/// is set as soon as the supervisor thread is spawned; its `status` field
+/// tracks whether the Python process is actually up yet.
 ///
-/// M3 adds the sidecar process/client here; M4-M5 add the in-memory Scene
-/// Graph mirror backing the SQLite store.
+/// M4-M5 add the in-memory Scene Graph mirror backing the SQLite store.
 #[derive(Default)]
 pub struct AppState {
     pub audio: Mutex<Option<AudioEngineHandle>>,
+    pub sidecar_handle: Mutex<Option<sidecar::SidecarHandle>>,
 }
 
 impl AppState {
@@ -46,5 +51,10 @@ impl AppState {
                 tracing::error!("audio engine unavailable: {e}");
             }
         }
+    }
+
+    pub fn init_sidecar(&self, app: AppHandle) {
+        let handle = sidecar::spawn(app);
+        *self.sidecar_handle.lock().expect("sidecar state poisoned") = Some(handle);
     }
 }
