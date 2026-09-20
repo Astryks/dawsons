@@ -46,6 +46,25 @@ without a reload — another point in favor of Rust holding the Scene Graph
 as an in-memory struct it can hot-swap (see ADR 0001), rather than the UI
 re-deriving state from scratch per project.
 
+## Multiple projects & export (concrete requirement for M6)
+
+Storage: a `projects` table in the existing local SQLite DB (`id`, `name`,
+`created_at`, `updated_at`, `source_file`), one row per song, alongside the
+existing `scene_graphs` table (already keyed by `project_id` — no schema
+change needed there). Each project also gets an `assets/` folder on disk
+for its stems/recordings. All of this is local; there is no server
+component and no per-project cost, which is the point given the project's
+zero-infrastructure-cost constraint.
+
+The song-browser dropdown (above) *is* the project switcher — "New
+Project," "Import Song," rename, and delete all operate on this table.
+
+Export (three commands, all local file I/O via a native save dialog —
+no server involved):
+1. **Export mix** — bounces the current mixer output to a single WAV file.
+2. **Export stems** — writes each track's audio to its own file in a chosen folder.
+3. **Export project bundle** — zips the project's SQLite row (as JSON) plus its `assets/` folder into one `.dawsonsproject` file, for backup or moving to another machine; re-importing reads the manifest back in.
+
 ## Voice Notes (new feature — local-only, zero server cost)
 
 Problem: a place to quickly capture a vocal/musical idea, without taking
