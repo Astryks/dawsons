@@ -725,6 +725,17 @@ body {
   font-size: 0.8rem;
 }
 
+.timeline-layer__special-body input[type="url"] {
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.8rem;
+  width: 220px;
+  cursor: text;
+}
+
 .timeline-layer__special-body button.is-primary {
   background: var(--purple-deep);
   border-color: var(--purple-deep);
@@ -754,6 +765,27 @@ body {
 
 .timeline-layer__inline-range input[type="range"] {
   width: 100px;
+  accent-color: var(--purple);
+}
+
+.effect-stack {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.effect-stack__toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.effect-stack input[type="range"] {
+  width: 80px;
   accent-color: var(--purple);
 }
 

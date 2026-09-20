@@ -139,15 +139,18 @@
                   <option value="major">Major</option>
                   <option value="minor">Minor</option>
                 </select>
-                <select id="voice-effect" title="Voice effect">
-                  <option value="none">No effect</option>
-                  <option value="robotic">Robotic</option>
-                  <option value="muffled">Muffled</option>
-                  <option value="distortion">Distortion</option>
-                </select>
-                <input type="range" id="voice-robotic-hz" min="30" max="300" value="80" style="display: none" title="Carrier Hz" />
-                <input type="range" id="voice-muffle-hz" min="100" max="4000" value="600" style="display: none" title="Cutoff Hz" />
-                <input type="range" id="voice-distortion" min="0" max="100" value="40" style="display: none" title="Drive" />
+                <span class="effect-stack" data-stack-for="voice">
+                  <label class="effect-stack__toggle"><input type="checkbox" id="voice-fx-robotic" /> Robotic</label>
+                  <input type="range" id="voice-robotic-hz" min="30" max="300" value="80" style="display: none" title="Carrier Hz" />
+                  <label class="effect-stack__toggle"><input type="checkbox" id="voice-fx-muffled" /> Muffled</label>
+                  <input type="range" id="voice-muffle-hz" min="100" max="4000" value="600" style="display: none" title="Cutoff Hz" />
+                  <label class="effect-stack__toggle"><input type="checkbox" id="voice-fx-distortion" /> Distortion</label>
+                  <input type="range" id="voice-distortion" min="0" max="100" value="40" style="display: none" title="Drive" />
+                  <label class="effect-stack__toggle"><input type="checkbox" id="voice-fx-reverb" /> Reverb</label>
+                  <input type="range" id="voice-reverb" min="0" max="100" value="35" style="display: none" title="Wet %" />
+                  <label class="effect-stack__toggle"><input type="checkbox" id="voice-fx-delay" /> Delay</label>
+                  <input type="range" id="voice-delay" min="0" max="100" value="30" style="display: none" title="Wet %" />
+                </span>
                 <button class="is-primary" id="voice-render-btn" disabled>Add to timeline</button>
               </div>
             </div>
@@ -155,6 +158,8 @@
               <div class="timeline-layer__label">🔊 Any Sound</div>
               <div class="timeline-layer__special-body">
                 <button id="anysound-upload-btn">📁 Upload a clip</button>
+                <input type="url" id="anysound-url-input" placeholder="…or paste a direct file link" />
+                <button id="anysound-url-btn">Fetch</button>
                 <span id="anysound-status" class="daw-note" style="margin: 0"></span>
                 <label class="timeline-layer__inline-check">
                   <input type="checkbox" id="fx-reverse" /> Reverse
@@ -164,15 +169,18 @@
                   <input type="range" id="fx-pitch" min="-24" max="24" value="0" />
                   <span id="fx-pitch-val">0 st</span>
                 </label>
-                <select id="fx-voice-effect" title="Voice effect">
-                  <option value="none">No effect</option>
-                  <option value="robotic">Robotic</option>
-                  <option value="muffled">Muffled</option>
-                  <option value="distortion">Distortion</option>
-                </select>
-                <input type="range" id="fx-robotic-hz" min="30" max="300" value="80" style="display: none" title="Carrier Hz" />
-                <input type="range" id="fx-muffle-hz" min="100" max="4000" value="600" style="display: none" title="Cutoff Hz" />
-                <input type="range" id="fx-distortion" min="0" max="100" value="40" style="display: none" title="Drive" />
+                <span class="effect-stack" data-stack-for="fx">
+                  <label class="effect-stack__toggle"><input type="checkbox" id="fx-fx-robotic" /> Robotic</label>
+                  <input type="range" id="fx-robotic-hz" min="30" max="300" value="80" style="display: none" title="Carrier Hz" />
+                  <label class="effect-stack__toggle"><input type="checkbox" id="fx-fx-muffled" /> Muffled</label>
+                  <input type="range" id="fx-muffle-hz" min="100" max="4000" value="600" style="display: none" title="Cutoff Hz" />
+                  <label class="effect-stack__toggle"><input type="checkbox" id="fx-fx-distortion" /> Distortion</label>
+                  <input type="range" id="fx-distortion" min="0" max="100" value="40" style="display: none" title="Drive" />
+                  <label class="effect-stack__toggle"><input type="checkbox" id="fx-fx-reverb" /> Reverb</label>
+                  <input type="range" id="fx-reverb" min="0" max="100" value="35" style="display: none" title="Wet %" />
+                  <label class="effect-stack__toggle"><input type="checkbox" id="fx-fx-delay" /> Delay</label>
+                  <input type="range" id="fx-delay" min="0" max="100" value="30" style="display: none" title="Wet %" />
+                </span>
                 <button class="is-primary" id="fx-apply-btn" disabled>Apply &amp; add to timeline</button>
               </div>
             </div>

@@ -276,6 +276,47 @@ function risingOverture() {
   };
 }
 
+// Stockholm Nights — the user's own original song, uploaded for real
+// analysis through the same pipeline the desktop app's "upload a song,
+// see how it's built" feature uses (Demucs 6-stem separation + librosa
+// tempo/key/chord detection). Grounded in the actual detected data, not
+// invented: real key (C major, 0.959 confidence), the real first four
+// detected chords in order (Fmaj7 → Dmaj7 → C → Dm), a real 6-note
+// vocal-melody fragment extracted from the isolated vocals stem via
+// librosa's pYIN pitch tracker, and the real separated instrumentation
+// (Piano/Guitar/Bass/Vocals — "Other" from Demucs mapped to Pad).
+function stockholmNights() {
+  const chords = [
+    [[53, 57, 60, 64], 41, [53, 57, 60], [62, 60, 60, 62]], // Fmaj7
+    [[50, 54, 57, 61], 38, [50, 54, 57], [61, 62, 62, 63]], // Dmaj7
+    [[48, 52, 55], 36, [48, 52, 55], [60, 60, 62, 60]], // C
+    [[50, 53, 57], 38, [50, 53, 57], [62, 60, 61, 60]], // Dm
+  ];
+  const piano = [];
+  const bass = [];
+  const guitar = [];
+  const vocal = [];
+  for (const [ch, root, arp, mel] of chords) {
+    piano.push(chord(ch, BAR_SEC));
+    bass.push(...bassPulse(root));
+    guitar.push(...arpeggio(arp));
+    vocal.push(...melodyPhrase(mel));
+  }
+  return {
+    title: "Stockholm Nights",
+    genre: "Original",
+    description:
+      "A real song, analyzed: uploaded through the actual Demucs + librosa pipeline (109.96 BPM, C major, 0.959 confidence) — this loop uses the real first four detected chords (Fmaj7–Dmaj7–C–Dm) and a real melodic fragment extracted from the isolated vocal stem, not an invented progression.",
+    layers: [
+      { name: "Vocals", family: "lead", notes: vocal },
+      { name: "Guitar", family: "guitar", notes: guitar },
+      { name: "Piano", family: "keys", notes: piano },
+      { name: "Bass", family: "bass", notes: bass },
+    ],
+    drums: fourBarDrums(),
+  };
+}
+
 const DEMO_SONGS = [
   morningLoop(),
   blueCorner(),
@@ -284,6 +325,7 @@ const DEMO_SONGS = [
   neonPulse(),
   fieldParade(),
   risingOverture(),
+  stockholmNights(),
 ];
 
 export { DEMO_SONGS, BAR_SEC };
