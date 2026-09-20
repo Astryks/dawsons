@@ -79,7 +79,91 @@
             <input type="range" id="fx-delay" min="0" max="100" value="0" />
             <span id="fx-delay-val">0%</span>
           </div>
+          <div class="daw-effects__row">
+            <label>Voice effect</label>
+            <select id="fx-voice-effect">
+              <option value="none">None</option>
+              <option value="robotic">Robotic</option>
+              <option value="muffled">Muffled</option>
+            </select>
+          </div>
+          <div class="daw-effects__row" id="fx-robotic-row" style="display: none">
+            <label>Carrier</label>
+            <input type="range" id="fx-robotic-hz" min="30" max="300" value="80" />
+            <span id="fx-robotic-hz-val">80 Hz</span>
+          </div>
+          <div class="daw-effects__row" id="fx-muffle-row" style="display: none">
+            <label>Cutoff</label>
+            <input type="range" id="fx-muffle-hz" min="100" max="4000" value="600" />
+            <span id="fx-muffle-hz-val">600 Hz</span>
+          </div>
           <button class="is-primary" id="fx-apply-btn">Apply &amp; add to timeline</button>
+        </div>
+
+        <div class="daw-effects" id="voice-panel">
+          <h3 style="margin: 0 0 0.5rem; font-size: 0.95rem">Sing to instrument</h3>
+          <p class="daw-note" style="margin: 0 0 0.5rem">
+            Record a few bars of singing or humming — it's pitch-tracked and replayed through any
+            instrument below. Recording stays in this tab; nothing is uploaded.
+          </p>
+          <div class="daw-effects__row">
+            <button id="voice-record-btn">🎤 Start recording</button>
+            <span id="voice-status" class="daw-note" style="margin: 0"></span>
+          </div>
+          <div class="daw-effects__row">
+            <label>Instrument</label>
+            <select id="voice-instrument">
+              <option value="keys">Keys</option>
+              <option value="guitar">Guitar</option>
+              <option value="bass">Bass</option>
+              <option value="lead">Lead</option>
+              <option value="pad">Pad</option>
+              <option value="brass">Brass</option>
+              <option value="bell">Bell</option>
+              <option value="flute">Flute</option>
+            </select>
+          </div>
+          <div class="daw-effects__row">
+            <label>Auto-tune</label>
+            <input type="checkbox" id="voice-autotune" />
+            <select id="voice-tonic">
+              <option value="0">C</option>
+              <option value="1">C#</option>
+              <option value="2">D</option>
+              <option value="3">D#</option>
+              <option value="4">E</option>
+              <option value="5">F</option>
+              <option value="6">F#</option>
+              <option value="7">G</option>
+              <option value="8">G#</option>
+              <option value="9">A</option>
+              <option value="10">A#</option>
+              <option value="11">B</option>
+            </select>
+            <select id="voice-scale">
+              <option value="major">Major</option>
+              <option value="minor">Minor</option>
+            </select>
+          </div>
+          <div class="daw-effects__row">
+            <label>Voice effect</label>
+            <select id="voice-effect">
+              <option value="none">None</option>
+              <option value="robotic">Robotic</option>
+              <option value="muffled">Muffled</option>
+            </select>
+          </div>
+          <div class="daw-effects__row" id="voice-robotic-row" style="display: none">
+            <label>Carrier</label>
+            <input type="range" id="voice-robotic-hz" min="30" max="300" value="80" />
+            <span id="voice-robotic-hz-val">80 Hz</span>
+          </div>
+          <div class="daw-effects__row" id="voice-muffle-row" style="display: none">
+            <label>Cutoff</label>
+            <input type="range" id="voice-muffle-hz" min="100" max="4000" value="600" />
+            <span id="voice-muffle-hz-val">600 Hz</span>
+          </div>
+          <button class="is-primary" id="voice-render-btn" disabled>Add to timeline</button>
         </div>
 
         <p class="daw-note daw-note--upsell">

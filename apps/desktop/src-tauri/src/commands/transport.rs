@@ -79,6 +79,8 @@ pub struct EffectParams {
     pub delay_wet: f64,
     pub reverb_wet: f64,
     pub reverb_room: f64,
+    pub robotic_hz: f64,
+    pub muffle_cutoff_hz: f64,
 }
 
 impl EffectParams {
@@ -100,6 +102,8 @@ impl EffectParams {
             delay_wet: self.delay_wet as f32,
             reverb_wet: self.reverb_wet as f32,
             reverb_room: self.reverb_room as f32,
+            robotic_hz: self.robotic_hz as f32,
+            muffle_cutoff_hz: self.muffle_cutoff_hz as f32,
         }
     }
 }
@@ -304,7 +308,7 @@ pub fn play_instrument_note(state: State<AppState>, program: u8, note: i32) -> R
 /// major triad no matter the instrument), generalized to any of the 128
 /// GM instruments. Unrecognized qualities fall back to major so the
 /// easy-start feature never silently does nothing.
-fn chord_intervals(quality: &str) -> &'static [i32] {
+pub(crate) fn chord_intervals(quality: &str) -> &'static [i32] {
     match quality {
         "minor" => &[0, 3, 7],
         "dominant7" => &[0, 4, 7, 10],

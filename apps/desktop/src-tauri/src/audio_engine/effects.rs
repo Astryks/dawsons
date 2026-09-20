@@ -323,6 +323,57 @@ pub fn delay(
     output
 }
 
+/// Ring modulation: multiplies the signal by a sine carrier wave — the
+/// classic analog technique (used in everything from vocoders to Doctor
+/// Who's Daleks) behind the "robotic"/metallic voice effect. A pure sine
+/// carrier at a fixed frequency is generic public DSP, not derived from
+/// any specific product's implementation.
+pub fn ring_modulate(
+    samples: &[f32],
+    channels: u16,
+    sample_rate: u32,
+    carrier_hz: f32,
+) -> Vec<f32> {
+    let channels = channels.max(1) as usize;
+    let angular_step = 2.0 * std::f32::consts::PI * carrier_hz.max(0.0) / sample_rate as f32;
+    samples
+        .iter()
+        .enumerate()
+        .map(|(i, &s)| {
+            let frame = (i / channels) as f32;
+            s * (angular_step * frame).sin()
+        })
+        .collect()
+}
+
+/// A single-pole IIR lowpass filter — the simplest possible way to roll
+/// off high frequencies, giving the "muffled"/lo-fi, filtered-through-a-
+/// wall vocal effect. `cutoff_hz` sets where the rolloff begins; lower
+/// values sound more muffled. Standard textbook DSP (a one-pole/RC
+/// lowpass), not derived from any specific product's code.
+pub fn lowpass_muffle(
+    samples: &[f32],
+    channels: u16,
+    sample_rate: u32,
+    cutoff_hz: f32,
+) -> Vec<f32> {
+    let channels = channels.max(1) as usize;
+    let dt = 1.0 / sample_rate as f32;
+    let rc = 1.0 / (2.0 * std::f32::consts::PI * cutoff_hz.max(1.0));
+    let alpha = dt / (rc + dt);
+
+    let mut state = vec![0.0f32; channels];
+    samples
+        .iter()
+        .enumerate()
+        .map(|(i, &x)| {
+            let ch = i % channels;
+            state[ch] += alpha * (x - state[ch]);
+            state[ch]
+        })
+        .collect()
+}
+
 /// The full clip-tools effect chain in one place, so callers (a Tauri
 /// command, a test) configure what they want and don't have to know the
 /// application order or thread five-plus optional parameters through
@@ -348,6 +399,12 @@ pub struct EffectChain {
     pub delay_wet: f32,
     pub reverb_wet: f32,
     pub reverb_room: f32,
+    /// Ring-modulation carrier frequency for the "robotic" voice effect;
+    /// 0 (the `Default`) disables it, since a 0 Hz carrier is meaningless.
+    pub robotic_hz: f32,
+    /// Lowpass cutoff for the "muffled" voice effect; 0 (the `Default`)
+    /// disables it, since a 0 Hz cutoff would silence everything.
+    pub muffle_cutoff_hz: f32,
 }
 
 impl EffectChain {
@@ -373,6 +430,12 @@ impl EffectChain {
                 self.eq_gain_db,
                 self.eq_q,
             );
+        }
+        if self.robotic_hz > 0.0 {
+            out = ring_modulate(&out, channels, sample_rate, self.robotic_hz);
+        }
+        if self.muffle_cutoff_hz > 0.0 {
+            out = lowpass_muffle(&out, channels, sample_rate, self.muffle_cutoff_hz);
         }
         if self.compress_enabled {
             out = compress(
@@ -567,6 +630,64 @@ mod tests {
         let samples = vec![0.2, -0.3, 0.5];
         let echoed = delay(&samples, 1, 44100, 50.0, 0.5, 0.0);
         assert_eq!(&echoed[..samples.len()], &samples[..]);
+    }
+
+    #[test]
+    fn ring_modulate_silences_a_zero_crossing_at_time_zero() {
+        // At frame 0, sin(0) = 0, so the very first sample is always zeroed
+        // by the carrier regardless of input.
+        let samples = vec![1.0, 1.0, 1.0, 1.0];
+        let modulated = ring_modulate(&samples, 1, 44100, 1000.0);
+        assert!(modulated[0].abs() < 1e-6);
+    }
+
+    #[test]
+    fn ring_modulate_zero_hz_carrier_silences_everything() {
+        let samples = vec![0.5, -0.5, 0.3, -0.3];
+        let modulated = ring_modulate(&samples, 1, 44100, 0.0);
+        assert!(modulated.iter().all(|&s| s.abs() < 1e-6));
+    }
+
+    #[test]
+    fn muffle_attenuates_high_frequency_content_more_than_low() {
+        let low_tone = sine_wave(200.0, 0.5, 44100);
+        let high_tone = sine_wave(8000.0, 0.5, 44100);
+        let cutoff = 500.0;
+        let muffled_low = lowpass_muffle(&low_tone, 1, 44100, cutoff);
+        let muffled_high = lowpass_muffle(&high_tone, 1, 44100, cutoff);
+        // Ratio of output energy to input energy should drop far more for
+        // the frequency above the cutoff than the one below it.
+        let low_ratio = rms(&muffled_low[2000..]) / rms(&low_tone[2000..]);
+        let high_ratio = rms(&muffled_high[2000..]) / rms(&high_tone[2000..]);
+        assert!(high_ratio < low_ratio);
+    }
+
+    #[test]
+    fn effect_chain_robotic_and_muffle_are_off_by_default() {
+        let samples = vec![0.1, 0.2, 0.3, 0.4];
+        assert_eq!(EffectChain::default().apply(&samples, 1, 44100), samples);
+    }
+
+    #[test]
+    fn effect_chain_applies_robotic_effect_when_set() {
+        let samples = vec![1.0, 1.0, 1.0, 1.0];
+        let chain = EffectChain {
+            robotic_hz: 1000.0,
+            ..Default::default()
+        };
+        let out = chain.apply(&samples, 1, 44100);
+        assert_eq!(out, ring_modulate(&samples, 1, 44100, 1000.0));
+    }
+
+    #[test]
+    fn effect_chain_applies_muffle_effect_when_set() {
+        let samples = vec![0.5, -0.5, 0.3, -0.3];
+        let chain = EffectChain {
+            muffle_cutoff_hz: 500.0,
+            ..Default::default()
+        };
+        let out = chain.apply(&samples, 1, 44100);
+        assert_eq!(out, lowpass_muffle(&samples, 1, 44100, 500.0));
     }
 
     #[test]

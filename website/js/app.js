@@ -1,7 +1,8 @@
 import { Engine } from "./audio-engine.js";
 import { DEMO_SONGS } from "./demo-songs.js";
-import { INSTRUMENT_ICONS } from "./synth.js";
+import { INSTRUMENT_ICONS, renderVoice } from "./synth.js";
 import { reverseBuffer, pitchShiftBuffer, buildEffectChain } from "./effects.js";
+import { detectNotes, snapNotesToScale, MAJOR_SCALE, MINOR_SCALE } from "./pitch.js";
 
 const engine = new Engine();
 let currentSong = null;
@@ -161,6 +162,32 @@ wireSlider("fx-eq-gain", "fx-eq-gain-val", (v) => `${v} dB`);
 wireSlider("fx-eq-freq", "fx-eq-freq-val", (v) => `${v} Hz`);
 wireSlider("fx-reverb", "fx-reverb-val", (v) => `${v}%`);
 wireSlider("fx-delay", "fx-delay-val", (v) => `${v}%`);
+wireSlider("fx-robotic-hz", "fx-robotic-hz-val", (v) => `${v} Hz`);
+wireSlider("fx-muffle-hz", "fx-muffle-hz-val", (v) => `${v} Hz`);
+wireSlider("voice-robotic-hz", "voice-robotic-hz-val", (v) => `${v} Hz`);
+wireSlider("voice-muffle-hz", "voice-muffle-hz-val", (v) => `${v} Hz`);
+
+// Toggles which voice-effect dial row is visible based on the paired
+// <select>'s value, for both the clip-tools panel and the voice panel.
+function wireVoiceEffectSelect(selectId, roboticRowId, muffleRowId) {
+  const select = document.getElementById(selectId);
+  const roboticRow = document.getElementById(roboticRowId);
+  const muffleRow = document.getElementById(muffleRowId);
+  select.onchange = () => {
+    roboticRow.style.display = select.value === "robotic" ? "flex" : "none";
+    muffleRow.style.display = select.value === "muffled" ? "flex" : "none";
+  };
+}
+wireVoiceEffectSelect("fx-voice-effect", "fx-robotic-row", "fx-muffle-row");
+wireVoiceEffectSelect("voice-effect", "voice-robotic-row", "voice-muffle-row");
+
+function voiceEffectOptsFrom(selectId, roboticHzId, muffleHzId) {
+  const effect = document.getElementById(selectId).value;
+  return {
+    roboticHz: effect === "robotic" ? Number(document.getElementById(roboticHzId).value) : 0,
+    muffleCutoffHz: effect === "muffled" ? Number(document.getElementById(muffleHzId).value) : 0,
+  };
+}
 
 document.getElementById("fx-apply-btn").onclick = async () => {
   if (!uploadedBuffer) return;
@@ -193,6 +220,7 @@ document.getElementById("fx-apply-btn").onclick = async () => {
     delayWet,
     delayMs: 250,
     delayFeedback: 0.3,
+    ...voiceEffectOptsFrom("fx-voice-effect", "fx-robotic-hz", "fx-muffle-hz"),
   });
   chainOut.connect(offlineCtx.destination);
   source.start();
@@ -201,6 +229,92 @@ document.getElementById("fx-apply-btn").onclick = async () => {
   engine.addTrack(`${uploadedName} (edited)`, rendered);
   renderTrackList();
   renderTimeline();
+};
+
+// --- Sing to instrument ---
+let mediaRecorder = null;
+let recordedChunks = [];
+let recordedVoiceBuffer = null;
+
+const voiceRecordBtn = document.getElementById("voice-record-btn");
+const voiceStatus = document.getElementById("voice-status");
+const voiceRenderBtn = document.getElementById("voice-render-btn");
+
+voiceRecordBtn.onclick = async () => {
+  if (mediaRecorder && mediaRecorder.state === "recording") {
+    mediaRecorder.stop();
+    return;
+  }
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  } catch {
+    voiceStatus.textContent = "Microphone permission denied.";
+    return;
+  }
+  await engine.resume();
+  recordedChunks = [];
+  mediaRecorder = new MediaRecorder(stream);
+  mediaRecorder.ondataavailable = (e) => recordedChunks.push(e.data);
+  mediaRecorder.onstop = async () => {
+    stream.getTracks().forEach((t) => t.stop());
+    voiceRecordBtn.textContent = "🎤 Start recording";
+    voiceStatus.textContent = "Processing…";
+    const blob = new Blob(recordedChunks, { type: "audio/webm" });
+    const arrayBuffer = await blob.arrayBuffer();
+    try {
+      recordedVoiceBuffer = await engine.ctx.decodeAudioData(arrayBuffer);
+      voiceStatus.textContent = `Recorded ${recordedVoiceBuffer.duration.toFixed(1)}s`;
+      voiceRenderBtn.disabled = false;
+    } catch {
+      voiceStatus.textContent = "Couldn't decode the recording — try again.";
+    }
+  };
+  mediaRecorder.start();
+  voiceRecordBtn.textContent = "⏹ Stop recording";
+  voiceStatus.textContent = "Recording…";
+};
+
+voiceRenderBtn.onclick = async () => {
+  if (!recordedVoiceBuffer) return;
+  await engine.resume();
+
+  let notes = detectNotes(recordedVoiceBuffer);
+  if (document.getElementById("voice-autotune").checked) {
+    const tonic = Number(document.getElementById("voice-tonic").value);
+    const scale = document.getElementById("voice-scale").value === "minor" ? MINOR_SCALE : MAJOR_SCALE;
+    notes = snapNotesToScale(notes, tonic, scale);
+  }
+  if (!notes.length) {
+    voiceStatus.textContent = "No clear pitch detected — try singing louder or more sustained notes.";
+    return;
+  }
+
+  const family = document.getElementById("voice-instrument").value;
+  const sampleRate = engine.ctx.sampleRate;
+  const totalDurationSec = Math.max(...notes.map((n) => n.startSec + n.durationSec)) + 0.5;
+  const totalSamples = Math.ceil(totalDurationSec * sampleRate);
+  const rawBuffer = engine.ctx.createBuffer(2, totalSamples, sampleRate);
+  for (const n of notes) {
+    renderVoice(engine.ctx, rawBuffer, family, [n.note], n.startSec, n.durationSec, sampleRate);
+  }
+
+  const voiceOpts = voiceEffectOptsFrom("voice-effect", "voice-robotic-hz", "voice-muffle-hz");
+  let finalBuffer = rawBuffer;
+  if (voiceOpts.roboticHz > 0 || voiceOpts.muffleCutoffHz > 0) {
+    const offlineCtx = new OfflineAudioContext(2, totalSamples, sampleRate);
+    const source = offlineCtx.createBufferSource();
+    source.buffer = rawBuffer;
+    const chainOut = buildEffectChain(offlineCtx, source, voiceOpts);
+    chainOut.connect(offlineCtx.destination);
+    source.start();
+    finalBuffer = await offlineCtx.startRendering();
+  }
+
+  engine.addTrack(`Voice as ${INSTRUMENT_ICONS[family] || ""} ${family}`.trim(), finalBuffer);
+  renderTrackList();
+  renderTimeline();
+  voiceStatus.textContent = "Added to timeline.";
 };
 
 renderSongPicker();

@@ -53,11 +53,42 @@ function makeImpulseResponse(ctx, roomSize) {
   return impulse;
 }
 
+// Ring modulation via native nodes only: a GainNode with its intrinsic
+// gain left at 0 sums with whatever is connected into its `.gain`
+// AudioParam, so an OscillatorNode (which outputs -1..1) connected there
+// makes the gain itself oscillate between -1 and 1 — literal ring
+// modulation (the same technique as the desktop app's ring_modulate),
+// with no custom DSP node needed. The oscillator is started/stopped
+// alongside the source so it doesn't leak.
+function buildRoboticNode(ctx, carrierHz) {
+  const carrier = ctx.createOscillator();
+  carrier.frequency.value = carrierHz || 80;
+  const ring = ctx.createGain();
+  ring.gain.value = 0;
+  carrier.connect(ring.gain);
+  carrier.start();
+  return ring;
+}
+
 // Builds a Web Audio graph applying the requested effect chain to
 // `sourceNode`, returning the final node to connect onward (e.g. to the
 // destination or a track's gain node).
 function buildEffectChain(ctx, sourceNode, opts) {
   let node = sourceNode;
+
+  if (opts.roboticHz && opts.roboticHz > 0) {
+    const ring = buildRoboticNode(ctx, opts.roboticHz);
+    node.connect(ring);
+    node = ring;
+  }
+
+  if (opts.muffleCutoffHz && opts.muffleCutoffHz > 0) {
+    const muffle = ctx.createBiquadFilter();
+    muffle.type = "lowpass";
+    muffle.frequency.value = opts.muffleCutoffHz;
+    node.connect(muffle);
+    node = muffle;
+  }
 
   if (opts.eqGainDb && opts.eqGainDb !== 0) {
     const eq = ctx.createBiquadFilter();

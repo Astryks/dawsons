@@ -286,6 +286,12 @@ export default function App() {
   const [voiceNotes, setVoiceNotes] = useState<VoiceNote[]>([]);
   const [isRecording, setIsRecording] = useState(false);
   const [voiceNoteError, setVoiceNoteError] = useState<string | null>(null);
+  const [autoTuneEnabled, setAutoTuneEnabled] = useState(false);
+  const [autoTuneTonic, setAutoTuneTonic] = useState(0);
+  const [autoTuneScale, setAutoTuneScale] = useState<"major" | "minor">("major");
+  const [voiceEffect, setVoiceEffect] = useState<"none" | "robotic" | "muffled">("none");
+  const [roboticHz, setRoboticHz] = useState(80);
+  const [muffleCutoffHz, setMuffleCutoffHz] = useState(600);
   const [tracks, setTracks] = useState<TrackInfo[]>([]);
   const [analysis, setAnalysis] = useState<AnalysisStatus | null>(null);
   const [analysisError, setAnalysisError] = useState<string | null>(null);
@@ -520,6 +526,15 @@ export default function App() {
     }
   }
 
+  async function handleKaraokeMode() {
+    const vocalIndex = tracks.findIndex((t) => t.name.toLowerCase().includes("vocal"));
+    if (vocalIndex === -1) {
+      setAnalysisError("No vocals layer found — upload a song first.");
+      return;
+    }
+    await handleToggleMute(vocalIndex, true);
+  }
+
   async function handleMoveTrack(index: number, direction: -1 | 1) {
     const to = index + direction;
     if (to < 0 || to >= tracks.length) return;
@@ -707,7 +722,28 @@ export default function App() {
 
   async function handlePlayVoiceNoteAsInstrument(filePath: string) {
     try {
-      await invoke("play_voice_note_as_instrument", { filePath, program: instrumentProgram });
+      await invoke("play_voice_note_as_instrument", {
+        filePath,
+        program: instrumentProgram,
+        autoTuneTonic: autoTuneEnabled ? autoTuneTonic : null,
+        autoTuneScale: autoTuneEnabled ? autoTuneScale : null,
+        roboticHz: voiceEffect === "robotic" ? roboticHz : null,
+        muffleCutoffHz: voiceEffect === "muffled" ? muffleCutoffHz : null,
+      });
+    } catch (err) {
+      setVoiceNoteError(String(err));
+    }
+  }
+
+  async function handlePlayVoiceNoteAsChord(filePath: string) {
+    try {
+      await invoke("play_voice_note_as_chord", {
+        filePath,
+        program: instrumentProgram,
+        quality: chordQuality,
+        autoTuneTonic: autoTuneEnabled ? autoTuneTonic : null,
+        autoTuneScale: autoTuneEnabled ? autoTuneScale : null,
+      });
     } catch (err) {
       setVoiceNoteError(String(err));
     }
@@ -903,13 +939,22 @@ export default function App() {
         </section>
 
         <section className="debug-panel">
-          <h2>Song analysis (M4)</h2>
+          <h2>Song analysis &amp; Karaoke mode</h2>
           <p className="debug-panel__hint">
-            Uploads a song to the local AI sidecar, which runs Demucs stem separation on your own
-            machine — no server, no upload anywhere.
+            Upload any song of your own and Dawsons runs real Demucs stem separation on your own
+            machine — no server, no upload anywhere — isolating the vocals so you can mute them and
+            sing along, with time-synced lyrics scrolling below. This works on any song you own or
+            have rights to use — there's no bundled library of other artists' songs to sing along to,
+            since real karaoke providers pay real publisher licenses for that and we don't pass costs
+            like that on to you.
           </p>
           <div className="debug-panel__buttons">
             <button onClick={handleUploadSong}>Upload song…</button>
+            {tracks.length > 0 && (
+              <button onClick={handleKaraokeMode} title="Mutes the vocals layer so you can sing along">
+                🎤 Karaoke mode
+              </button>
+            )}
           </div>
           {analysis && analysis.status !== "done" && (
             <p className="debug-panel__hint">
@@ -1271,6 +1316,8 @@ export default function App() {
                         delayWet,
                         reverbWet,
                         reverbRoom,
+                        roboticHz: voiceEffect === "robotic" ? roboticHz : 0,
+                        muffleCutoffHz: voiceEffect === "muffled" ? muffleCutoffHz : 0,
                       },
                     })
                   : runCommand("debug_play_reversed_pitched_tone", { reverse, semitones })
@@ -1358,6 +1405,86 @@ export default function App() {
             )}
           </div>
           {voiceNoteError && <p className="debug-panel__error">{voiceNoteError}</p>}
+          <p className="debug-panel__hint">
+            "Play as chord" uses the root note you held longest and the chord type picked in the
+            Chord starter section above (Dubler 2's "sing one note, hear a full chord" trick).
+          </p>
+
+          <h3 style={{ marginBottom: "0.4rem" }}>Auto-tune</h3>
+          <p className="debug-panel__hint">
+            Can't quite land the note? Snaps the voice-to-instrument melody to the nearest pitch
+            in a key before it plays back.
+          </p>
+          <div className="debug-panel__field">
+            <label>
+              <input
+                type="checkbox"
+                checked={autoTuneEnabled}
+                onChange={(e) => setAutoTuneEnabled(e.target.checked)}
+              />
+              {" "}Enabled
+            </label>
+            <select
+              value={autoTuneTonic}
+              disabled={!autoTuneEnabled}
+              onChange={(e) => setAutoTuneTonic(Number(e.target.value))}
+            >
+              {CHORD_ROOTS.map((r) => (
+                <option key={r.name} value={r.note - 60}>
+                  {r.name}
+                </option>
+              ))}
+            </select>
+            <select
+              value={autoTuneScale}
+              disabled={!autoTuneEnabled}
+              onChange={(e) => setAutoTuneScale(e.target.value as "major" | "minor")}
+            >
+              <option value="major">Major</option>
+              <option value="minor">Minor</option>
+            </select>
+          </div>
+
+          <h3 style={{ marginBottom: "0.4rem" }}>Voice effects</h3>
+          <p className="debug-panel__hint">
+            Dials for the "sing it, hear it transformed" fun factor — a metallic/robotic vocoder
+            tone or a muffled, lo-fi filtered tone, applied to the rendered voice-to-instrument
+            audio.
+          </p>
+          <div className="debug-panel__field">
+            <select
+              value={voiceEffect}
+              onChange={(e) => setVoiceEffect(e.target.value as "none" | "robotic" | "muffled")}
+            >
+              <option value="none">None</option>
+              <option value="robotic">Robotic</option>
+              <option value="muffled">Muffled</option>
+            </select>
+          </div>
+          {voiceEffect === "robotic" && (
+            <label className="debug-panel__field">
+              Carrier: {Math.round(roboticHz)} Hz
+              <input
+                type="range"
+                min={30}
+                max={300}
+                value={roboticHz}
+                onChange={(e) => setRoboticHz(Number(e.target.value))}
+              />
+            </label>
+          )}
+          {voiceEffect === "muffled" && (
+            <label className="debug-panel__field">
+              Cutoff: {Math.round(muffleCutoffHz)} Hz
+              <input
+                type="range"
+                min={100}
+                max={4000}
+                value={muffleCutoffHz}
+                onChange={(e) => setMuffleCutoffHz(Number(e.target.value))}
+              />
+            </label>
+          )}
           <ul className="voice-note-list">
             {voiceNotes.map((note) => (
               <li key={note.id} className="voice-note-list__item">
@@ -1368,6 +1495,9 @@ export default function App() {
                   <button onClick={() => handlePlayVoiceNote(note.file_path)}>Play</button>
                   <button onClick={() => handlePlayVoiceNoteAsInstrument(note.file_path)}>
                     Play as {GM_INSTRUMENTS[instrumentProgram]}
+                  </button>
+                  <button onClick={() => handlePlayVoiceNoteAsChord(note.file_path)}>
+                    Play as {CHORD_QUALITIES.find((q) => q.value === chordQuality)?.label} chord
                   </button>
                   <button onClick={() => handleDeleteVoiceNote(note.id)}>Delete</button>
                 </span>

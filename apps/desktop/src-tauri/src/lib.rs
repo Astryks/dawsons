@@ -57,6 +57,7 @@ pub fn run() {
             commands::voice_notes::delete_voice_note,
             commands::voice_notes::play_voice_note,
             commands::voice_notes::play_voice_note_as_instrument,
+            commands::voice_notes::play_voice_note_as_chord,
             commands::smart_upload::start_clip_classification,
             commands::smart_upload::clip_classification_status,
             commands::smart_upload::load_clip_into_layer,
