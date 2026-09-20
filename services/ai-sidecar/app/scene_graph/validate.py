@@ -7,14 +7,26 @@ Python all validate against the exact same file.
 
 import functools
 import json
+import sys
 from pathlib import Path
 
 import jsonschema
 
-# app/scene_graph/validate.py -> app -> ai-sidecar -> services -> repo root
-_SCHEMA_PATH = (
-    Path(__file__).resolve().parents[4] / "packages" / "scene-graph-schema" / "schema" / "scene-graph.schema.json"
-)
+
+def _schema_path() -> Path:
+    # A PyInstaller-frozen build (M8) has no `packages/` sibling directory
+    # to walk up to — `__file__` resolves somewhere inside the bundle's
+    # extracted _internal tree instead. The schema is bundled as a plain
+    # data file at the bundle root instead (see the `pyinstaller
+    # --add-data` invocation in scripts/build_sidecar.sh), reachable via
+    # sys._MEIPASS, PyInstaller's own extraction-directory attribute.
+    if hasattr(sys, "_MEIPASS"):
+        return Path(sys._MEIPASS) / "scene-graph.schema.json"
+    # Dev/test: app/scene_graph/validate.py -> app -> ai-sidecar -> services -> repo root
+    return Path(__file__).resolve().parents[4] / "packages" / "scene-graph-schema" / "schema" / "scene-graph.schema.json"
+
+
+_SCHEMA_PATH = _schema_path()
 
 
 @functools.lru_cache(maxsize=1)

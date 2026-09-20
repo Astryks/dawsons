@@ -28,6 +28,7 @@ services/ai-sidecar/.dawsons-work/
 # Build/bundle artifacts
 services/ai-sidecar/dist/
 services/ai-sidecar/build/
+services/ai-sidecar/*.spec
 *.dmg
 *.app
 *.msi
