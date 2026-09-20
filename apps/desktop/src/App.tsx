@@ -758,6 +758,40 @@ export default function App() {
     }
   }
 
+  // Promotes a standalone voice note into the currently selected
+  // project's own persisted Scene Graph, as a real audio track — not
+  // just something that happens to be sitting in the Voice Notes list.
+  // Merges into whatever the project already has (an uploaded song's
+  // analysis, an earlier promoted note, or nothing yet) rather than
+  // overwriting it.
+  async function handlePromoteVoiceNoteToProject(note: VoiceNote) {
+    if (!currentProjectId) {
+      setVoiceNoteError("Pick a project first (top of the sidebar) before adding a voice note to it.");
+      return;
+    }
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const existing = await invoke<Record<string, any> | null>("get_scene_graph", {
+        projectId: currentProjectId,
+      });
+      const graph = existing ?? { schemaVersion: "1.0.0", song: {} };
+      graph.song ??= {};
+      graph.song.tracks ??= [];
+      graph.song.tracks.push({
+        id: crypto.randomUUID(),
+        name: note.title,
+        type: "audio",
+        instrument: "vocals",
+        audioFilePath: note.file_path,
+        source: "user",
+      });
+      await invoke("save_scene_graph", { projectId: currentProjectId, data: graph });
+      setVoiceNoteError(null);
+    } catch (err) {
+      setVoiceNoteError(String(err));
+    }
+  }
+
   const maxTrackDuration = tracks.reduce((max, t) => Math.max(max, t.duration_sec), 0.001);
 
   return (
@@ -1498,6 +1532,13 @@ export default function App() {
                   </button>
                   <button onClick={() => handlePlayVoiceNoteAsChord(note.file_path)}>
                     Play as {CHORD_QUALITIES.find((q) => q.value === chordQuality)?.label} chord
+                  </button>
+                  <button
+                    onClick={() => handlePromoteVoiceNoteToProject(note)}
+                    disabled={!currentProjectId}
+                    title={currentProjectId ? "Add this recording as a track in the selected project" : "Pick a project first"}
+                  >
+                    + Add to project
                   </button>
                   <button onClick={() => handleDeleteVoiceNote(note.id)}>Delete</button>
                 </span>
