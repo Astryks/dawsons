@@ -106,7 +106,7 @@ Bottom line: CPU generation genuinely works end-to-end (load → diffuse → sav
 - Local profile (name + picture, "your songs" list) — designed, not built; explicitly *not* a multi-user social network (that needs a paid server/hosting decision first, see `docs/UX_DESIGN.md`)
 - M6's full draggable multi-region timeline in the **desktop app** (layers are proportional/reorderable/removable with a live playhead, but not yet drag-to-move/trim regions) — the browser DAW has the same limitation
 - MT3/Omnizart (polyphonic transcription), DDSP-SVC/RVC instrument-timbre conversion (see above)
-- Folding the standalone PWA (`website/app/`) into the new browser DAW — now redundant, both are lightweight local-only web surfaces
+- **Correction from an earlier note**: the standalone PWA (`website/app/`) was flagged as "now redundant" with the new browser DAW's mic feature — checked directly, and that's not quite right. The PWA persists voice notes durably (IndexedDB, survive a reload) and is installable/offline-capable (manifest + service worker) for quick capture on a phone; the DAW's "Sing to instrument" panel is in-memory only (lost on reload) and requires loading the full DAW page. They serve genuinely different use cases (quick mobile capture vs. in-session DAW recording), not a duplicate — leaving both as-is rather than merging them.
 
 ## Everything done this session (chronological, for continuity)
 
