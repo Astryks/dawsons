@@ -121,7 +121,7 @@
       "properties": {
         "symbol": { "type": "string", "description": "human-readable, e.g. 'Cmaj7', 'Am', 'G/B'" },
         "root": { "type": "string", "enum": ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"] },
-        "quality": { "type": "string", "enum": ["maj", "min", "maj7", "min7", "dom7", "dim", "aug", "sus2", "sus4", "other"] },
+        "quality": { "type": "string", "enum": ["maj", "min", "maj7", "min7", "dom7", "dim", "aug", "sus2", "sus4", "dim7", "hdim7", "dom7sus4", "other"] },
         "bassNote": { "type": ["string", "null"] },
         "startSec": { "type": "number", "minimum": 0 },
         "endSec": { "type": "number", "minimum": 0 },

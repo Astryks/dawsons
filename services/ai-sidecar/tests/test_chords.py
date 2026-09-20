@@ -146,13 +146,12 @@ def test_recognizes_a_published_seventh_and_sus_progression():
     assert collapsed == ["Em7", "G", "Dsus4"]
 
 
-def test_a_compound_seventh_sus_chord_is_still_only_approximated():
-    """A7sus4 (root, 4th, 5th, minor 7th) combines two qualities at once
-    and isn't in the detector's 8-quality vocabulary (`_QUALITY_INTERVALS`
-    has "sus4" and "dom7" separately, never combined) — this documents
-    that known, real gap so it stays a tracked fact instead of a silent
-    surprise, the same way the plain-sus4/min7 case above documents what
-    *does* now work.
+def test_detects_a_compound_seventh_sus_chord_exactly():
+    """A7sus4 (root, 4th, 5th, minor 7th) combines two qualities at once.
+    The detector's vocabulary now includes "dom7sus4" as its own template
+    (alongside dim/aug/dim7/hdim7), so this comes back verbatim instead
+    of being approximated by the closest single-quality neighbor — this
+    used to document a real gap; the gap is closed.
     """
     a7sus4 = _chord_freqs("A", [0, 5, 7, 10])
     audio = _render_chord(a7sus4, seconds=3.0)
@@ -160,13 +159,17 @@ def test_a_compound_seventh_sus_chord_is_still_only_approximated():
     segments = chords.detect(path)
 
     detected_symbols = {s.symbol for s in segments}
-    assert "A7sus4" not in detected_symbols  # structurally impossible today
-    # It lands on Dsus2 (D-E-A, three of A7sus4's four notes: A-D-E-G) —
-    # a real, plausible-sounding substitution, not something unrelated to
-    # the chord's actual pitch classes, even though it's still the wrong
-    # answer. Several other 3-of-4 substitutions score similarly close
-    # (Asus4, Dsus4, A7, Am7 are all subsets of the same four notes);
-    # which one wins is decided by real harmonic energy in the rendered
-    # audio, not by this test's guess, so this asserts the actual
-    # measured behavior rather than a hand-derived prediction.
-    assert detected_symbols == {"Dsus2"}, detected_symbols
+    assert detected_symbols == {"A7sus4"}
+
+
+def test_detects_augmented_diminished7_and_half_diminished_chords():
+    for root, quality, expected_symbol in [
+        ("C", "aug", "Caug"),
+        ("D", "dim7", "Ddim7"),
+        ("E", "hdim7", "Em7b5"),
+    ]:
+        audio = _render_chord(_chord_freqs(root, quality), seconds=2.0)
+        path = _write(Path("/tmp"), f"{expected_symbol}.wav", audio)
+        segments = chords.detect(path)
+        detected_symbols = {s.symbol for s in segments}
+        assert detected_symbols == {expected_symbol}, (root, quality, detected_symbols)

@@ -26,6 +26,10 @@ _QUALITY_INTERVALS: dict[str, list[int]] = {
     "sus4": [0, 5, 7],
     "sus2": [0, 2, 7],
     "dim": [0, 3, 6],
+    "aug": [0, 4, 8],
+    "dim7": [0, 3, 6, 9],
+    "hdim7": [0, 3, 6, 10],  # half-diminished / min7(b5)
+    "dom7sus4": [0, 5, 7, 10],
 }
 _QUALITY_SUFFIX: dict[str, str] = {
     "maj": "",
@@ -36,6 +40,10 @@ _QUALITY_SUFFIX: dict[str, str] = {
     "sus4": "sus4",
     "sus2": "sus2",
     "dim": "dim",
+    "aug": "aug",
+    "dim7": "dim7",
+    "hdim7": "m7b5",
+    "dom7sus4": "7sus4",
 }
 
 
