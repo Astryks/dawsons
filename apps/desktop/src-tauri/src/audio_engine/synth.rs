@@ -18,7 +18,11 @@ use rustysynth::{SoundFont, Synthesizer, SynthesizerSettings};
 use super::device::EngineConfig;
 use super::pitch::DetectedNote;
 
-const CHANNEL: i32 = 0;
+const MELODY_CHANNEL: i32 = 0;
+/// GM percussion lives on MIDI channel 10 (channel index 9), where note
+/// numbers select a fixed drum sound (kick, snare, hi-hat, ...) rather
+/// than a pitch, and program-change messages are ignored.
+const PERCUSSION_CHANNEL: i32 = 9;
 
 pub fn soundfont_path() -> PathBuf {
     dirs_cache_dir()
@@ -42,7 +46,11 @@ pub fn is_soundfont_available() -> bool {
     soundfont_path().exists()
 }
 
-fn load_synthesizer(config: &EngineConfig, program: u8) -> Result<Synthesizer, String> {
+fn load_synthesizer(
+    config: &EngineConfig,
+    channel: i32,
+    program: u8,
+) -> Result<Synthesizer, String> {
     let path = soundfont_path();
     let file = File::open(&path).map_err(|_| {
         format!("SoundFont not found at {path:?} — run scripts/download_soundfont.sh first")
@@ -54,14 +62,19 @@ fn load_synthesizer(config: &EngineConfig, program: u8) -> Result<Synthesizer, S
     let settings = SynthesizerSettings::new(config.sample_rate as i32);
     let mut synthesizer = Synthesizer::new(&sound_font, &settings)
         .map_err(|e| format!("failed to create synthesizer: {e}"))?;
-    synthesizer.process_midi_message(CHANNEL, 0xC0, program as i32, 0); // program change
+    if channel != PERCUSSION_CHANNEL {
+        synthesizer.process_midi_message(channel, 0xC0, program as i32, 0); // program change
+    }
     Ok(synthesizer)
 }
 
-fn render_one_note(
+/// Renders one event — a single note, a chord (several simultaneous
+/// pitches), or silence (`pitches` empty) — for `duration_sec`.
+fn render_one_event(
     synthesizer: &mut Synthesizer,
+    channel: i32,
     config: &EngineConfig,
-    note: i32,
+    pitches: &[i32],
     velocity: i32,
     duration_sec: f32,
 ) -> (Vec<f32>, Vec<f32>) {
@@ -70,14 +83,18 @@ fn render_one_note(
 
     let mut left = vec![0f32; total_frames];
     let mut right = vec![0f32; total_frames];
-    synthesizer.note_on(CHANNEL, note, velocity);
+    for &pitch in pitches {
+        synthesizer.note_on(channel, pitch, velocity);
+    }
 
     let chunk = 256usize;
     let mut rendered = 0usize;
     while rendered < total_frames {
         let this_chunk = chunk.min(total_frames - rendered);
         if rendered <= note_off_frame && rendered + this_chunk > note_off_frame {
-            synthesizer.note_off(CHANNEL, note);
+            for &pitch in pitches {
+                synthesizer.note_off(channel, pitch);
+            }
         }
         synthesizer.render(
             &mut left[rendered..rendered + this_chunk],
@@ -98,6 +115,99 @@ fn interleave(left: &[f32], right: &[f32], channels: u16) -> Vec<f32> {
     interleaved
 }
 
+fn render_sequence(
+    config: &EngineConfig,
+    channel: i32,
+    program: u8,
+    notes: &[DetectedNote],
+) -> Result<Vec<f32>, String> {
+    if notes.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut synthesizer = load_synthesizer(config, channel, program)?;
+    let mut left_full = Vec::new();
+    let mut right_full = Vec::new();
+    for note in notes {
+        let (left, right) = render_one_event(
+            &mut synthesizer,
+            channel,
+            config,
+            &[note.note as i32],
+            100,
+            note.duration_sec,
+        );
+        left_full.extend_from_slice(&left);
+        right_full.extend_from_slice(&right);
+    }
+    Ok(interleave(&left_full, &right_full, config.channels))
+}
+
+/// An event for hand-authored compositions (see `demo_songs.rs`): a single
+/// note, a chord (several simultaneous pitches), or a rest (empty
+/// `pitches`). Unlike `DetectedNote`, which always represents an actually-
+/// sung pitch, authored parts need rests and chords to sound musical and
+/// stay rhythmically aligned across simultaneously-rendered layers.
+#[derive(Debug, Clone)]
+pub struct ScoreNote {
+    pub pitches: Vec<u8>,
+    pub duration_sec: f32,
+}
+
+impl ScoreNote {
+    pub fn note(pitch: u8, duration_sec: f32) -> Self {
+        Self {
+            pitches: vec![pitch],
+            duration_sec,
+        }
+    }
+
+    pub fn chord(pitches: Vec<u8>, duration_sec: f32) -> Self {
+        Self {
+            pitches,
+            duration_sec,
+        }
+    }
+
+    /// Not used by the current demo songs (their layers all stay fully
+    /// covered by notes/chords), but real public API for authoring future
+    /// compositions with rhythmic gaps.
+    #[allow(dead_code)]
+    pub fn rest(duration_sec: f32) -> Self {
+        Self {
+            pitches: Vec::new(),
+            duration_sec,
+        }
+    }
+}
+
+fn render_score(
+    config: &EngineConfig,
+    channel: i32,
+    program: u8,
+    notes: &[ScoreNote],
+) -> Result<Vec<f32>, String> {
+    if notes.is_empty() {
+        return Ok(Vec::new());
+    }
+    let mut synthesizer = load_synthesizer(config, channel, program)?;
+    let mut left_full = Vec::new();
+    let mut right_full = Vec::new();
+    for note in notes {
+        let pitches: Vec<i32> = note.pitches.iter().map(|&p| p as i32).collect();
+        let (left, right) = render_one_event(
+            &mut synthesizer,
+            channel,
+            config,
+            &pitches,
+            100,
+            note.duration_sec,
+        );
+        left_full.extend_from_slice(&left);
+        right_full.extend_from_slice(&right);
+    }
+    Ok(interleave(&left_full, &right_full, config.channels))
+}
+
 /// Renders a single MIDI note (program change + note on/off) to interleaved
 /// f32 PCM at the engine's sample rate/channel count — the instrument
 /// library's "preview a note" demo.
@@ -108,8 +218,15 @@ pub fn render_note(
     velocity: i32,
     duration_sec: f32,
 ) -> Result<Vec<f32>, String> {
-    let mut synthesizer = load_synthesizer(config, program)?;
-    let (left, right) = render_one_note(&mut synthesizer, config, note, velocity, duration_sec);
+    let mut synthesizer = load_synthesizer(config, MELODY_CHANNEL, program)?;
+    let (left, right) = render_one_event(
+        &mut synthesizer,
+        MELODY_CHANNEL,
+        config,
+        &[note],
+        velocity,
+        duration_sec,
+    );
     Ok(interleave(&left, &right, config.channels))
 }
 
@@ -129,21 +246,26 @@ pub fn render_melody(
             "no notes detected in this recording — try humming or singing more clearly".to_string(),
         );
     }
-    let mut synthesizer = load_synthesizer(config, program)?;
-    let mut left_full = Vec::new();
-    let mut right_full = Vec::new();
-    for note in notes {
-        let (left, right) = render_one_note(
-            &mut synthesizer,
-            config,
-            note.note as i32,
-            100,
-            note.duration_sec,
-        );
-        left_full.extend_from_slice(&left);
-        right_full.extend_from_slice(&right);
-    }
-    Ok(interleave(&left_full, &right_full, config.channels))
+    render_sequence(config, MELODY_CHANNEL, program, notes)
+}
+
+/// Renders a hand-authored melodic part (bass, guitar, piano, "vocal"
+/// lead, ...) — single notes or chords, with rests — on the standard
+/// melody channel through the given GM program. Used for demo song
+/// generation, where each layer needs its own instrument.
+pub fn render_part(
+    config: &EngineConfig,
+    program: u8,
+    notes: &[ScoreNote],
+) -> Result<Vec<f32>, String> {
+    render_score(config, MELODY_CHANNEL, program, notes)
+}
+
+/// Renders a drum pattern (pitches are GM percussion key numbers — e.g.
+/// 36=kick, 38=snare, 42=closed hi-hat — not musical pitches) on the GM
+/// percussion channel.
+pub fn render_drums(config: &EngineConfig, notes: &[ScoreNote]) -> Result<Vec<f32>, String> {
+    render_score(config, PERCUSSION_CHANNEL, 0, notes)
 }
 
 #[cfg(test)]
@@ -177,5 +299,15 @@ mod tests {
         let samples = render_note(&config, 0, 60, 100, 1.0).expect("render should succeed");
         let peak = samples.iter().fold(0f32, |a, &b| a.max(b.abs()));
         assert!(peak > 0.01, "expected audible output, got peak={peak}");
+    }
+
+    #[test]
+    fn score_note_constructors_shape_pitches_correctly() {
+        assert_eq!(ScoreNote::note(60, 1.0).pitches, vec![60]);
+        assert_eq!(
+            ScoreNote::chord(vec![60, 64, 67], 1.0).pitches,
+            vec![60, 64, 67]
+        );
+        assert!(ScoreNote::rest(1.0).pitches.is_empty());
     }
 }

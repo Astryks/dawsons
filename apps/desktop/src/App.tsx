@@ -57,6 +57,12 @@ interface TrackInfo {
   muted: boolean;
 }
 
+interface DemoSongInfo {
+  index: number;
+  title: string;
+  description: string;
+}
+
 interface AnalysisStatus {
   job_id: string;
   status: "pending" | "running" | "done" | "failed";
@@ -87,6 +93,9 @@ export default function App() {
   const [instrumentSearch, setInstrumentSearch] = useState("");
   const [soundfontReady, setSoundfontReady] = useState<boolean | null>(null);
   const [instrumentError, setInstrumentError] = useState<string | null>(null);
+  const [demoSongs, setDemoSongs] = useState<DemoSongInfo[]>([]);
+  const [demoSongError, setDemoSongError] = useState<string | null>(null);
+  const [loadingDemoSong, setLoadingDemoSong] = useState<number | null>(null);
 
   useEffect(() => {
     // M3 wires this up to a real `sidecar:status` Tauri event; until then
@@ -96,7 +105,21 @@ export default function App() {
     refreshVoiceNotes();
     refreshTracks();
     invoke<boolean>("soundfont_available").then(setSoundfontReady).catch(() => setSoundfontReady(false));
+    invoke<DemoSongInfo[]>("list_demo_songs").then(setDemoSongs).catch((err) => setDemoSongError(String(err)));
   }, []);
+
+  async function handleLoadDemoSong(index: number) {
+    setLoadingDemoSong(index);
+    setDemoSongError(null);
+    try {
+      await invoke("load_demo_song", { index });
+      await refreshTracks();
+    } catch (err) {
+      setDemoSongError(String(err));
+    } finally {
+      setLoadingDemoSong(null);
+    }
+  }
 
   async function runCommand(command: string, args?: Record<string, unknown>) {
     try {
@@ -300,7 +323,47 @@ export default function App() {
         </span>
       </header>
       <main className="app-shell__main">
-        <p>Desktop shell scaffold — timeline and upload panel land in later milestones.</p>
+        <section className="hero">
+          <h1 className="hero__title">Create a song</h1>
+          <p className="hero__subtitle">
+            Load an example to see a layered project right away, or upload your own song below.
+          </p>
+          <div className="example-grid">
+            {demoSongs.map((song) => (
+              <div key={song.index} className="example-card">
+                <h3>{song.title}</h3>
+                <p>{song.description}</p>
+                <button onClick={() => handleLoadDemoSong(song.index)} disabled={loadingDemoSong === song.index}>
+                  {loadingDemoSong === song.index ? "Loading…" : "Load example"}
+                </button>
+              </div>
+            ))}
+          </div>
+          {demoSongError && <p className="debug-panel__error">{demoSongError}</p>}
+        </section>
+
+        {tracks.length > 0 && (
+          <section className="layered-tracks">
+            <h2>Your tracks</h2>
+            {tracks.map((t, i) => (
+              <div key={t.name + i} className={`layer layer--${i % 6}`}>
+                <div className="layer__header">
+                  <span className="layer__name">{t.name}</span>
+                  <label className="layer__mute">
+                    <input type="checkbox" checked={t.muted} onChange={(e) => handleToggleMute(i, e.target.checked)} />
+                    Mute
+                  </label>
+                </div>
+                <div className="layer__bar" />
+              </div>
+            ))}
+            <div className="debug-panel__buttons" style={{ marginTop: "0.75rem" }}>
+              <button onClick={() => runCommand("transport_play")}>Play</button>
+              <button onClick={() => runCommand("transport_pause")}>Pause</button>
+              <button onClick={() => runCommand("transport_stop")}>Stop</button>
+            </div>
+          </section>
+        )}
 
         <section className="debug-panel">
           <h2>Projects</h2>
