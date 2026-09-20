@@ -35,7 +35,7 @@ def test_analyze_separates_a_real_file_into_stems():
 
     assert record is not None
     assert record["status"] == JobStatus.DONE.value, record.get("error")
-    stems = record["result"]["stems"]
-    assert set(stems.keys()) == {"vocals", "drums", "bass", "other"}
+    stems = {t["sourceStem"]: t["audioFilePath"] for t in record["result"]["song"]["tracks"]}
+    assert set(stems.keys()) == {"vocals", "drums", "bass", "guitar", "piano", "other"}
     for path in stems.values():
         assert Path(path).exists()

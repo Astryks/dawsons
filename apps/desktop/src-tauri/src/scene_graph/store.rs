@@ -1,7 +1,7 @@
 //! SQLite persistence for projects and their Scene Graphs. Rust is the
 //! single writer (see ADR 0001) — the sidecar never touches this database.
 
-use rusqlite::Connection;
+use rusqlite::{Connection, OptionalExtension};
 use tauri::{AppHandle, Manager};
 use uuid::Uuid;
 
@@ -45,6 +45,38 @@ fn migrate(conn: &Connection) -> Result<(), String> {
         ",
     )
     .map_err(|e| format!("migration failed: {e}"))
+}
+
+/// Upserts the Scene Graph JSON for a project — Rust is the sole writer
+/// (see ADR 0001); the sidecar only ever returns fragments for Rust to
+/// store here.
+pub fn save_scene_graph(
+    conn: &Connection,
+    project_id: &str,
+    schema_version: &str,
+    data: &str,
+) -> Result<(), String> {
+    conn.execute(
+        "INSERT INTO scene_graphs (project_id, schema_version, data, updated_at)
+         VALUES (?1, ?2, ?3, strftime('%Y-%m-%dT%H:%M:%fZ', 'now'))
+         ON CONFLICT(project_id) DO UPDATE SET
+            schema_version = excluded.schema_version,
+            data = excluded.data,
+            updated_at = excluded.updated_at",
+        rusqlite::params![project_id, schema_version, data],
+    )
+    .map_err(|e| format!("failed to save scene graph: {e}"))?;
+    Ok(())
+}
+
+pub fn get_scene_graph(conn: &Connection, project_id: &str) -> Result<Option<String>, String> {
+    conn.query_row(
+        "SELECT data FROM scene_graphs WHERE project_id = ?1",
+        [project_id],
+        |row| row.get(0),
+    )
+    .optional()
+    .map_err(|e| format!("failed to load scene graph: {e}"))
 }
 
 pub fn list_voice_notes(conn: &Connection) -> Result<Vec<VoiceNote>, String> {

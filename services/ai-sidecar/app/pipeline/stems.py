@@ -1,4 +1,10 @@
-"""Stem separation via Demucs (htdemucs model, MIT license).
+"""Stem separation via Demucs (htdemucs_6s model, MIT license).
+
+htdemucs_6s is a distinct model checkpoint from the default 4-stem
+htdemucs — trained to additionally split guitar and piano out of the
+catch-all "other" bucket, giving 6 stems (vocals, drums, bass, guitar,
+piano, other) instead of 4. More useful for instrument identification at
+essentially the same integration cost.
 
 Demucs manages its own pretrained-weight downloads internally (via
 Hugging Face Hub, on first use, cached under ~/.cache) — no custom
@@ -10,6 +16,8 @@ from typing import Optional
 
 from demucs.api import Separator, save_audio
 
+_MODEL = "htdemucs_6s"
+
 _separator: Optional[Separator] = None
 _separator_device: Optional[str] = None
 
@@ -17,14 +25,15 @@ _separator_device: Optional[str] = None
 def _get_separator(device: str) -> Separator:
     global _separator, _separator_device
     if _separator is None or _separator_device != device:
-        _separator = Separator(model="htdemucs", device=device)
+        _separator = Separator(model=_MODEL, device=device)
         _separator_device = device
     return _separator
 
 
 def separate(input_path: Path, out_dir: Path, device: str = "cpu") -> dict[str, Path]:
-    """Separates `input_path` into stems (vocals, drums, bass, other),
-    writing one WAV per stem into `out_dir`. Returns {stem_name: path}.
+    """Separates `input_path` into stems (vocals, drums, bass, guitar,
+    piano, other), writing one WAV per stem into `out_dir`. Returns
+    {stem_name: path}.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     separator = _get_separator(device)
