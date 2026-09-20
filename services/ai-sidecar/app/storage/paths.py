@@ -11,3 +11,7 @@ def job_dir(job_id: str) -> Path:
 
 def classify_dir(job_id: str) -> Path:
     return WORK_DIR / "classify" / job_id
+
+
+def generate_dir(job_id: str) -> Path:
+    return WORK_DIR / "generate" / job_id

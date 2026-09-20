@@ -1,12 +1,13 @@
 # Pinned runtime dependencies. Regenerate with `pip freeze` after updating
 # pyproject.toml's dependencies and testing the result.
-fastapi==0.115.5
+fastapi==0.141.1
 uvicorn[standard]==0.32.1
 pydantic==2.9.2
 demucs==4.1.0
 torch==2.14.0
 torchaudio==2.11.0
 numpy==2.4.6
-soundfile==0.14.0
+soundfile==0.13.1
 librosa==0.11.0
 jsonschema==4.26.0
+ace-step==0.2.0

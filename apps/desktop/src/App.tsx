@@ -215,6 +215,11 @@ export default function App() {
   const [delayFeedback, setDelayFeedback] = useState(0.3);
   const [playbackPositionSec, setPlaybackPositionSec] = useState(0);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [generatePrompt, setGeneratePrompt] = useState("");
+  const [generateDurationSec, setGenerateDurationSec] = useState(15);
+  const [generateBusy, setGenerateBusy] = useState(false);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  const [generatedFilePath, setGeneratedFilePath] = useState<string | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [currentProjectId, setCurrentProjectId] = useState<string | null>(null);
   const [newProjectName, setNewProjectName] = useState("");
@@ -287,6 +292,63 @@ export default function App() {
   async function handleLoadDemoSongByTitle(title: string) {
     const song = demoSongs.find((s) => s.title === title);
     if (song) await handleLoadDemoSong(song.index);
+  }
+
+  async function handleGenerateMusic() {
+    if (!generatePrompt.trim()) return;
+    setGenerateError(null);
+    setGenerateBusy(true);
+    setGeneratedFilePath(null);
+    try {
+      const jobId = await invoke<string>("start_music_generation", {
+        prompt: generatePrompt,
+        durationSec: generateDurationSec,
+      });
+      pollGeneration(jobId);
+    } catch (err) {
+      setGenerateError(String(err));
+      setGenerateBusy(false);
+    }
+  }
+
+  function pollGeneration(jobId: string) {
+    const interval = setInterval(async () => {
+      try {
+        const status = await invoke<{
+          status: string;
+          stage: string | null;
+          result: { audio_file_path: string } | null;
+          error: string | null;
+        }>("music_generation_status", { jobId });
+
+        if (status.status === "done" && status.result) {
+          clearInterval(interval);
+          setGenerateBusy(false);
+          setGeneratedFilePath(status.result.audio_file_path);
+        } else if (status.status === "failed") {
+          clearInterval(interval);
+          setGenerateBusy(false);
+          setGenerateError(status.error ?? "generation failed");
+        }
+      } catch (err) {
+        clearInterval(interval);
+        setGenerateBusy(false);
+        setGenerateError(String(err));
+      }
+    }, 2000);
+  }
+
+  async function handleAddGeneratedClip() {
+    if (!generatedFilePath) return;
+    try {
+      await invoke("load_generated_clip", {
+        filePath: generatedFilePath,
+        name: generatePrompt.slice(0, 40) || "AI generated",
+      });
+      await refreshTracks();
+    } catch (err) {
+      setGenerateError(String(err));
+    }
   }
 
   async function runCommand(command: string, args?: Record<string, unknown>) {
@@ -811,6 +873,51 @@ export default function App() {
             ))}
             {tracks.length === 0 && <li className="debug-panel__hint">No tracks loaded yet.</li>}
           </ul>
+        </section>
+
+        <section className="debug-panel">
+          <h2>Generate with AI</h2>
+          <p className="debug-panel__hint">
+            Type a style or mood and get back an original instrumental clip — generated entirely on
+            this machine by ACE-Step (a locally-run, open-weight model, not a cloud API), which you
+            can then drop straight into the timeline as its own layer.
+          </p>
+          <div className="debug-panel__field">
+            <input
+              type="text"
+              placeholder="e.g. upbeat lo-fi hip hop, mellow piano, soft drums"
+              value={generatePrompt}
+              onChange={(e) => setGeneratePrompt(e.target.value)}
+              style={{ flex: 1 }}
+            />
+          </div>
+          <label className="debug-panel__field">
+            Duration: {generateDurationSec}s
+            <input
+              type="range"
+              min={5}
+              max={60}
+              value={generateDurationSec}
+              onChange={(e) => setGenerateDurationSec(Number(e.target.value))}
+            />
+          </label>
+          <div className="debug-panel__buttons">
+            <button onClick={handleGenerateMusic} disabled={generateBusy || !generatePrompt.trim()}>
+              {generateBusy ? "Generating…" : "Generate"}
+            </button>
+          </div>
+          {generateBusy && (
+            <p className="debug-panel__hint">
+              This can take a while the first time (downloading the model) and a minute or more per
+              generation after that — everything runs locally, nothing is uploaded anywhere.
+            </p>
+          )}
+          {generateError && <p className="debug-panel__error">{generateError}</p>}
+          {generatedFilePath && !generateBusy && (
+            <div className="debug-panel__buttons">
+              <button onClick={handleAddGeneratedClip}>Add to timeline</button>
+            </div>
+          )}
         </section>
 
         <section className="debug-panel">

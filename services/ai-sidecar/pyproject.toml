@@ -14,6 +14,7 @@ dependencies = [
     "soundfile>=0.12",
     "librosa>=0.10",
     "jsonschema>=4.20",
+    "ace-step>=0.2",
 ]
 
 # librosa/soundfile land with M5 (tempo/key/chord detection) — not needed

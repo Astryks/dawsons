@@ -60,6 +60,9 @@ pub fn run() {
             commands::smart_upload::start_clip_classification,
             commands::smart_upload::clip_classification_status,
             commands::smart_upload::load_clip_into_layer,
+            commands::generate::start_music_generation,
+            commands::generate::music_generation_status,
+            commands::generate::load_generated_clip,
         ])
         .run(tauri::generate_context!())
         .expect("error while running dawsons");
