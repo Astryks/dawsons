@@ -15,6 +15,25 @@ function midiFromFreq(freq) {
 
 // Estimates one frame's fundamental frequency via normalized
 // autocorrelation, or null if no confident pitch is found.
+//
+// Two well-known pitfalls of naive lag-based autocorrelation, both
+// handled here the same way real pitch trackers (including this
+// project's own Rust YIN implementation) do:
+//
+// 1. A periodic signal's autocorrelation is high at *every* integer
+//    multiple of the true period, not just the fundamental, and because
+//    a real period is rarely an exact integer number of samples, a
+//    longer multiple can round to an even better numerical alignment
+//    than the fundamental itself — so picking the single highest
+//    correlation (or even "shortest lag within X% of the max") can
+//    still land on a subharmonic. The fix: scan from the shortest lag
+//    upward and take the *first* local peak that clears the threshold —
+//    the true fundamental always produces one before any of its
+//    multiples are even reached.
+// 2. That discrete peak is still only accurate to one sample of lag.
+//    Parabolic interpolation across the three points around it (the
+//    same technique as `pitch.rs`'s `parabolic_interpolate`) recovers
+//    the sub-sample period so notes don't read a semitone or two flat.
 function detectPitchInFrame(frame, sampleRate) {
   const minLag = Math.floor(sampleRate / MAX_FREQ);
   const maxLag = Math.min(frame.length - 1, Math.ceil(sampleRate / MIN_FREQ));
@@ -25,8 +44,7 @@ function detectPitchInFrame(frame, sampleRate) {
   rootMeanSquare = Math.sqrt(rootMeanSquare / frame.length);
   if (rootMeanSquare < 0.01) return null; // silence/noise floor
 
-  let bestLag = -1;
-  let bestCorrelation = 0;
+  const correlations = new Array(maxLag - minLag + 1);
   for (let lag = minLag; lag <= maxLag; lag++) {
     let sum = 0;
     let normA = 0;
@@ -37,15 +55,37 @@ function detectPitchInFrame(frame, sampleRate) {
       normB += frame[i + lag] * frame[i + lag];
     }
     const denom = Math.sqrt(normA * normB);
-    const correlation = denom > 0 ? sum / denom : 0;
-    if (correlation > bestCorrelation) {
-      bestCorrelation = correlation;
-      bestLag = lag;
+    correlations[lag - minLag] = denom > 0 ? sum / denom : 0;
+  }
+
+  for (let i = 1; i < correlations.length - 1; i++) {
+    if (
+      correlations[i] >= CORRELATION_THRESHOLD &&
+      correlations[i] >= correlations[i - 1] &&
+      correlations[i] >= correlations[i + 1]
+    ) {
+      return sampleRate / refineLag(correlations, i, minLag);
     }
   }
 
-  if (bestLag < 0 || bestCorrelation < CORRELATION_THRESHOLD) return null;
-  return sampleRate / bestLag;
+  // No clean interior peak (e.g. it sits right at the search boundary) —
+  // fall back to the global max.
+  let bestIndex = 0;
+  for (let i = 1; i < correlations.length; i++) {
+    if (correlations[i] > correlations[bestIndex]) bestIndex = i;
+  }
+  if (correlations[bestIndex] < CORRELATION_THRESHOLD) return null;
+  return sampleRate / (minLag + bestIndex);
+}
+
+function refineLag(correlations, index, minLag) {
+  if (index <= 0 || index + 1 >= correlations.length) return minLag + index;
+  const y0 = correlations[index - 1];
+  const y1 = correlations[index];
+  const y2 = correlations[index + 1];
+  const denom = 2 * (2 * y1 - y2 - y0);
+  if (Math.abs(denom) < 1e-9) return minLag + index;
+  return minLag + index + (y2 - y0) / denom;
 }
 
 // Extracts a monophonic melody as quantized MIDI notes from an
