@@ -28,6 +28,28 @@ function renderVoice(ctx, buffer, family, pitches, startSec, durationSec, sample
     // in this simple oscillator-based synth.
     saxophone: { wave: "sawtooth", attack: 0.06, decay: 0.15, sustain: 0.8, release: 0.2, gain: 0.19 },
     clarinet: { wave: "square", attack: 0.05, decay: 0.08, sustain: 0.85, release: 0.12, gain: 0.16 },
+    // A bowed string's attack is slow and its tail rings on after the
+    // note ends — the opposite envelope shape from a plucked instrument
+    // like guitar, which is the actual distinguishing feature here.
+    strings: { wave: "sawtooth", attack: 0.18, decay: 0.15, sustain: 0.85, release: 0.5, gain: 0.15 },
+    // An organ's real timbre is additive (multiple fixed-ratio drawbars),
+    // which this simple oscillator model can't reproduce — but its
+    // signature *envelope* (instant on, full sustain, no decay stage at
+    // all until release) is just as recognizable and easy to model.
+    organ: { wave: "square", attack: 0.002, decay: 0.001, sustain: 1.0, release: 0.08, gain: 0.16 },
+    // Electric piano (Rhodes-style): a short bell-like attack transient
+    // that decays quickly to a much quieter sustain — quite different
+    // from the acoustic `keys` envelope above.
+    epiano: { wave: "triangle", attack: 0.002, decay: 0.35, sustain: 0.25, release: 0.3, gain: 0.2 },
+    choir: { wave: "triangle", attack: 0.3, decay: 0.2, sustain: 0.85, release: 0.6, gain: 0.13 },
+    // A synth bass is punchier and more clipped-sounding than the sine-
+    // wave acoustic `bass` above — a square wave with a faster decay.
+    synthbass: { wave: "square", attack: 0.005, decay: 0.15, sustain: 0.5, release: 0.08, gain: 0.3 },
+    // Mallet/percussive pitched instrument: near-instant attack straight
+    // into a fast decay, almost no sustain — the opposite envelope shape
+    // from every sustained wind/string instrument above.
+    marimba: { wave: "sine", attack: 0.001, decay: 0.35, sustain: 0.05, release: 0.15, gain: 0.24 },
+    trumpet: { wave: "sawtooth", attack: 0.02, decay: 0.08, sustain: 0.75, release: 0.1, gain: 0.2 },
   };
   const shape = shapes[family] || shapes.keys;
 

@@ -17,6 +17,13 @@ const ICON_PATHS = {
   flute: `<path d="M3 15.5l16-9"/><circle cx="6.3" cy="13.8" r="0.7" fill="currentColor" stroke="none"/><circle cx="9.1" cy="12.2" r="0.7" fill="currentColor" stroke="none"/><circle cx="11.9" cy="10.6" r="0.7" fill="currentColor" stroke="none"/>`,
   saxophone: `<path d="M9 3l7 4"/><path d="M9 3v9.5a3.5 3.5 0 1 0 3.5 3.5V9"/><circle cx="17.5" cy="8.5" r="1.3"/><path d="M12.5 12.5h4"/>`,
   clarinet: `<path d="M8 2h5v3H8z"/><path d="M9.5 5v15.5a1.5 1.5 0 0 0 3 0V5"/><path d="M9.5 8h3M9.5 11h3M9.5 14h3M9.5 17h3"/>`,
+  strings: `<path d="M12 2v7"/><path d="M9.5 2.5h5" stroke-width="1.2"/><path d="M7 14a5 6 0 1 0 10 0 5 6 0 1 0 -10 0z"/><path d="M9.5 12.5c.5 1.5 1 1.5 1.5 1M14.5 12.5c-.5 1.5 -1 1.5 -1.5 1" stroke-width="1"/>`,
+  organ: `<path d="M4 20V11M8 20V6M12 20V9M16 20V5M20 20V12"/>`,
+  epiano: `<rect x="3" y="7" width="15" height="11" rx="1.5"/><path d="M6.5 7v11M10 7v11M13.5 7v11"/><path d="M19.5 8l-2.5 4h2l-2.5 4" stroke-width="1.4"/>`,
+  choir: `<circle cx="9" cy="12" r="5"/><circle cx="15" cy="12" r="5"/>`,
+  synthbass: `<rect x="3" y="4" width="18" height="8" rx="1"/><path d="M3 16h3l2-4 2 8 2-8 2 4h3l2-4 2 4h2" stroke-width="1.2"/>`,
+  marimba: `<rect x="3" y="14" width="4" height="7" rx="1"/><rect x="8.5" y="12" width="4" height="9" rx="1"/><rect x="14" y="10" width="4" height="11" rx="1"/><path d="M19 4l-4 6" stroke-width="1.6"/><circle cx="19.3" cy="3.3" r="1.3" fill="currentColor" stroke="none"/>`,
+  trumpet: `<path d="M3 11h5l2-2 2 2h2"/><rect x="12" y="9.5" width="1.6" height="3" rx="0.4"/><rect x="14.5" y="9.5" width="1.6" height="3" rx="0.4"/><rect x="17" y="9.5" width="1.6" height="3" rx="0.4"/><path d="M19 11c2 0 3 1.5 3 2.5s-1 2.5-3 2.5-3-1-3-2.5"/>`,
 };
 
 function instrumentIconSvg(family, extraClass = "") {

@@ -23,7 +23,22 @@ let addInstrumentMenuOpen = false;
 // tap any step, hear it immediately. Everything else is one tap away
 // behind "+".
 const DEFAULT_FAMILIES = ["drums", "keys", "guitar", "bass"];
-const EXTRA_FAMILIES = ["lead", "pad", "brass", "bell", "flute", "saxophone", "clarinet"];
+const EXTRA_FAMILIES = [
+  "lead",
+  "pad",
+  "brass",
+  "bell",
+  "flute",
+  "saxophone",
+  "clarinet",
+  "strings",
+  "organ",
+  "epiano",
+  "choir",
+  "synthbass",
+  "marimba",
+  "trumpet",
+];
 const FAMILY_DISPLAY_NAME = {
   drums: "Drums",
   keys: "Piano",
@@ -36,6 +51,13 @@ const FAMILY_DISPLAY_NAME = {
   flute: "Flute",
   saxophone: "Saxophone",
   clarinet: "Clarinet",
+  strings: "Strings",
+  organ: "Organ",
+  epiano: "Electric Piano",
+  choir: "Choir",
+  synthbass: "Synth Bass",
+  marimba: "Marimba",
+  trumpet: "Trumpet",
 };
 
 function trackFamily(track, index) {

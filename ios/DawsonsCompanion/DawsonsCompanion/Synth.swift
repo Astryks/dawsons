@@ -5,7 +5,9 @@ import Foundation
 /// browser DAW's family set (website/js/demo-songs.js) so the mental
 /// model stays consistent across platforms.
 enum InstrumentFamily: String, CaseIterable, Codable, Identifiable {
-    case drums, keys, guitar, bass, lead, pad, brass, bell, flute, saxophone, clarinet, voice, anySound
+    case drums, keys, guitar, bass, lead, pad, brass, bell, flute, saxophone, clarinet
+    case strings, organ, epiano, choir, synthbass, marimba, trumpet
+    case voice, anySound
 
     var id: String { rawValue }
 
@@ -22,6 +24,13 @@ enum InstrumentFamily: String, CaseIterable, Codable, Identifiable {
         case .flute: return "Flute"
         case .saxophone: return "Saxophone"
         case .clarinet: return "Clarinet"
+        case .strings: return "Strings"
+        case .organ: return "Organ"
+        case .epiano: return "Electric Piano"
+        case .choir: return "Choir"
+        case .synthbass: return "Synth Bass"
+        case .marimba: return "Marimba"
+        case .trumpet: return "Trumpet"
         case .voice: return "Voice"
         case .anySound: return "Any Sound"
         }
@@ -43,6 +52,13 @@ enum InstrumentFamily: String, CaseIterable, Codable, Identifiable {
         case .flute: return 0xFF5FA8
         case .saxophone: return 0xFFAB2E
         case .clarinet: return 0x2FE0C0
+        case .strings: return 0xC264FF
+        case .organ: return 0xC8EA3F
+        case .epiano: return 0x39C9FF
+        case .choir: return 0xFF5C96
+        case .synthbass: return 0x3FC7FF
+        case .marimba: return 0xFFAB2E
+        case .trumpet: return 0xFF9457
         case .voice: return 0xFF5C96
         case .anySound: return 0xC8EA3F
         }
@@ -86,6 +102,24 @@ enum Synth {
         .flute: VoiceShape(osc: .sine, attack: 0.08, decay: 0.1, sustain: 0.7, release: 0.2, brightness: 0.5),
         .saxophone: VoiceShape(osc: .sawtooth, attack: 0.06, decay: 0.1, sustain: 0.7, release: 0.2, brightness: 0.6),
         .clarinet: VoiceShape(osc: .square, attack: 0.05, decay: 0.1, sustain: 0.7, release: 0.2, brightness: 0.4),
+        // Bowed strings: slow attack and a long ringing release, the
+        // opposite envelope shape from a plucked instrument like guitar.
+        .strings: VoiceShape(osc: .sawtooth, attack: 0.18, decay: 0.15, sustain: 0.85, release: 0.5, brightness: 0.5),
+        // Organ: instant on, full sustain, essentially no decay stage —
+        // its signature envelope even without additive drawbar synthesis.
+        .organ: VoiceShape(osc: .square, attack: 0.005, decay: 0.01, sustain: 1.0, release: 0.1, brightness: 0.5),
+        // Electric piano (Rhodes-style): a short bell-like attack that
+        // decays quickly to a much quieter sustain.
+        .epiano: VoiceShape(osc: .triangle, attack: 0.005, decay: 0.35, sustain: 0.25, release: 0.3, brightness: 0.6),
+        .choir: VoiceShape(osc: .triangle, attack: 0.3, decay: 0.2, sustain: 0.85, release: 0.6, brightness: 0.5),
+        // Synth bass: punchier and more clipped than the sine-wave
+        // acoustic bass — a square wave with a faster decay.
+        .synthbass: VoiceShape(osc: .square, attack: 0.005, decay: 0.15, sustain: 0.5, release: 0.08, brightness: 0.4),
+        // Mallet/percussive: near-instant attack straight into a fast
+        // decay with almost no sustain — opposite shape from every
+        // sustained wind/string voice above.
+        .marimba: VoiceShape(osc: .sine, attack: 0.001, decay: 0.35, sustain: 0.05, release: 0.15, brightness: 0.9),
+        .trumpet: VoiceShape(osc: .sawtooth, attack: 0.02, decay: 0.08, sustain: 0.75, release: 0.1, brightness: 0.7),
         .voice: VoiceShape(osc: .triangle, attack: 0.02, decay: 0.1, sustain: 0.7, release: 0.25, brightness: 0.55),
     ]
 
