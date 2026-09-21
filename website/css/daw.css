@@ -548,6 +548,108 @@ body {
   margin-top: 0.6rem;
 }
 
+/* --- GarageBand-style instrument browser: search box + instruments
+   grouped by category, each with a Starter/Blank action pair. --- */
+
+.instrument-browser {
+  margin-top: 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--panel-alt);
+  padding: 0.7rem;
+  max-height: 360px;
+  overflow-y: auto;
+}
+
+.instrument-browser__header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  position: sticky;
+  top: 0;
+  background: var(--panel-alt);
+  padding-bottom: 0.5rem;
+  margin-bottom: 0.3rem;
+}
+
+.instrument-browser__search {
+  flex: 1;
+  padding: 0.5rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 0.9rem;
+}
+
+.instrument-browser__category-name {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+  margin: 0.7rem 0 0.35rem;
+  padding-left: 0.1rem;
+}
+
+.instrument-browser__category:first-of-type .instrument-browser__category-name {
+  margin-top: 0.1rem;
+}
+
+.instrument-browser__row {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.4rem 0.3rem;
+  border-radius: 8px;
+}
+
+.instrument-browser__row:hover {
+  background: var(--panel);
+}
+
+.instrument-browser__icon {
+  width: 1.4rem;
+  height: 1.4rem;
+  flex-shrink: 0;
+  display: flex;
+}
+
+.instrument-browser__icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.instrument-browser__name {
+  flex: 1;
+  font-size: 0.88rem;
+  color: var(--text);
+}
+
+.instrument-browser__action {
+  padding: 0.3rem 0.7rem;
+  border-radius: 6px;
+  border: 1px solid var(--purple-deep);
+  background: var(--purple-deep);
+  color: #fff;
+  font-size: 0.78rem;
+  cursor: pointer;
+}
+
+.instrument-browser__action:hover {
+  filter: brightness(1.15);
+}
+
+.instrument-browser__action--ghost {
+  background: transparent;
+  color: var(--text-dim);
+  border-color: var(--border);
+}
+
+.instrument-browser__action--ghost:hover {
+  color: var(--text);
+  border-color: var(--purple);
+}
+
 .daw-starter__btn {
   display: flex;
   flex-direction: column;
@@ -822,6 +924,115 @@ body {
 .timeline-layer__special-body button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.timeline-layer__special-body--column {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.6rem;
+}
+
+.midi-keyboard-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.midi-keyboard-controls select,
+.midi-keyboard-controls button {
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel-alt);
+  color: var(--text);
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.midi-keyboard-controls button.is-primary {
+  background: var(--purple-deep);
+  border-color: var(--purple-deep);
+  color: #fff;
+}
+
+.midi-keyboard-controls button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.midi-keyboard-controls #keyboard-record-btn.is-recording {
+  background: #e0304f;
+  border-color: #e0304f;
+  color: #fff;
+}
+
+/* --- A real, playable on-screen piano keyboard: click a key (or use
+   the computer keyboard, A S D F G H J K / W E T Y U) to hear that
+   note instantly through whichever instrument is selected above,
+   GarageBand Musical-Typing style. --- */
+
+.midi-keyboard {
+  position: relative;
+  display: flex;
+  height: 130px;
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--border);
+  user-select: none;
+}
+
+.midi-keyboard__white {
+  flex: 1;
+  background: #f4f0fb;
+  border-right: 1px solid var(--border);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 0.4rem;
+  cursor: pointer;
+  transition: background 0.05s ease;
+}
+
+.midi-keyboard__white:last-child {
+  border-right: none;
+}
+
+.midi-keyboard__white .midi-keyboard__label {
+  color: #6b5a91;
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.midi-keyboard__white.is-active {
+  background: var(--pastel-lilac, #c9a9ff);
+}
+
+.midi-keyboard__black {
+  position: absolute;
+  top: 0;
+  width: 6%;
+  height: 62%;
+  background: #241a3d;
+  border: 1px solid #100a1f;
+  border-radius: 0 0 4px 4px;
+  z-index: 2;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  padding-bottom: 0.3rem;
+  cursor: pointer;
+  transition: background 0.05s ease;
+}
+
+.midi-keyboard__black .midi-keyboard__label {
+  color: #c9b8ec;
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+.midi-keyboard__black.is-active {
+  background: var(--purple-deep);
 }
 
 .timeline-layer__inline-check {

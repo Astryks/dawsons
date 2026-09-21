@@ -180,7 +180,55 @@
                   <label class="effect-stack__toggle"><input type="checkbox" id="voice-fx-compress" /> Compression</label>
                   <label class="effect-stack__toggle" title="A stock presence-boost EQ, the same reference vocal chain that motivated Robotic/Muffled/Distortion/Reverb/Compression"><input type="checkbox" id="voice-fx-eq" /> EQ</label>
                 </span>
+                <button id="voice-preview-btn" disabled title="Hear it through the chosen instrument before adding it">Preview</button>
                 <button class="is-primary" id="voice-render-btn" disabled>Add to timeline</button>
+                <button id="voice-discard-btn" disabled title="Throw away this recording and start over">Discard</button>
+              </div>
+            </div>
+            <div class="timeline-layer timeline-layer--special">
+              <div class="timeline-layer__label"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg> Play an instrument</div>
+              <div class="timeline-layer__special-body timeline-layer__special-body--column">
+                <div class="midi-keyboard-controls">
+                  <select id="keyboard-instrument" title="Instrument">
+                    <option value="keys">Piano</option>
+                    <option value="guitar">Guitar</option>
+                    <option value="bass">Bass</option>
+                    <option value="lead">Lead</option>
+                    <option value="pad">Pad</option>
+                    <option value="brass">Brass</option>
+                    <option value="bell">Bell</option>
+                    <option value="flute">Flute</option>
+                    <option value="saxophone">Saxophone</option>
+                    <option value="clarinet">Clarinet</option>
+                    <option value="strings">Strings</option>
+                    <option value="organ">Organ</option>
+                    <option value="epiano">Electric Piano</option>
+                    <option value="choir">Choir</option>
+                    <option value="synthbass">Synth Bass</option>
+                    <option value="marimba">Marimba</option>
+                    <option value="trumpet">Trumpet</option>
+                  </select>
+                  <button id="keyboard-record-btn"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg> Record performance</button>
+                  <span id="keyboard-status" class="daw-note" style="margin: 0">Click keys, or play with your computer keyboard (A S D F G H J K, W E T Y U for the black keys).</span>
+                  <button id="keyboard-preview-btn" disabled>Preview</button>
+                  <button class="is-primary" id="keyboard-add-btn" disabled>Add to timeline</button>
+                  <button id="keyboard-discard-btn" disabled>Discard</button>
+                </div>
+                <div class="midi-keyboard" id="midi-keyboard">
+                  <div class="midi-keyboard__white" data-note="60"><span class="midi-keyboard__label">A</span></div>
+                  <div class="midi-keyboard__white" data-note="62"><span class="midi-keyboard__label">S</span></div>
+                  <div class="midi-keyboard__white" data-note="64"><span class="midi-keyboard__label">D</span></div>
+                  <div class="midi-keyboard__white" data-note="65"><span class="midi-keyboard__label">F</span></div>
+                  <div class="midi-keyboard__white" data-note="67"><span class="midi-keyboard__label">G</span></div>
+                  <div class="midi-keyboard__white" data-note="69"><span class="midi-keyboard__label">H</span></div>
+                  <div class="midi-keyboard__white" data-note="71"><span class="midi-keyboard__label">J</span></div>
+                  <div class="midi-keyboard__white" data-note="72"><span class="midi-keyboard__label">K</span></div>
+                  <div class="midi-keyboard__black" data-note="61" style="left: 9.5%"><span class="midi-keyboard__label">W</span></div>
+                  <div class="midi-keyboard__black" data-note="63" style="left: 22%"><span class="midi-keyboard__label">E</span></div>
+                  <div class="midi-keyboard__black" data-note="66" style="left: 47%"><span class="midi-keyboard__label">T</span></div>
+                  <div class="midi-keyboard__black" data-note="68" style="left: 59.5%"><span class="midi-keyboard__label">Y</span></div>
+                  <div class="midi-keyboard__black" data-note="70" style="left: 72%"><span class="midi-keyboard__label">U</span></div>
+                </div>
               </div>
             </div>
             <div class="timeline-layer timeline-layer--special">
