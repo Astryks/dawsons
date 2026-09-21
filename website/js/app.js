@@ -17,10 +17,10 @@ let playheadTimer = null;
 // which sound from its palette is currently "armed" to place on tap.
 let activeTrackIndex = null;
 let armedSound = null;
-// Whether the "+" add-instrument menu is currently open in the timeline.
-let addInstrumentMenuOpen = false;
-// Whether the "+" blank-track menu is currently open in the timeline.
-let addBlankMenuOpen = false;
+// Whether the GarageBand-style instrument browser is open in the
+// timeline, and the current text in its search box.
+let instrumentBrowserOpen = false;
+let instrumentSearchQuery = "";
 // Tempo, in beats per minute. Only genuinely retimes pattern-backed
 // tracks (drums/bass/keys/guitar/any custom pattern track), since their
 // audio is synthesized fresh from step data — see pattern-editor.js's
@@ -126,6 +126,21 @@ const EXTRA_FAMILIES = [
   "trumpet",
 ];
 const ALL_FAMILIES = [...DEFAULT_FAMILIES, ...EXTRA_FAMILIES];
+
+// Grouped the way GarageBand's own Sound Library browses instruments —
+// by instrument family, not alphabetically — so scanning for "a bass
+// sound" or "something brassy" is a category jump, not a full-list
+// scroll.
+const INSTRUMENT_CATEGORIES = [
+  { name: "Drums & Percussion", families: ["drums"] },
+  { name: "Bass", families: ["bass", "synthbass"] },
+  { name: "Keyboards", families: ["keys", "epiano", "organ"] },
+  { name: "Guitars", families: ["guitar"] },
+  { name: "Strings & Choir", families: ["strings", "choir"] },
+  { name: "Winds & Brass", families: ["saxophone", "clarinet", "flute", "trumpet", "brass"] },
+  { name: "Synth Leads & Pads", families: ["lead", "pad"] },
+  { name: "Mallets & Bells", families: ["bell", "marimba"] },
+];
 const FAMILY_DISPLAY_NAME = {
   drums: "Drums",
   keys: "Piano",
@@ -277,27 +292,49 @@ function renderTimeline() {
     ? ""
     : '<p class="daw-note">Every track was removed — tap "+" below or pick an example song to start again.</p>';
 
-  el.innerHTML = trackRows + emptyNote + renderAddInstrumentHtml() + renderAddBlankTrackHtml();
+  el.innerHTML = trackRows + emptyNote + renderInstrumentBrowserHtml();
   renderWaveform();
 }
 
-// A second "+" row, distinct from "+ Add an instrument": that one
-// pre-fills a starter beat/riff so a new user has something to hear
-// immediately, which is great the first time but gets in the way once
-// someone wants to build their own part from nothing — including a
-// second track for an instrument already present (e.g. a second, empty
-// drum track). This one always creates a totally empty pattern grid.
-function renderAddBlankTrackHtml() {
-  if (!addBlankMenuOpen) {
-    return `<button type="button" class="timeline-add-btn" id="add-blank-btn">+ Add a blank track</button>`;
+// A GarageBand Sound-Library-style browser: search box + instruments
+// grouped by category, each with its own icon and two clear actions
+// (a ready-to-go starter riff, or a blank grid to build from nothing)
+// instead of one flat alphabet-soup button list. Always lists every
+// family, including ones already on the timeline — GarageBand lets you
+// add a second Piano track just as easily as a first.
+function renderInstrumentCategoriesHtml(query) {
+  const q = query.trim().toLowerCase();
+  const categoriesHtml = INSTRUMENT_CATEGORIES.map((cat) => {
+    const rows = cat.families
+      .filter((f) => !q || FAMILY_DISPLAY_NAME[f].toLowerCase().includes(q))
+      .map(
+        (f) => `
+        <div class="instrument-browser__row">
+          <div class="instrument-browser__icon instrument-icon--${f}">${instrumentIconSvg(f)}</div>
+          <div class="instrument-browser__name">${FAMILY_DISPLAY_NAME[f]}</div>
+          <button type="button" class="instrument-browser__action" data-add-family="${f}" title="Add with a ready-to-go starter riff">Starter</button>
+          <button type="button" class="instrument-browser__action instrument-browser__action--ghost" data-add-blank-family="${f}" title="Add an empty grid to build from scratch">Blank</button>
+        </div>`,
+      )
+      .join("");
+    if (!rows) return "";
+    return `<div class="instrument-browser__category"><div class="instrument-browser__category-name">${cat.name}</div>${rows}</div>`;
+  }).join("");
+  return categoriesHtml || '<p class="daw-note">No instruments match that search.</p>';
+}
+
+function renderInstrumentBrowserHtml() {
+  if (!instrumentBrowserOpen) {
+    return `<button type="button" class="timeline-add-btn" id="add-instrument-btn">+ Add an instrument</button>`;
   }
-  const options = ALL_FAMILIES.map(
-    (f) =>
-      `<button type="button" class="daw-starter__btn daw-starter__btn--${f}" data-add-blank-family="${f}">
-        ${instrumentIconSvg(f, `instrument-icon--${f}`)}<span>${FAMILY_DISPLAY_NAME[f]}</span>
-      </button>`,
-  ).join("");
-  return `<div class="timeline-add-menu">${options}</div>`;
+  return `
+    <div class="instrument-browser">
+      <div class="instrument-browser__header">
+        <input type="text" id="instrument-search" class="instrument-browser__search" placeholder="Search instruments…" value="${instrumentSearchQuery}" autofocus />
+        <button type="button" class="side-panel__close" id="instrument-browser-close" title="Close">✕</button>
+      </div>
+      <div id="instrument-browser-results">${renderInstrumentCategoriesHtml(instrumentSearchQuery)}</div>
+    </div>`;
 }
 
 function handleAddBlankTrack(family) {
@@ -306,31 +343,10 @@ function handleAddBlankTrack(family) {
   engine.addTrack(FAMILY_DISPLAY_NAME[family] || family, pattern.buffer, pattern);
   activeTrackIndex = engine.tracks.length - 1;
   armedSound = paletteFor(family)[0]?.key || null;
-  addBlankMenuOpen = false;
+  instrumentBrowserOpen = false;
   renderTrackList();
   renderTimeline();
   renderSoundPicker();
-}
-
-// The "+" row at the end of the timeline for adding one of the
-// instruments not already present — Lead/Pad/Brass/Bell/Flute, beyond
-// the four ready to go by default.
-function renderAddInstrumentHtml() {
-  const present = new Set(engine.tracks.map((t) => t.pattern?.family).filter(Boolean));
-  const available = EXTRA_FAMILIES.filter((f) => !present.has(f));
-  if (!available.length) return "";
-  if (!addInstrumentMenuOpen) {
-    return `<button type="button" class="timeline-add-btn" id="add-instrument-btn">+ Add an instrument</button>`;
-  }
-  const options = available
-    .map(
-      (f) =>
-        `<button type="button" class="daw-starter__btn daw-starter__btn--${f}" data-add-family="${f}">
-          ${instrumentIconSvg(f, `instrument-icon--${f}`)}<span>${FAMILY_DISPLAY_NAME[f]}</span>
-        </button>`,
-    )
-    .join("");
-  return `<div class="timeline-add-menu">${options}</div>`;
 }
 
 // Renders one pattern-backed track's row as a grid of clickable steps —
@@ -533,18 +549,20 @@ document.getElementById("timeline").addEventListener("click", (e) => {
     return;
   }
   if (e.target.closest("#add-instrument-btn")) {
-    addInstrumentMenuOpen = true;
+    instrumentBrowserOpen = true;
+    instrumentSearchQuery = "";
+    renderTimeline();
+    document.getElementById("instrument-search")?.focus();
+    return;
+  }
+  if (e.target.closest("#instrument-browser-close")) {
+    instrumentBrowserOpen = false;
     renderTimeline();
     return;
   }
   const addFamilyBtn = e.target.closest("[data-add-family]");
   if (addFamilyBtn) {
     handleAddInstrumentTrack(addFamilyBtn.dataset.addFamily);
-    return;
-  }
-  if (e.target.closest("#add-blank-btn")) {
-    addBlankMenuOpen = true;
-    renderTimeline();
     return;
   }
   const addBlankFamilyBtn = e.target.closest("[data-add-blank-family]");
@@ -562,6 +580,16 @@ document.getElementById("timeline").addEventListener("click", (e) => {
     renderTimeline();
     renderSoundPicker();
   }
+});
+
+// Filters the instrument browser's results live as you type — updates
+// only the results div (not the whole panel via renderTimeline) so the
+// search input never loses focus/cursor position mid-keystroke.
+document.getElementById("timeline").addEventListener("input", (e) => {
+  if (e.target.id !== "instrument-search") return;
+  instrumentSearchQuery = e.target.value;
+  const results = document.getElementById("instrument-browser-results");
+  if (results) results.innerHTML = renderInstrumentCategoriesHtml(instrumentSearchQuery);
 });
 
 // --- Right-click context menu: mute/solo/rename/clear/remove a track,
@@ -612,8 +640,7 @@ document.getElementById("timeline").addEventListener("contextmenu", (e) => {
       engine.removeTrack(i);
     },
   });
-  items.push({ label: "+ Add a new instrument", action: () => (addInstrumentMenuOpen = true) });
-  items.push({ label: "+ Add a blank track", action: () => (addBlankMenuOpen = true) });
+  items.push({ label: "+ Add an instrument", action: () => (instrumentBrowserOpen = true) });
 
   menu.innerHTML = items.map((item, idx) => `<button data-menu-idx="${idx}">${item.label}</button>`).join("");
   document.body.appendChild(menu);
@@ -702,7 +729,7 @@ function handleAddInstrumentTrack(family) {
   engine.addTrack(FAMILY_DISPLAY_NAME[family] || family, pattern.buffer, pattern);
   activeTrackIndex = engine.tracks.length - 1;
   armedSound = paletteFor(family)[0]?.key || null;
-  addInstrumentMenuOpen = false;
+  instrumentBrowserOpen = false;
   renderTrackList();
   renderTimeline();
   renderSoundPicker();
@@ -990,8 +1017,11 @@ voiceRecordBtn.onclick = async () => {
   voiceStatus.textContent = "Recording…";
 };
 
-voiceRenderBtn.onclick = async () => {
-  if (!recordedVoiceBuffer) return;
+// Shared by Preview and Add-to-timeline so neither button duplicates
+// the pitch-detection/render/effects logic — returns null (with a
+// status message already set) if there's nothing usable to render yet.
+async function buildVoiceInstrumentBuffer() {
+  if (!recordedVoiceBuffer) return null;
   await engine.resume();
 
   let sourceBuffer = recordedVoiceBuffer;
@@ -1009,7 +1039,7 @@ voiceRenderBtn.onclick = async () => {
   }
   if (!notes.length) {
     voiceStatus.textContent = "No clear pitch detected — try singing louder or more sustained notes.";
-    return;
+    return null;
   }
 
   const family = document.getElementById("voice-instrument").value;
@@ -1032,12 +1062,186 @@ voiceRenderBtn.onclick = async () => {
     source.start();
     finalBuffer = await offlineCtx.startRendering();
   }
+  return { finalBuffer, family };
+}
 
+function playBufferOnce(buffer) {
+  const src = engine.ctx.createBufferSource();
+  src.buffer = buffer;
+  src.connect(engine.masterGain);
+  src.start();
+}
+
+document.getElementById("voice-preview-btn").onclick = async () => {
+  const result = await buildVoiceInstrumentBuffer();
+  if (!result) return;
+  playBufferOnce(result.finalBuffer);
+  voiceStatus.textContent = "Previewing…";
+};
+
+document.getElementById("voice-discard-btn").onclick = () => {
+  recordedVoiceBuffer = null;
+  voiceRenderBtn.disabled = true;
+  document.getElementById("voice-preview-btn").disabled = true;
+  document.getElementById("voice-discard-btn").disabled = true;
+  voiceStatus.textContent = "Discarded.";
+};
+
+voiceRenderBtn.onclick = async () => {
+  const result = await buildVoiceInstrumentBuffer();
+  if (!result) return;
   pushUndo();
-  engine.addTrack(`Voice as ${FAMILY_DISPLAY_NAME[family] || family}`, finalBuffer);
+  engine.addTrack(`Voice as ${FAMILY_DISPLAY_NAME[result.family] || result.family}`, result.finalBuffer);
   renderTrackList();
   renderTimeline();
   voiceStatus.textContent = "Added to timeline.";
+};
+
+// --- Playable on-screen MIDI keyboard: click a key (or use the
+// computer keyboard) to hear the selected instrument instantly —
+// GarageBand's "Musical Typing" on-screen keyboard, plus real
+// recording of a live performance into the timeline. ---
+const KEYBOARD_KEY_MAP = { a: 60, w: 61, s: 62, e: 63, d: 64, f: 65, t: 66, g: 67, y: 68, h: 69, u: 70, j: 71, k: 72 };
+const KEYBOARD_PREVIEW_DURATION_SEC = 0.9;
+const heldKeyboardKeys = new Map(); // key: note, value: { startedAtMs, fromComputerKey }
+let keyboardRecording = false;
+let keyboardRecordStartMs = 0;
+let keyboardRecordedNotes = []; // {note, startSec, durationSec}
+let keyboardTakeBuffer = null;
+
+function isTypingIntoField() {
+  const el = document.activeElement;
+  return el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
+}
+
+function keyboardNoteOn(note) {
+  if (heldKeyboardKeys.has(note)) return; // already sounding (key-repeat) — don't re-trigger
+  heldKeyboardKeys.set(note, { startedAtMs: performance.now() });
+  document.querySelectorAll(`.midi-keyboard [data-note="${note}"]`).forEach((el) => el.classList.add("is-active"));
+
+  const family = document.getElementById("keyboard-instrument").value;
+  const sampleRate = engine.ctx.sampleRate;
+  const buf = engine.ctx.createBuffer(2, Math.ceil(KEYBOARD_PREVIEW_DURATION_SEC * sampleRate), sampleRate);
+  renderVoice(engine.ctx, buf, family, [note], 0, KEYBOARD_PREVIEW_DURATION_SEC, sampleRate);
+  playBufferOnce(buf);
+}
+
+function keyboardNoteOff(note) {
+  const held = heldKeyboardKeys.get(note);
+  if (!held) return;
+  heldKeyboardKeys.delete(note);
+  document.querySelectorAll(`.midi-keyboard [data-note="${note}"]`).forEach((el) => el.classList.remove("is-active"));
+  if (keyboardRecording) {
+    const startSec = (held.startedAtMs - keyboardRecordStartMs) / 1000;
+    const durationSec = Math.max(0.12, (performance.now() - held.startedAtMs) / 1000);
+    keyboardRecordedNotes.push({ note, startSec, durationSec });
+  }
+}
+
+document.getElementById("midi-keyboard").addEventListener("pointerdown", async (e) => {
+  const keyEl = e.target.closest("[data-note]");
+  if (!keyEl) return;
+  await engine.resume();
+  keyboardNoteOn(Number(keyEl.dataset.note));
+});
+document.getElementById("midi-keyboard").addEventListener("pointerup", (e) => {
+  const keyEl = e.target.closest("[data-note]");
+  if (keyEl) keyboardNoteOff(Number(keyEl.dataset.note));
+});
+document.getElementById("midi-keyboard").addEventListener("pointerleave", (e) => {
+  const keyEl = e.target.closest("[data-note]");
+  if (keyEl) keyboardNoteOff(Number(keyEl.dataset.note));
+});
+
+window.addEventListener("keydown", async (e) => {
+  if (isTypingIntoField() || e.repeat) return;
+  const note = KEYBOARD_KEY_MAP[e.key.toLowerCase()];
+  if (note === undefined) return;
+  await engine.resume();
+  keyboardNoteOn(note);
+});
+window.addEventListener("keyup", (e) => {
+  const note = KEYBOARD_KEY_MAP[e.key.toLowerCase()];
+  if (note === undefined) return;
+  keyboardNoteOff(note);
+});
+
+const keyboardStatus = document.getElementById("keyboard-status");
+const keyboardRecordBtn = document.getElementById("keyboard-record-btn");
+const keyboardPreviewBtn = document.getElementById("keyboard-preview-btn");
+const keyboardAddBtn = document.getElementById("keyboard-add-btn");
+const keyboardDiscardBtn = document.getElementById("keyboard-discard-btn");
+
+function buildKeyboardTakeBuffer() {
+  if (!keyboardRecordedNotes.length) return null;
+  const family = document.getElementById("keyboard-instrument").value;
+  const sampleRate = engine.ctx.sampleRate;
+  const totalDurationSec = Math.max(...keyboardRecordedNotes.map((n) => n.startSec + n.durationSec)) + 0.5;
+  const buf = engine.ctx.createBuffer(2, Math.ceil(totalDurationSec * sampleRate), sampleRate);
+  for (const n of keyboardRecordedNotes) {
+    renderVoice(engine.ctx, buf, family, [n.note], Math.max(0, n.startSec), n.durationSec, sampleRate);
+  }
+  return { buffer: buf, family };
+}
+
+keyboardRecordBtn.onclick = async () => {
+  await engine.resume();
+  if (!keyboardRecording) {
+    keyboardRecording = true;
+    keyboardRecordStartMs = performance.now();
+    keyboardRecordedNotes = [];
+    keyboardTakeBuffer = null;
+    keyboardRecordBtn.innerHTML = `${uiIconSvg("stop")} Stop recording`;
+    keyboardRecordBtn.classList.add("is-recording");
+    keyboardStatus.textContent = "Recording — play the keyboard now…";
+    keyboardPreviewBtn.disabled = true;
+    keyboardAddBtn.disabled = true;
+    keyboardDiscardBtn.disabled = true;
+  } else {
+    keyboardRecording = false;
+    // Finalize any notes still held when Stop was pressed.
+    for (const note of [...heldKeyboardKeys.keys()]) keyboardNoteOff(note);
+    keyboardRecordBtn.innerHTML = `${uiIconSvg("mic")} Record performance`;
+    keyboardRecordBtn.classList.remove("is-recording");
+    const result = buildKeyboardTakeBuffer();
+    if (!result) {
+      keyboardStatus.textContent = "No notes played — try again.";
+      return;
+    }
+    keyboardTakeBuffer = result;
+    keyboardStatus.textContent = `Recorded ${keyboardRecordedNotes.length} note(s).`;
+    keyboardPreviewBtn.disabled = false;
+    keyboardAddBtn.disabled = false;
+    keyboardDiscardBtn.disabled = false;
+  }
+};
+
+keyboardPreviewBtn.onclick = () => {
+  if (!keyboardTakeBuffer) return;
+  playBufferOnce(keyboardTakeBuffer.buffer);
+  keyboardStatus.textContent = "Previewing…";
+};
+
+keyboardAddBtn.onclick = () => {
+  if (!keyboardTakeBuffer) return;
+  pushUndo();
+  engine.addTrack(`Keyboard: ${FAMILY_DISPLAY_NAME[keyboardTakeBuffer.family] || keyboardTakeBuffer.family}`, keyboardTakeBuffer.buffer);
+  renderTrackList();
+  renderTimeline();
+  keyboardStatus.textContent = "Added to timeline.";
+  keyboardTakeBuffer = null;
+  keyboardPreviewBtn.disabled = true;
+  keyboardAddBtn.disabled = true;
+  keyboardDiscardBtn.disabled = true;
+};
+
+keyboardDiscardBtn.onclick = () => {
+  keyboardRecordedNotes = [];
+  keyboardTakeBuffer = null;
+  keyboardPreviewBtn.disabled = true;
+  keyboardAddBtn.disabled = true;
+  keyboardDiscardBtn.disabled = true;
+  keyboardStatus.textContent = "Discarded.";
 };
 
 // --- Save / load a project (browser localStorage) ---
