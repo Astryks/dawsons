@@ -27,3 +27,20 @@ def detect_device() -> str:
     if torch.backends.mps.is_available():
         return "mps"
     return "cpu"
+
+
+def detect_generation_device() -> str:
+    """Device selection for ACE-Step generation specifically — NOT the
+    same as detect_device(). A real run on this hardware's MPS backend
+    was confirmed hung (resident memory stuck flat for over an hour,
+    not just slow — see STATUS.md), while the same model runs correctly
+    on CPU. Demucs and everything else are unaffected by this; MPS
+    works fine for them. Rather than disable MPS project-wide (which
+    would be genuinely wrong for Demucs), this carves out just the one
+    model+backend combination that's actually confirmed broken.
+    """
+    import torch
+
+    if torch.cuda.is_available():
+        return "cuda"
+    return "cpu"
