@@ -46,6 +46,10 @@ function snapshotTracks() {
     muted: t.muted,
     solo: t.solo,
     pan: t.pan,
+    pitchSemitones: t.pitchSemitones,
+    reverbWet: t.reverbWet,
+    delayWet: t.delayWet,
+    originalBuffer: t.originalBuffer,
     pattern: t.pattern
       ? { family: t.pattern.family, hits: t.pattern.hits.map((h) => ({ ...h })), totalSteps: t.pattern.totalSteps }
       : null,
@@ -199,7 +203,8 @@ function renderTrackList() {
     const family = trackFamily(track, i);
     const icon = family ? instrumentIconSvg(family, `instrument-icon--${family}`) : uiIconSvg("note");
     const div = document.createElement("div");
-    div.className = "instrument-track";
+    div.className = "instrument-track" + (i === activeTrackIndex ? " is-active" : "");
+    div.dataset.trackIndex = i;
     div.innerHTML = `
       <div class="instrument-track__icon">${icon}</div>
       <div class="instrument-track__body">
@@ -261,6 +266,20 @@ function renderTrackList() {
       engine.removeTrack(Number(btn.dataset.remove));
       renderTrackList();
       renderTimeline();
+    };
+  });
+
+  // Clicking a track in this left-hand list (not one of its
+  // mute/solo/pan/move/remove controls) selects it and opens the
+  // sidebar sound picker — same "click it, see its dropdown" behavior
+  // the timeline already had, now here too, since this is the list
+  // people actually look at first ("YOUR LAYERS").
+  el.querySelectorAll(".instrument-track[data-track-index]").forEach((row) => {
+    row.onclick = (e) => {
+      if (e.target.closest("button, input")) return;
+      activeTrackIndex = Number(row.dataset.trackIndex);
+      renderTrackList();
+      renderSoundPicker();
     };
   });
 }
@@ -1266,6 +1285,9 @@ function serializeTrackForSave(track) {
       muted: track.muted,
       solo: track.solo,
       pan: track.pan,
+      pitchSemitones: track.pitchSemitones,
+      reverbWet: track.reverbWet,
+      delayWet: track.delayWet,
     };
   }
   return {
@@ -1274,7 +1296,14 @@ function serializeTrackForSave(track) {
     muted: track.muted,
     solo: track.solo,
     pan: track.pan,
-    audioBase64: audioBufferToBase64Wav(track.buffer),
+    pitchSemitones: track.pitchSemitones,
+    reverbWet: track.reverbWet,
+    delayWet: track.delayWet,
+    // The untouched dry source, not the current (possibly pitched/
+    // effected) buffer — so re-loading and then changing pitch again
+    // is relative to the real original, not a compounded re-pitch of
+    // an already-shifted buffer.
+    audioBase64: audioBufferToBase64Wav(track.originalBuffer),
   };
 }
 
@@ -1290,6 +1319,10 @@ async function deserializeTrackFromSave(data) {
   track.muted = data.muted;
   track.solo = data.solo;
   track.pan = data.pan;
+  track.pitchSemitones = data.pitchSemitones || 0;
+  track.reverbWet = data.reverbWet || 0;
+  track.delayWet = data.delayWet || 0;
+  if (track.pitchSemitones || track.reverbWet || track.delayWet) await refreshTrackAudio(track);
 }
 
 function listSavedProjects() {
@@ -1448,6 +1481,18 @@ function renderMixerPanel() {
             <button class="instrument-track__mute${t.muted ? " is-muted" : ""}" data-mixer-mute="${i}">M</button>
             <button class="instrument-track__mute${t.solo ? " is-solo" : ""}" data-mixer-solo="${i}">S</button>
           </div>
+          <label class="mixer-strip__param" title="Pitch, in semitones — varispeed-style, so it also changes playback speed a little, same as the Any Sound row's Pitch slider">
+            Pitch <span data-mixer-pitch-label="${i}">${t.pitchSemitones > 0 ? "+" : ""}${t.pitchSemitones}</span>
+            <input type="range" min="-12" max="12" step="1" value="${t.pitchSemitones}" data-mixer-pitch="${i}" />
+          </label>
+          <label class="mixer-strip__param" title="Reverb send">
+            Reverb
+            <input type="range" min="0" max="100" value="${Math.round((t.reverbWet || 0) * 100)}" data-mixer-reverb="${i}" />
+          </label>
+          <label class="mixer-strip__param" title="Delay send">
+            Delay
+            <input type="range" min="0" max="100" value="${Math.round((t.delayWet || 0) * 100)}" data-mixer-delay="${i}" />
+          </label>
         </div>`;
         })
         .join("")}
@@ -1495,6 +1540,69 @@ function renderMixerPanel() {
   document.getElementById("mixer-master-fader").oninput = (e) => {
     engine.masterGain.gain.value = Number(e.target.value) / 100;
   };
+  panel.querySelectorAll("[data-mixer-pitch]").forEach((input) => {
+    input.onmousedown = input.ontouchstart = () => pushUndo();
+    const i = Number(input.dataset.mixerPitch);
+    input.oninput = () => {
+      const label = panel.querySelector(`[data-mixer-pitch-label="${i}"]`);
+      const v = Number(input.value);
+      if (label) label.textContent = `${v > 0 ? "+" : ""}${v}`;
+    };
+    input.onchange = () => setTrackPitch(i, Number(input.value));
+  });
+  panel.querySelectorAll("[data-mixer-reverb]").forEach((input) => {
+    input.onmousedown = input.ontouchstart = () => pushUndo();
+    input.onchange = () => setTrackSend(Number(input.dataset.mixerReverb), "reverbWet", Number(input.value) / 100);
+  });
+  panel.querySelectorAll("[data-mixer-delay]").forEach((input) => {
+    input.onmousedown = input.ontouchstart = () => pushUndo();
+    input.onchange = () => setTrackSend(Number(input.dataset.mixerDelay), "delayWet", Number(input.value) / 100);
+  });
+}
+
+// Re-derives a track's playable `buffer` from its untouched dry source
+// (a pattern track's `pattern.buffer`, or a plain track's
+// `originalBuffer`) plus its current pitch/reverb/delay — this engine
+// plays plain buffers with no live per-track effect graph, so pitch and
+// sends are "baked in" the same way the Voice/Any Sound rows already
+// bake in their own effect stacks before adding a track.
+async function refreshTrackAudio(track) {
+  const dry = track.pattern ? track.pattern.buffer : track.originalBuffer;
+  let processed = track.pitchSemitones ? pitchShiftBuffer(engine.ctx, dry, track.pitchSemitones) : dry;
+  if (track.reverbWet || track.delayWet) {
+    const offlineCtx = new OfflineAudioContext(processed.numberOfChannels, processed.length, processed.sampleRate);
+    const source = offlineCtx.createBufferSource();
+    source.buffer = processed;
+    const chainOut = buildEffectChain(offlineCtx, source, {
+      reverbWet: track.reverbWet || 0,
+      reverbRoom: 0.5,
+      delayWet: track.delayWet || 0,
+      delayMs: 250,
+      delayFeedback: 0.3,
+    });
+    chainOut.connect(offlineCtx.destination);
+    source.start();
+    processed = await offlineCtx.startRendering();
+  }
+  track.buffer = processed;
+}
+
+async function setTrackPitch(i, semitones) {
+  const track = engine.tracks[i];
+  if (!track) return;
+  track.pitchSemitones = Math.max(-12, Math.min(12, semitones));
+  await refreshTrackAudio(track);
+  renderTimeline();
+  renderWaveform();
+}
+
+async function setTrackSend(i, key, amount) {
+  const track = engine.tracks[i];
+  if (!track) return;
+  track[key] = Math.max(0, Math.min(1, amount));
+  await refreshTrackAudio(track);
+  renderTimeline();
+  renderWaveform();
 }
 
 document.getElementById("mixer-btn").onclick = () => {
@@ -1521,7 +1629,16 @@ function buildShareUrl() {
     bpm: currentBpm,
     tracks: engine.tracks.map((t) =>
       t.pattern
-        ? { kind: "pattern", name: t.name, family: t.pattern.family, hits: t.pattern.hits, totalSteps: t.pattern.totalSteps }
+        ? {
+            kind: "pattern",
+            name: t.name,
+            family: t.pattern.family,
+            hits: t.pattern.hits,
+            totalSteps: t.pattern.totalSteps,
+            pitchSemitones: t.pitchSemitones,
+            reverbWet: t.reverbWet,
+            delayWet: t.delayWet,
+          }
         : { kind: "unshareable", name: t.name }
     ),
   };
@@ -1554,12 +1671,19 @@ async function applySharedState(encoded) {
     if (trackData.kind !== "pattern") continue;
     const existingIndex = engine.tracks.findIndex((t) => t.name === trackData.name);
     const pattern = createPattern(engine.ctx, engine.ctx.sampleRate, trackData.family, trackData.hits, trackData.totalSteps);
+    let track;
     if (existingIndex >= 0) {
-      engine.tracks[existingIndex].pattern = pattern;
-      engine.tracks[existingIndex].buffer = pattern.buffer;
+      track = engine.tracks[existingIndex];
+      track.pattern = pattern;
+      track.buffer = pattern.buffer;
     } else {
       engine.addTrack(trackData.name, pattern.buffer, pattern);
+      track = engine.tracks[engine.tracks.length - 1];
     }
+    track.pitchSemitones = trackData.pitchSemitones || 0;
+    track.reverbWet = trackData.reverbWet || 0;
+    track.delayWet = trackData.delayWet || 0;
+    if (track.pitchSemitones || track.reverbWet || track.delayWet) await refreshTrackAudio(track);
   }
   renderTrackList();
   renderTimeline();

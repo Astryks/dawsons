@@ -176,6 +176,11 @@ body {
   border-color: var(--purple-deep);
 }
 
+.instrument-track.is-active {
+  border-color: var(--purple);
+  background: var(--panel);
+}
+
 .instrument-track__icon {
   font-size: 1.3rem;
   width: 2rem;
@@ -1241,6 +1246,21 @@ body {
 .mixer-strip__buttons {
   display: flex;
   gap: 0.25rem;
+}
+
+.mixer-strip__param {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  width: 100%;
+  font-size: 0.65rem;
+  color: var(--text-dim);
+}
+
+.mixer-strip__param input[type="range"] {
+  width: 100%;
+  accent-color: var(--purple);
 }
 
 /* --- Right-click context menu --- */

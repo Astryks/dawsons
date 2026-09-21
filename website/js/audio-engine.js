@@ -19,6 +19,17 @@ class Track {
     // {family, hits, totalSteps} for a track editable via pattern-editor.js's
     // click-to-place grid; null for a plain demo-song/uploaded-audio track.
     this.pattern = pattern;
+    // Per-track pitch (semitones, varispeed-style — same technique the
+    // Any Sound row's Pitch slider already uses) and effect sends
+    // (0..1), all baked into `buffer` by app.js's refreshTrackAudio
+    // whenever one changes — this engine plays plain buffers, it has
+    // no live per-track effect graph. `originalBuffer` is the
+    // never-overwritten dry source a non-pattern track re-processes
+    // from; a pattern track re-processes from `pattern.buffer` instead.
+    this.pitchSemitones = 0;
+    this.reverbWet = 0;
+    this.delayWet = 0;
+    this.originalBuffer = buffer;
   }
 
   get durationSec() {
@@ -107,6 +118,10 @@ class Engine {
       track.muted = s.muted;
       track.solo = s.solo;
       track.pan = s.pan;
+      track.pitchSemitones = s.pitchSemitones || 0;
+      track.reverbWet = s.reverbWet || 0;
+      track.delayWet = s.delayWet || 0;
+      track.originalBuffer = s.originalBuffer || s.buffer;
       return track;
     });
   }
