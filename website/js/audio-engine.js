@@ -36,6 +36,11 @@ class Track {
     // copy. A short recording (a keyboard/pad take) under a longer
     // backing track is the main use case.
     this.loop = false;
+    // Where this track starts, in seconds into the overall project —
+    // real drag-to-reposition (see app.js's timeline bar dragging),
+    // not just a visual offset: play() actually delays/seeks this
+    // track's source by this amount.
+    this.startOffsetSec = 0;
   }
 
   get durationSec() {
@@ -128,6 +133,7 @@ class Engine {
       track.reverbWet = s.reverbWet || 0;
       track.delayWet = s.delayWet || 0;
       track.loop = s.loop || false;
+      track.startOffsetSec = s.startOffsetSec || 0;
       track.originalBuffer = s.originalBuffer || s.buffer;
       return track;
     });
@@ -184,10 +190,11 @@ class Engine {
 
   // Starts (or resumes) playback from `fromSec` — omit it to resume from
   // wherever playback was last paused/sought to (defaulting to 0 the
-  // first time). Each track's own source starts at that same offset
-  // *into its buffer* (`AudioBufferSourceNode.start(when, offset)`), and
-  // a track shorter than `fromSec` is simply skipped since it has
-  // already finished playing by that point in the timeline.
+  // first time). A track with no `startOffsetSec` starts at that same
+  // offset *into its buffer* as before; one with an offset either gets
+  // scheduled to start later (transport hasn't reached it yet) or is
+  // seeked into partway (transport is already past its start) — real
+  // drag-to-reposition, not just a visual placement.
   play(fromSec) {
     const startSec = Math.max(0, fromSec !== undefined ? fromSec : this.pausedAtSec);
     this._stopSources();
@@ -195,7 +202,10 @@ class Engine {
     this.startedAt = this.ctx.currentTime - startSec;
     const anySoloed = this.tracks.some((t) => t.solo);
     for (const track of this.tracks) {
-      if (startSec >= track.durationSec) continue;
+      const offset = track.startOffsetSec || 0;
+      // A non-looping track is done once the transport passes its own
+      // offset+duration; a looping one never "finishes" this way.
+      if (!track.loop && startSec >= offset + track.durationSec) continue;
       const source = this.ctx.createBufferSource();
       source.buffer = track.buffer;
       const gain = this.ctx.createGain();
@@ -205,7 +215,13 @@ class Engine {
       panner.pan.value = track.pan;
       source.loop = track.loop;
       source.connect(gain).connect(panner).connect(this.masterGain);
-      source.start(this.ctx.currentTime, startSec);
+      if (startSec < offset) {
+        // Hasn't reached this track's start position yet — schedule it
+        // to begin in the future rather than starting it silently now.
+        source.start(this.ctx.currentTime + (offset - startSec), 0);
+      } else {
+        source.start(this.ctx.currentTime, startSec - offset);
+      }
       track.source = source;
       track.gain = gain;
       track.panner = panner;
@@ -271,7 +287,7 @@ class Engine {
   maxDurationSec() {
     const nonLooping = this.tracks.filter((t) => !t.loop);
     const basis = nonLooping.length ? nonLooping : this.tracks;
-    return Math.max(0.001, ...basis.map((t) => t.durationSec));
+    return Math.max(0.001, ...basis.map((t) => (t.startOffsetSec || 0) + t.durationSec));
   }
 }
 

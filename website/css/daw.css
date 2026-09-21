@@ -355,9 +355,17 @@ body {
 }
 
 .timeline-layer__bar {
+  position: absolute;
+  top: 0;
   height: 100%;
   border-radius: 6px;
   box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  cursor: grab;
+}
+
+.timeline-layer__bar:active {
+  cursor: grabbing;
+  filter: brightness(1.2);
 }
 
 .timeline-layer__playhead {

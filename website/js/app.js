@@ -50,6 +50,7 @@ function snapshotTracks() {
     reverbWet: t.reverbWet,
     delayWet: t.delayWet,
     loop: t.loop,
+    startOffsetSec: t.startOffsetSec,
     originalBuffer: t.originalBuffer,
     pattern: t.pattern
       ? { family: t.pattern.family, hits: t.pattern.hits.map((h) => ({ ...h })), totalSteps: t.pattern.totalSteps }
@@ -305,10 +306,15 @@ function renderTimeline() {
       const isActive = i === activeTrackIndex;
       const family = trackFamily(track, i);
       const pct = Math.max(2, (track.durationSec / maxDur) * 100);
+      const leftPct = ((track.startOffsetSec || 0) / maxDur) * 100;
       const icon = family ? instrumentIconSvg(family, `instrument-icon--${family}`) : "";
+      // Only a plain (non-pattern) track's bar is draggable to
+      // reposition — pattern tracks render as a full-width step grid
+      // that always starts at 0; giving those a real start-offset too
+      // is a separate, bigger change to how that grid is laid out.
       const body = track.pattern
         ? renderPatternGridHtml(track, i)
-        : `<div class="timeline-layer__bar layer-color-${i % 6}" style="width:${pct}%"></div>`;
+        : `<div class="timeline-layer__bar layer-color-${i % 6}" data-drag-track="${i}" style="width:${pct}%; left:${leftPct}%" title="Drag to move this clip earlier/later in the project"></div>`;
       return `
         <div class="timeline-layer${isActive ? " timeline-layer--active" : ""}" data-track-index="${i}">
           <div class="timeline-layer__label" data-track-index="${i}">${icon}${track.name}</div>
@@ -562,6 +568,48 @@ previewEl.addEventListener("pointerup", (e) => {
     /* already released */
   }
   if (engine.playing) updatePlayhead(); // restart the rAF loop from the new position
+});
+
+// --- Drag a plain (non-pattern) track's clip left/right to place it
+// wherever in the project's timeline it belongs — a real start-offset
+// the engine's play() honors (see audio-engine.js), not just a visual
+// move. Only the dragged bar's own inline style updates during the
+// drag itself (a full renderTimeline() mid-drag would replace the very
+// element under the pointer and break the drag); everything else
+// re-syncs once on release. ---
+let dragState = null;
+document.getElementById("timeline").addEventListener("pointerdown", (e) => {
+  const bar = e.target.closest("[data-drag-track]");
+  if (!bar) return;
+  const trackIndex = Number(bar.dataset.dragTrack);
+  const track = engine.tracks[trackIndex];
+  const trackEl = bar.closest(".timeline-layer__track");
+  if (!track || !trackEl) return;
+  pushUndo();
+  dragState = {
+    trackIndex,
+    pointerId: e.pointerId,
+    startClientX: e.clientX,
+    startOffsetSec: track.startOffsetSec || 0,
+    rowWidthPx: trackEl.getBoundingClientRect().width,
+    maxDur: engine.maxDurationSec(),
+  };
+  bar.setPointerCapture(e.pointerId);
+});
+document.getElementById("timeline").addEventListener("pointermove", (e) => {
+  if (!dragState || e.pointerId !== dragState.pointerId) return;
+  const deltaSec = ((e.clientX - dragState.startClientX) / dragState.rowWidthPx) * dragState.maxDur;
+  const track = engine.tracks[dragState.trackIndex];
+  if (!track) return;
+  track.startOffsetSec = Math.max(0, dragState.startOffsetSec + deltaSec);
+  const bar = document.querySelector(`[data-drag-track="${dragState.trackIndex}"]`);
+  if (bar) bar.style.left = `${(track.startOffsetSec / dragState.maxDur) * 100}%`;
+});
+document.getElementById("timeline").addEventListener("pointerup", () => {
+  if (!dragState) return;
+  dragState = null;
+  if (engine.playing) engine.play(engine.positionSec()); // reschedule sources with the new offset
+  renderTimeline();
 });
 
 // --- Click-to-place beat/note grid: selecting a track's row, toggling
@@ -1331,6 +1379,7 @@ function serializeTrackForSave(track) {
       reverbWet: track.reverbWet,
       delayWet: track.delayWet,
       loop: track.loop,
+      startOffsetSec: track.startOffsetSec,
     };
   }
   return {
@@ -1343,6 +1392,7 @@ function serializeTrackForSave(track) {
     reverbWet: track.reverbWet,
     delayWet: track.delayWet,
     loop: track.loop,
+    startOffsetSec: track.startOffsetSec,
     // The untouched dry source, not the current (possibly pitched/
     // effected) buffer — so re-loading and then changing pitch again
     // is relative to the real original, not a compounded re-pitch of
@@ -1367,6 +1417,7 @@ async function deserializeTrackFromSave(data) {
   track.reverbWet = data.reverbWet || 0;
   track.delayWet = data.delayWet || 0;
   track.loop = data.loop || false;
+  track.startOffsetSec = data.startOffsetSec || 0;
   if (track.pitchSemitones || track.reverbWet || track.delayWet) await refreshTrackAudio(track);
 }
 
@@ -1729,6 +1780,7 @@ async function applySharedState(encoded) {
     track.pitchSemitones = trackData.pitchSemitones || 0;
     track.reverbWet = trackData.reverbWet || 0;
     track.delayWet = trackData.delayWet || 0;
+    track.startOffsetSec = trackData.startOffsetSec || 0;
     track.loop = trackData.loop || false;
     if (track.pitchSemitones || track.reverbWet || track.delayWet) await refreshTrackAudio(track);
   }
