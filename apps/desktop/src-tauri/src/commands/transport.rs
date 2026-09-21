@@ -159,6 +159,20 @@ pub fn transport_stop(state: State<AppState>) -> Result<(), String> {
     transport::stop(&require_audio(&audio)?.mixer)
 }
 
+/// Rewind/fast-forward and click/drag-to-seek on the timeline — editing
+/// a song means constantly jumping back to re-hear a spot, and Play/
+/// Pause/Stop alone made that require replaying from the very start
+/// every time.
+#[tauri::command]
+pub fn transport_seek(state: State<AppState>, position_sec: f64) -> Result<(), String> {
+    let audio = state
+        .audio
+        .lock()
+        .map_err(|_| "audio state poisoned".to_string())?;
+    let handle = require_audio(&audio)?;
+    transport::seek(&handle.mixer, position_sec, &handle.engine_config)
+}
+
 /// A track's mixer info plus its duration in seconds (computed here,
 /// where the engine's sample rate/channel count is available — the
 /// mixer itself only knows raw sample counts) — what the timeline UI
@@ -168,6 +182,7 @@ pub struct TrackSummary {
     pub name: String,
     pub muted: bool,
     pub duration_sec: f64,
+    pub start_offset_sec: f64,
 }
 
 #[tauri::command]
@@ -190,8 +205,34 @@ pub fn list_tracks(state: State<AppState>) -> Result<Vec<TrackSummary>, String> 
             name: t.name,
             muted: t.muted,
             duration_sec: (t.len_samples as f64 / channels) / sample_rate,
+            start_offset_sec: (t.start_offset_samples as f64 / channels) / sample_rate,
         })
         .collect())
+}
+
+/// Drags a region to a different point on the timeline — the desktop
+/// equivalent of the browser DAW's draggable clips, backed by the
+/// mixer's real per-track `start_offset` (silence plays until the
+/// shared playhead reaches it), not just a visual reposition.
+#[tauri::command]
+pub fn set_track_offset(
+    state: State<AppState>,
+    index: usize,
+    offset_sec: f64,
+) -> Result<(), String> {
+    let audio = state
+        .audio
+        .lock()
+        .map_err(|_| "audio state poisoned".to_string())?;
+    let handle = require_audio(&audio)?;
+    let mut mixer = handle
+        .mixer
+        .lock()
+        .map_err(|_| "mixer lock poisoned".to_string())?;
+    let channels = handle.engine_config.channels.max(1) as f64;
+    let sample_rate = handle.engine_config.sample_rate.max(1) as f64;
+    let offset_samples = (offset_sec.max(0.0) * sample_rate * channels).round() as usize;
+    mixer.set_track_offset(index, offset_samples)
 }
 
 #[tauri::command]
@@ -297,6 +338,7 @@ pub fn play_instrument_note(state: State<AppState>, program: u8, note: i32) -> R
         samples: std::sync::Arc::new(samples),
         gain: 1.0,
         muted: false,
+        start_offset: 0,
     }];
     mixer.position = 0;
     mixer.playing = true;
@@ -351,6 +393,7 @@ pub fn play_instrument_chord(
         samples: std::sync::Arc::new(samples),
         gain: 1.0,
         muted: false,
+        start_offset: 0,
     }];
     mixer.position = 0;
     mixer.playing = true;

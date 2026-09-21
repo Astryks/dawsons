@@ -32,6 +32,8 @@ pub fn run() {
             commands::transport::transport_play,
             commands::transport::transport_pause,
             commands::transport::transport_stop,
+            commands::transport::transport_seek,
+            commands::transport::set_track_offset,
             commands::transport::list_tracks,
             commands::transport::set_track_muted,
             commands::transport::soundfont_available,

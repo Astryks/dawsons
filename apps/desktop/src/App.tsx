@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import type { MouseEvent } from "react";
 import { invoke } from "@tauri-apps/api/core";
 import { open, save } from "@tauri-apps/plugin-dialog";
 
@@ -176,6 +177,7 @@ interface TrackInfo {
   name: string;
   muted: boolean;
   duration_sec: number;
+  start_offset_sec: number;
 }
 
 interface DemoSongInfo {
@@ -573,6 +575,61 @@ export default function App() {
     setPlaybackPositionSec(0);
   }
 
+  // Editing a song means constantly jumping back to re-hear a spot —
+  // rewind/fast-forward and click-to-seek on the timeline, not just
+  // Play/Pause/Stop requiring a full replay from the start every time.
+  // Updates position optimistically (not just via the playing-only
+  // polling loop above) so seeking while paused reflects immediately.
+  async function handleTransportSeek(positionSec: number) {
+    const clamped = Math.max(0, positionSec);
+    await runCommand("transport_seek", { positionSec: clamped });
+    setPlaybackPositionSec(clamped);
+  }
+
+  function handleSkip(deltaSec: number) {
+    handleTransportSeek(playbackPositionSec + deltaSec);
+  }
+
+  function handleTimelineScrub(e: MouseEvent<HTMLDivElement>) {
+    const rect = e.currentTarget.getBoundingClientRect();
+    const fraction = Math.min(1, Math.max(0, (e.clientX - rect.left) / rect.width));
+    handleTransportSeek(fraction * maxTrackDuration);
+  }
+
+  // Drag-to-move a region on the timeline (the actual "Logic Pro/Ableton
+  // style" region drag). onMove/onUp are created fresh inside this
+  // handler — one closure pair per drag session — rather than as
+  // top-level component functions: setTracks below triggers a re-render
+  // on every mousemove, which would give a top-level function a new
+  // identity on each render, so removeEventListener at drag-end would
+  // silently fail to remove the listener actually added at drag-start
+  // (window.addEventListener/removeEventListener require the exact same
+  // function reference). Closures captured once per mousedown sidestep
+  // that entirely — no stale-reference risk, and no ref needed either.
+  function handleTrackBarMouseDown(e: MouseEvent<HTMLDivElement>, index: number, startOffsetSec: number) {
+    e.stopPropagation(); // don't also trigger the parent row's click-to-seek
+    const container = e.currentTarget.parentElement;
+    const width = container ? container.getBoundingClientRect().width : 1;
+    const pixelsPerSecond = width / Math.max(0.001, maxTrackDuration);
+    const startClientX = e.clientX;
+    let currentOffsetSec = startOffsetSec;
+
+    function onMove(ev: globalThis.MouseEvent) {
+      const deltaSec = (ev.clientX - startClientX) / pixelsPerSecond;
+      currentOffsetSec = Math.max(0, startOffsetSec + deltaSec);
+      setTracks((prev) => prev.map((t, i) => (i === index ? { ...t, start_offset_sec: currentOffsetSec } : t)));
+    }
+
+    async function onUp() {
+      window.removeEventListener("mousemove", onMove);
+      window.removeEventListener("mouseup", onUp);
+      await runCommand("set_track_offset", { index, offsetSec: currentOffsetSec });
+    }
+
+    window.addEventListener("mousemove", onMove);
+    window.addEventListener("mouseup", onUp);
+  }
+
   async function handleSmartUpload() {
     const path = await open({
       filters: [{ name: "Audio", extensions: ["mp3", "wav", "flac", "m4a", "ogg"] }],
@@ -917,21 +974,47 @@ export default function App() {
                     </button>
                   </span>
                 </div>
-                <div className="layer__track">
-                  <div className="layer__bar" style={{ width: `${Math.max(2, (t.duration_sec / maxTrackDuration) * 100)}%` }} />
-                  {isPlaying && (
-                    <div
-                      className="layer__playhead"
-                      style={{ left: `${Math.min(100, (playbackPositionSec / maxTrackDuration) * 100)}%` }}
-                    />
-                  )}
+                <div
+                  className="layer__track"
+                  onClick={handleTimelineScrub}
+                  title="Click to jump playback here"
+                  style={{ cursor: "pointer" }}
+                >
+                  <div
+                    className="layer__bar"
+                    onMouseDown={(e) => handleTrackBarMouseDown(e, i, t.start_offset_sec)}
+                    title="Drag to move this region"
+                    style={{
+                      left: `${(t.start_offset_sec / maxTrackDuration) * 100}%`,
+                      width: `${Math.max(2, (t.duration_sec / maxTrackDuration) * 100)}%`,
+                    }}
+                  />
+                  <div
+                    className="layer__playhead"
+                    style={{ left: `${Math.min(100, (playbackPositionSec / maxTrackDuration) * 100)}%` }}
+                  />
                 </div>
               </div>
             ))}
             <div className="debug-panel__buttons" style={{ marginTop: "0.75rem" }}>
+              <button onClick={() => handleSkip(-10)} title="Rewind 10s">
+                ⏪ 10s
+              </button>
+              <button onClick={() => handleSkip(-5)} title="Rewind 5s">
+                ⏪ 5s
+              </button>
               <button onClick={handleTransportPlay}>Play</button>
               <button onClick={handleTransportPause}>Pause</button>
               <button onClick={handleTransportStop}>Stop</button>
+              <button onClick={() => handleSkip(5)} title="Forward 5s">
+                5s ⏩
+              </button>
+              <button onClick={() => handleSkip(10)} title="Forward 10s">
+                10s ⏩
+              </button>
+              <span className="debug-panel__hint" style={{ marginLeft: "0.5rem" }}>
+                {playbackPositionSec.toFixed(1)}s / {maxTrackDuration.toFixed(1)}s
+              </span>
             </div>
           </section>
         )}

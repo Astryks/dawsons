@@ -55,6 +55,7 @@ pub fn load_demo_song(state: State<AppState>, index: usize) -> Result<(), String
             samples: Arc::new(samples),
             gain: 1.0,
             muted: false,
+            start_offset: 0,
         });
     }
     let drum_samples = render_drums(config, &song.drums)?;
@@ -63,6 +64,7 @@ pub fn load_demo_song(state: State<AppState>, index: usize) -> Result<(), String
         samples: Arc::new(drum_samples),
         gain: 1.0,
         muted: false,
+        start_offset: 0,
     });
 
     let mut mixer = handle
