@@ -197,13 +197,42 @@ pub fn spawn(app: AppHandle) -> SidecarHandle {
     }
 }
 
+/// Whether an unexpected sidecar exit should trigger a restart — restart
+/// exactly once, then give up. Pulled out of `supervise()`'s loop as its
+/// own pure state machine (no process/IO involved) specifically so this
+/// decision is unit-testable on its own: the actual spawn/health-check
+/// path is heavy (a real child process, a real AppHandle) and is instead
+/// covered by actually launching the app end-to-end (see STATUS.md), not
+/// a unit test — but the *decision logic* had no coverage at all before,
+/// which is the gap this closes.
+#[derive(Default)]
+struct RestartPolicy {
+    already_restarted: bool,
+}
+
+enum RestartDecision {
+    Restart,
+    GiveUp,
+}
+
+impl RestartPolicy {
+    fn on_crash(&mut self) -> RestartDecision {
+        if self.already_restarted {
+            RestartDecision::GiveUp
+        } else {
+            self.already_restarted = true;
+            RestartDecision::Restart
+        }
+    }
+}
+
 fn supervise(app: AppHandle, status: Arc<Mutex<SidecarStatus>>, shutdown_rx: mpsc::Receiver<()>) {
     let mut child = match start_and_confirm(&app, &status) {
         Some(child) => child,
         None => return, // spawn/health-check failed; status already set to Error
     };
 
-    let mut restarted_once = false;
+    let mut restart_policy = RestartPolicy::default();
     loop {
         if shutdown_rx.recv_timeout(Duration::from_millis(500)).is_ok() {
             let current = status
@@ -224,21 +253,24 @@ fn supervise(app: AppHandle, status: Arc<Mutex<SidecarStatus>>, shutdown_rx: mps
         match child.try_wait() {
             Ok(Some(exit_status)) => {
                 tracing::error!("sidecar exited unexpectedly: {exit_status}");
-                if restarted_once {
-                    set_status(
-                        &status,
-                        &app,
-                        SidecarStatus::Error {
-                            message: "sidecar crashed twice, giving up".into(),
-                        },
-                    );
-                    return;
-                }
-                restarted_once = true;
-                set_status(&status, &app, SidecarStatus::Starting);
-                match start_and_confirm(&app, &status) {
-                    Some(new_child) => child = new_child,
-                    None => return,
+                match restart_policy.on_crash() {
+                    RestartDecision::GiveUp => {
+                        set_status(
+                            &status,
+                            &app,
+                            SidecarStatus::Error {
+                                message: "sidecar crashed twice, giving up".into(),
+                            },
+                        );
+                        return;
+                    }
+                    RestartDecision::Restart => {
+                        set_status(&status, &app, SidecarStatus::Starting);
+                        match start_and_confirm(&app, &status) {
+                            Some(new_child) => child = new_child,
+                            None => return,
+                        }
+                    }
                 }
             }
             Ok(None) => continue, // still running
@@ -270,4 +302,30 @@ fn start_and_confirm(app: &AppHandle, status: &Arc<Mutex<SidecarStatus>>) -> Opt
     tracing::info!("sidecar ready on port {port}");
     set_status(status, app, SidecarStatus::Ready { port });
     Some(child)
+}
+
+#[cfg(test)]
+mod restart_policy_tests {
+    use super::*;
+
+    #[test]
+    fn first_crash_triggers_a_restart() {
+        let mut policy = RestartPolicy::default();
+        assert!(matches!(policy.on_crash(), RestartDecision::Restart));
+    }
+
+    #[test]
+    fn second_crash_gives_up_rather_than_restarting_indefinitely() {
+        let mut policy = RestartPolicy::default();
+        let _ = policy.on_crash();
+        assert!(matches!(policy.on_crash(), RestartDecision::GiveUp));
+    }
+
+    #[test]
+    fn giving_up_is_sticky_for_any_further_crashes() {
+        let mut policy = RestartPolicy::default();
+        let _ = policy.on_crash();
+        let _ = policy.on_crash();
+        assert!(matches!(policy.on_crash(), RestartDecision::GiveUp));
+    }
 }
