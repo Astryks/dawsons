@@ -8,9 +8,28 @@
 
 import { renderVoice, renderDrumHit } from "./synth.js";
 
-const STEP_SEC = 0.25; // one eighth note, matching demo-songs.js's BAR_SEC=2.0 tempo
+// One eighth note. Starts matching demo-songs.js's BAR_SEC=2.0 (120bpm)
+// but is re-derived from the tempo control (see setBpm) — an eighth
+// note is always (60 / bpm / 2) seconds regardless of bpm, so scaling
+// this one value speeds up or slows down every pattern-backed track's
+// playback in one place.
+let STEP_SEC = 0.25;
 const STEPS_PER_BEAT = 2; // a beat is a quarter note = 2 eighth-note steps
 const DEFAULT_STEPS = 16; // 2 bars
+
+function getStepSec() {
+  return STEP_SEC;
+}
+
+// Only pattern-backed tracks (built from this module) can genuinely
+// retime this way — their audio is synthesized fresh from step data,
+// so changing STEP_SEC and rebuilding is a real tempo change, not a
+// playback-rate/pitch-shifting trick. Plain recorded/uploaded/demo-song
+// audio layers are unaffected; see app.js's setBpm for how callers are
+// expected to rebuild every pattern track's buffer after calling this.
+function setBpm(bpm) {
+  STEP_SEC = 60 / bpm / 2;
+}
 
 function notePalette(root, rootLabel) {
   return [
@@ -22,11 +41,20 @@ function notePalette(root, rootLabel) {
 }
 
 const FAMILY_PALETTES = {
+  // A real GarageBand-style kit, not just the original 4 sounds —
+  // every key here has its own distinct DSP voice in synth.js.
   drums: [
     { key: "kick", label: "Kick" },
+    { key: "kick2", label: "Deep Kick" },
     { key: "snare", label: "Snare" },
-    { key: "hihat", label: "Hi-hat" },
+    { key: "rimshot", label: "Rimshot" },
     { key: "clap", label: "Clap" },
+    { key: "hihat", label: "Closed Hat" },
+    { key: "openhat", label: "Open Hat" },
+    { key: "tom", label: "Tom" },
+    { key: "crash", label: "Crash" },
+    { key: "cowbell", label: "Cowbell" },
+    { key: "shaker", label: "Shaker" },
   ],
   keys: notePalette(60, "C"),
   guitar: notePalette(60, "C"),
@@ -123,13 +151,15 @@ function autoFillEveryBeats(ctx, sampleRate, pattern, sound, everyBeats) {
 }
 
 export {
-  STEP_SEC,
   STEPS_PER_BEAT,
   DEFAULT_STEPS,
   FAMILY_PALETTES,
+  getStepSec,
+  setBpm,
   paletteFor,
   soundLabel,
   createPattern,
   toggleStep,
   autoFillEveryBeats,
+  rebuildBuffer,
 };

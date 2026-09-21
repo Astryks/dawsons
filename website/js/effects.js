@@ -39,6 +39,23 @@ function pitchShiftBuffer(ctx, buffer, semitones) {
   return out;
 }
 
+// Crops a buffer to [startSec, endSec] — the "edit mask" for an
+// imported clip or a voice recording: cut out just the part you
+// actually want before reversing/pitching/adding it to the timeline,
+// rather than being stuck with the whole file.
+function trimBuffer(ctx, buffer, startSec, endSec) {
+  const startFrame = Math.max(0, Math.min(buffer.length, Math.floor(startSec * buffer.sampleRate)));
+  const endFrame = Math.max(startFrame, Math.min(buffer.length, Math.ceil(endSec * buffer.sampleRate)));
+  const length = Math.max(1, endFrame - startFrame);
+  const out = ctx.createBuffer(buffer.numberOfChannels, length, buffer.sampleRate);
+  for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+    const src = buffer.getChannelData(ch);
+    const dst = out.getChannelData(ch);
+    dst.set(src.subarray(startFrame, startFrame + length));
+  }
+  return out;
+}
+
 function makeImpulseResponse(ctx, roomSize) {
   const duration = 0.5 + roomSize * 2.5;
   const length = Math.floor(ctx.sampleRate * duration);
@@ -168,4 +185,4 @@ function buildEffectChain(ctx, sourceNode, opts) {
   return node;
 }
 
-export { reverseBuffer, pitchShiftBuffer, buildEffectChain };
+export { reverseBuffer, pitchShiftBuffer, trimBuffer, buildEffectChain };

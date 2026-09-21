@@ -97,6 +97,20 @@ class Engine {
     this.tracks = tracks;
   }
 
+  // Rebuilds `this.tracks` from a plain-object snapshot (see app.js's
+  // undo/redo) — reconstructs real `Track` instances (with their own
+  // live gain/panner nodes, created fresh on next play) from
+  // `{name, buffer, muted, solo, pan, pattern}` records.
+  restoreTracks(snapshot) {
+    this.tracks = snapshot.map((s) => {
+      const track = new Track(s.name, s.buffer, s.pattern ? { ...s.pattern, buffer: s.buffer } : null);
+      track.muted = s.muted;
+      track.solo = s.solo;
+      track.pan = s.pan;
+      return track;
+    });
+  }
+
   addTrack(name, buffer, pattern = null) {
     this.tracks.push(new Track(name, buffer, pattern));
   }

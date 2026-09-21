@@ -281,6 +281,31 @@ body {
   color: var(--text);
 }
 
+.daw-bpm {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel-alt);
+  font-size: 0.85rem;
+  color: var(--text-dim, var(--text));
+}
+
+.daw-bpm input {
+  width: 3.2rem;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.daw-bpm input:focus {
+  outline: 1px solid var(--purple-deep);
+}
+
 .daw-timeline {
   background: var(--panel);
   border: 1px solid var(--border);
@@ -675,6 +700,20 @@ body {
   flex-shrink: 0;
 }
 
+/* uiIconSvg()'s output class — was missing entirely, so any icon
+   rendered through it (rather than hardcoded as .icon-inline markup)
+   had no explicit size and fell back to the SVG spec's 300x150 default
+   in some contexts, blowing up to fill its container. Found by actually
+   opening the new Save panel and seeing an oversized floppy-disk icon,
+   not by inspecting the CSS in isolation. */
+.ui-icon {
+  width: 1.05em;
+  height: 1.05em;
+  display: inline-block;
+  vertical-align: -0.15em;
+  flex-shrink: 0;
+}
+
 .instrument-icon--drums {
   color: var(--pastel-peach);
 }
@@ -893,4 +932,131 @@ body {
 .daw-timeline.is-drag-over {
   border-color: var(--purple);
   box-shadow: inset 0 0 0 2px var(--purple);
+}
+
+/* --- Mixer / Save-Load / Share side panels --- rendered in normal
+   document flow right after the transport bar (pushing the waveform
+   preview down while open), NOT a floating absolute overlay: an
+   earlier version used position:absolute with a fixed pixel offset,
+   which silently sat on top of — and ate clicks meant for — the
+   transport buttons directly underneath it (including Undo/Redo),
+   found by actually clicking through this in a live browser rather
+   than just eyeballing a screenshot. */
+.mixer-panel,
+.share-panel,
+.project-panel {
+  width: 100%;
+  max-width: 480px;
+  max-height: 50vh;
+  overflow-y: auto;
+  margin-bottom: 1rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.5);
+  flex-shrink: 0;
+  padding: 0;
+}
+
+.side-panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--panel-alt);
+  border-radius: 12px 12px 0 0;
+}
+
+.side-panel__close {
+  background: none;
+  border: none;
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 1.1rem;
+  padding: 0.2rem 0.5rem;
+}
+
+.side-panel__body {
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.mixer-panel__strips {
+  display: flex;
+  gap: 0.75rem;
+  padding: 1rem;
+  overflow-x: auto;
+}
+
+.mixer-strip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 64px;
+  padding: 0.5rem;
+  background: var(--panel-alt);
+  border-radius: 8px;
+}
+
+.mixer-strip--master {
+  border: 1px solid var(--ochre);
+}
+
+.mixer-strip__name {
+  font-size: 0.7rem;
+  text-align: center;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.mixer-strip__fader {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 24px;
+  height: 100px;
+  accent-color: var(--purple);
+}
+
+.mixer-strip__buttons {
+  display: flex;
+  gap: 0.25rem;
+}
+
+/* --- Right-click context menu --- */
+.context-menu {
+  position: fixed;
+  z-index: 100;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+  display: flex;
+  flex-direction: column;
+  padding: 0.25rem;
+  min-width: 200px;
+}
+
+.context-menu button {
+  background: none;
+  border: none;
+  color: var(--text);
+  text-align: left;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.context-menu button:hover {
+  background: var(--panel-alt);
 }
