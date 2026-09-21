@@ -42,7 +42,14 @@ const UI_ICON_PATHS = {
   upload: `<path d="M12 3v11"/><path d="M8 7l4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>`,
   play: `<path d="M6 4.5v15l13-7.5z" fill="currentColor" stroke="none"/>`,
   stop: `<rect x="6" y="6" width="12" height="12" rx="2" fill="currentColor" stroke="none"/>`,
+  pause: `<rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none"/><rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor" stroke="none"/>`,
   note: `<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>`,
+  undo: `<path d="M7 8L3 12l4 4"/><path d="M3 12h10.5a5.5 5.5 0 0 1 0 11H11"/>`,
+  redo: `<path d="M17 8l4 4-4 4"/><path d="M21 12H10.5a5.5 5.5 0 0 0 0 11H13"/>`,
+  mixer: `<path d="M6 21V13M6 9V3"/><circle cx="6" cy="11" r="2"/><path d="M12 21V15M12 11V3"/><circle cx="12" cy="13" r="2"/><path d="M18 21V17M18 13V3"/><circle cx="18" cy="15" r="2"/>`,
+  save: `<path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3"/><rect x="8" y="14" width="8" height="7"/>`,
+  folder: `<path d="M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v2H3z"/><path d="M3 9l1.5 10a1 1 0 0 0 1 .9h13a1 1 0 0 0 1-.9L21 9"/>`,
+  share: `<circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.3 10.7l7.4-4.4M8.3 13.3l7.4 4.4"/>`,
 };
 
 function uiIconSvg(name, extraClass = "") {

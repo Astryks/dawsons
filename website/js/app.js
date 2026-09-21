@@ -1,11 +1,12 @@
 import { Engine } from "./audio-engine.js";
 import { DEMO_SONGS } from "./demo-songs.js";
 import { renderVoice } from "./synth.js";
-import { reverseBuffer, pitchShiftBuffer, buildEffectChain } from "./effects.js";
+import { reverseBuffer, pitchShiftBuffer, trimBuffer, buildEffectChain } from "./effects.js";
 import { detectNotes, snapNotesToScale, MAJOR_SCALE, MINOR_SCALE } from "./pitch.js";
 import { STARTERS } from "./starter-patterns.js";
-import { paletteFor, soundLabel, createPattern, toggleStep, autoFillEveryBeats } from "./pattern-editor.js";
+import { paletteFor, soundLabel, createPattern, toggleStep, autoFillEveryBeats, setBpm, rebuildBuffer } from "./pattern-editor.js";
 import { instrumentIconSvg, uiIconSvg } from "./instrument-icons.js";
+import { audioBufferToBase64Wav, base64WavToAudioBuffer, encodeWav } from "./wav-encoder.js";
 
 const engine = new Engine();
 let currentSong = null;
@@ -18,6 +19,91 @@ let activeTrackIndex = null;
 let armedSound = null;
 // Whether the "+" add-instrument menu is currently open in the timeline.
 let addInstrumentMenuOpen = false;
+// Whether the "+" blank-track menu is currently open in the timeline.
+let addBlankMenuOpen = false;
+// Tempo, in beats per minute. Only genuinely retimes pattern-backed
+// tracks (drums/bass/keys/guitar/any custom pattern track), since their
+// audio is synthesized fresh from step data — see pattern-editor.js's
+// setBpm. Plain recorded/uploaded/demo-song audio layers keep their
+// original tempo; this is a real, disclosed scope limit (see the BPM
+// input's title tooltip), not a bug.
+let currentBpm = 120;
+
+// --- Undo / redo ---
+// A snapshot is a lightweight description of engine.tracks, not a deep
+// clone of everything: AudioBuffers are immutable once rendered, so
+// it's safe (and cheap) to keep a reference to the exact buffer a track
+// had at snapshot time — only pattern.hits actually needs a real copy,
+// since toggleStep/autoFillEveryBeats mutate that array in place.
+const MAX_HISTORY = 50;
+let undoStack = [];
+let redoStack = [];
+
+function snapshotTracks() {
+  return engine.tracks.map((t) => ({
+    name: t.name,
+    buffer: t.buffer,
+    muted: t.muted,
+    solo: t.solo,
+    pan: t.pan,
+    pattern: t.pattern
+      ? { family: t.pattern.family, hits: t.pattern.hits.map((h) => ({ ...h })), totalSteps: t.pattern.totalSteps }
+      : null,
+  }));
+}
+
+function restoreSnapshot(snapshot) {
+  engine.stop();
+  engine.restoreTracks(snapshot);
+}
+
+// pushUndo() must run BEFORE a mutation, capturing the state being left
+// behind — the standard "undo restores what came before this action"
+// contract. Any fresh action clears redoStack: redo only makes sense
+// immediately after an undo, not after the timeline has since changed.
+function pushUndo() {
+  undoStack.push(snapshotTracks());
+  if (undoStack.length > MAX_HISTORY) undoStack.shift();
+  redoStack = [];
+  updateUndoRedoButtons();
+}
+
+function handleUndo() {
+  if (!undoStack.length) return;
+  redoStack.push(snapshotTracks());
+  restoreSnapshot(undoStack.pop());
+  activeTrackIndex = null;
+  renderTrackList();
+  renderTimeline();
+  renderSoundPicker();
+  updateUndoRedoButtons();
+}
+
+function handleRedo() {
+  if (!redoStack.length) return;
+  undoStack.push(snapshotTracks());
+  restoreSnapshot(redoStack.pop());
+  activeTrackIndex = null;
+  renderTrackList();
+  renderTimeline();
+  renderSoundPicker();
+  updateUndoRedoButtons();
+}
+
+function updateUndoRedoButtons() {
+  const undoBtn = document.getElementById("undo-btn");
+  const redoBtn = document.getElementById("redo-btn");
+  if (undoBtn) undoBtn.disabled = undoStack.length === 0;
+  if (redoBtn) redoBtn.disabled = redoStack.length === 0;
+}
+
+window.addEventListener("keydown", (e) => {
+  const mod = e.metaKey || e.ctrlKey;
+  if (!mod || e.key.toLowerCase() !== "z") return;
+  e.preventDefault();
+  if (e.shiftKey) handleRedo();
+  else handleUndo();
+});
 
 // The four instruments always ready to go the moment the page loads —
 // tap any step, hear it immediately. Everything else is one tap away
@@ -39,6 +125,7 @@ const EXTRA_FAMILIES = [
   "marimba",
   "trumpet",
 ];
+const ALL_FAMILIES = [...DEFAULT_FAMILIES, ...EXTRA_FAMILIES];
 const FAMILY_DISPLAY_NAME = {
   drums: "Drums",
   keys: "Piano",
@@ -83,6 +170,7 @@ function renderSongPicker() {
 
 async function loadSong(song) {
   await engine.resume();
+  pushUndo();
   currentSong = song;
   engine.renderSongToTracks(song);
   renderTrackList();
@@ -117,6 +205,7 @@ function renderTrackList() {
     btn.onclick = () => {
       const i = Number(btn.dataset.mute);
       const track = engine.tracks[i];
+      pushUndo();
       engine.setMuted(i, !track.muted);
       btn.classList.toggle("is-muted", track.muted);
       renderWaveform();
@@ -126,12 +215,16 @@ function renderTrackList() {
     btn.onclick = () => {
       const i = Number(btn.dataset.solo);
       const track = engine.tracks[i];
+      pushUndo();
       engine.setSolo(i, !track.solo);
       btn.classList.toggle("is-solo", track.solo);
       renderWaveform();
     };
   });
   el.querySelectorAll("input[data-pan]").forEach((input) => {
+    // pushUndo on the drag's first pointer-down, not on every `input`
+    // tick — a slider drag is one undo-able action, not dozens.
+    input.onmousedown = input.ontouchstart = () => pushUndo();
     input.oninput = () => {
       engine.setPan(Number(input.dataset.pan), Number(input.value) / 100);
     };
@@ -141,6 +234,7 @@ function renderTrackList() {
       const i = Number(btn.dataset.index);
       const to = btn.dataset.move === "up" ? i - 1 : i + 1;
       if (to < 0 || to >= engine.tracks.length) return;
+      pushUndo();
       engine.moveTrack(i, to);
       renderTrackList();
       renderTimeline();
@@ -148,6 +242,7 @@ function renderTrackList() {
   });
   el.querySelectorAll("button[data-remove]").forEach((btn) => {
     btn.onclick = () => {
+      pushUndo();
       engine.removeTrack(Number(btn.dataset.remove));
       renderTrackList();
       renderTimeline();
@@ -168,7 +263,7 @@ function renderTimeline() {
         ? renderPatternGridHtml(track, i)
         : `<div class="timeline-layer__bar layer-color-${i % 6}" style="width:${pct}%"></div>`;
       return `
-        <div class="timeline-layer${isActive ? " timeline-layer--active" : ""}">
+        <div class="timeline-layer${isActive ? " timeline-layer--active" : ""}" data-track-index="${i}">
           <div class="timeline-layer__label" data-track-index="${i}">${icon}${track.name}</div>
           <div class="timeline-layer__track">
             ${body}
@@ -182,8 +277,39 @@ function renderTimeline() {
     ? ""
     : '<p class="daw-note">Every track was removed — tap "+" below or pick an example song to start again.</p>';
 
-  el.innerHTML = trackRows + emptyNote + renderAddInstrumentHtml();
+  el.innerHTML = trackRows + emptyNote + renderAddInstrumentHtml() + renderAddBlankTrackHtml();
   renderWaveform();
+}
+
+// A second "+" row, distinct from "+ Add an instrument": that one
+// pre-fills a starter beat/riff so a new user has something to hear
+// immediately, which is great the first time but gets in the way once
+// someone wants to build their own part from nothing — including a
+// second track for an instrument already present (e.g. a second, empty
+// drum track). This one always creates a totally empty pattern grid.
+function renderAddBlankTrackHtml() {
+  if (!addBlankMenuOpen) {
+    return `<button type="button" class="timeline-add-btn" id="add-blank-btn">+ Add a blank track</button>`;
+  }
+  const options = ALL_FAMILIES.map(
+    (f) =>
+      `<button type="button" class="daw-starter__btn daw-starter__btn--${f}" data-add-blank-family="${f}">
+        ${instrumentIconSvg(f, `instrument-icon--${f}`)}<span>${FAMILY_DISPLAY_NAME[f]}</span>
+      </button>`,
+  ).join("");
+  return `<div class="timeline-add-menu">${options}</div>`;
+}
+
+function handleAddBlankTrack(family) {
+  const pattern = createPattern(engine.ctx, engine.ctx.sampleRate, family, []);
+  pushUndo();
+  engine.addTrack(FAMILY_DISPLAY_NAME[family] || family, pattern.buffer, pattern);
+  activeTrackIndex = engine.tracks.length - 1;
+  armedSound = paletteFor(family)[0]?.key || null;
+  addBlankMenuOpen = false;
+  renderTrackList();
+  renderTimeline();
+  renderSoundPicker();
 }
 
 // The "+" row at the end of the timeline for adding one of the
@@ -292,6 +418,7 @@ function updateScrubber() {
 
 function updatePlayhead() {
   updateScrubber();
+  updatePlayPauseButton();
   if (!engine.playing) {
     document.querySelectorAll(".timeline-layer__playhead").forEach((p) => (p.style.display = "none"));
     return;
@@ -306,19 +433,49 @@ function updatePlayhead() {
   playheadTimer = requestAnimationFrame(updatePlayhead);
 }
 
-document.getElementById("play-btn").onclick = async () => {
-  await engine.resume();
-  engine.play();
-  updatePlayhead();
-};
-document.getElementById("pause-btn").onclick = () => {
-  engine.pause();
-  updatePlayhead();
+// One button that toggles, not two separate Play/Pause buttons — you
+// shouldn't have to look for a different button to pause than the one
+// you pressed to play.
+function updatePlayPauseButton() {
+  const btn = document.getElementById("play-pause-btn");
+  btn.innerHTML = engine.playing ? `${uiIconSvg("pause")} Pause` : `${uiIconSvg("play")} Play`;
+}
+
+document.getElementById("play-pause-btn").onclick = async () => {
+  if (engine.playing) {
+    engine.pause();
+  } else {
+    await engine.resume();
+    engine.play();
+    updatePlayhead();
+  }
+  updatePlayPauseButton();
 };
 document.getElementById("stop-btn").onclick = () => {
   engine.stop();
   updatePlayhead();
 };
+
+// --- Tempo: rescales pattern-editor.js's step duration and rebuilds
+// every pattern-backed track's audio at the new speed. ---
+function handleBpmChange(newBpm) {
+  const bpm = Math.max(40, Math.min(240, Math.round(newBpm) || currentBpm));
+  document.getElementById("bpm-input").value = bpm;
+  if (bpm === currentBpm) return;
+  pushUndo();
+  currentBpm = bpm;
+  setBpm(bpm);
+  for (const track of engine.tracks) {
+    if (!track.pattern) continue;
+    track.pattern.buffer = rebuildBuffer(engine.ctx, engine.ctx.sampleRate, track.pattern.family, track.pattern.hits, track.pattern.totalSteps);
+    track.buffer = track.pattern.buffer;
+  }
+  renderTimeline();
+  updateScrubber();
+}
+document.getElementById("bpm-input").addEventListener("change", (e) => {
+  handleBpmChange(Number(e.target.value));
+});
 
 // --- Draggable preview scrubber: click anywhere on the waveform to jump
 // there, or drag the green line left/right to scrub through the project
@@ -383,13 +540,99 @@ document.getElementById("timeline").addEventListener("click", (e) => {
   const addFamilyBtn = e.target.closest("[data-add-family]");
   if (addFamilyBtn) {
     handleAddInstrumentTrack(addFamilyBtn.dataset.addFamily);
+    return;
   }
+  if (e.target.closest("#add-blank-btn")) {
+    addBlankMenuOpen = true;
+    renderTimeline();
+    return;
+  }
+  const addBlankFamilyBtn = e.target.closest("[data-add-blank-family]");
+  if (addBlankFamilyBtn) {
+    handleAddBlankTrack(addBlankFamilyBtn.dataset.addBlankFamily);
+    return;
+  }
+  // Clicking anywhere else on a track's row (e.g. a plain audio bar,
+  // not a pattern step) still selects it and opens its sidebar picker
+  // — "click a part of the song, it guides you to the dropdown on the
+  // left" shouldn't only work for pattern-backed tracks.
+  const layer = e.target.closest(".timeline-layer");
+  if (layer && layer.dataset.trackIndex !== undefined) {
+    activeTrackIndex = Number(layer.dataset.trackIndex);
+    renderTimeline();
+    renderSoundPicker();
+  }
+});
+
+// --- Right-click context menu: mute/solo/rename/clear/remove a track,
+// or jump straight to adding a new instrument — without needing to
+// find the small buttons already in the sidebar row. ---
+let contextMenuEl = null;
+function closeContextMenu() {
+  if (contextMenuEl) {
+    contextMenuEl.remove();
+    contextMenuEl = null;
+  }
+}
+document.addEventListener("click", (e) => {
+  if (contextMenuEl && !contextMenuEl.contains(e.target)) closeContextMenu();
+});
+document.getElementById("timeline").addEventListener("contextmenu", (e) => {
+  const layer = e.target.closest(".timeline-layer");
+  if (!layer || layer.dataset.trackIndex === undefined) return;
+  e.preventDefault();
+  closeContextMenu();
+  const i = Number(layer.dataset.trackIndex);
+  const track = engine.tracks[i];
+  if (!track) return;
+
+  const menu = document.createElement("div");
+  menu.className = "context-menu";
+  menu.style.left = `${e.clientX}px`;
+  menu.style.top = `${e.clientY}px`;
+  const items = [
+    { label: track.muted ? "Unmute" : "Mute", action: () => (pushUndo(), engine.setMuted(i, !track.muted)) },
+    { label: track.solo ? "Unsolo" : "Solo", action: () => (pushUndo(), engine.setSolo(i, !track.solo)) },
+  ];
+  if (track.pattern) {
+    items.push({
+      label: "Clear this track (blank slate)",
+      action: () => {
+        pushUndo();
+        const empty = createPattern(engine.ctx, engine.ctx.sampleRate, track.pattern.family, [], track.pattern.totalSteps);
+        track.pattern = empty;
+        track.buffer = empty.buffer;
+      },
+    });
+  }
+  items.push({
+    label: "Remove track",
+    action: () => {
+      pushUndo();
+      engine.removeTrack(i);
+    },
+  });
+  items.push({ label: "+ Add a new instrument", action: () => (addInstrumentMenuOpen = true) });
+  items.push({ label: "+ Add a blank track", action: () => (addBlankMenuOpen = true) });
+
+  menu.innerHTML = items.map((item, idx) => `<button data-menu-idx="${idx}">${item.label}</button>`).join("");
+  document.body.appendChild(menu);
+  contextMenuEl = menu;
+  menu.querySelectorAll("button").forEach((btn, idx) => {
+    btn.onclick = () => {
+      items[idx].action();
+      closeContextMenu();
+      renderTrackList();
+      renderTimeline();
+    };
+  });
 });
 
 function handleStepClick(trackIndex, step) {
   const track = engine.tracks[trackIndex];
   if (!track || !track.pattern) return;
   activeTrackIndex = trackIndex;
+  pushUndo();
   track.buffer = toggleStep(engine.ctx, engine.ctx.sampleRate, track.pattern, step, armedSound);
   renderTimeline();
   renderSoundPicker();
@@ -435,6 +678,7 @@ document.getElementById("sound-picker").addEventListener("click", (e) => {
   if (!fillBtn || !armedSound || activeTrackIndex === null) return;
   const track = engine.tracks[activeTrackIndex];
   if (!track || !track.pattern) return;
+  pushUndo();
   track.buffer = autoFillEveryBeats(engine.ctx, engine.ctx.sampleRate, track.pattern, armedSound, Number(fillBtn.dataset.every));
   renderTimeline();
 });
@@ -454,6 +698,7 @@ function initializeDefaultTracks() {
 function handleAddInstrumentTrack(family) {
   const starter = STARTERS.find((s) => s.family === family);
   const pattern = createPattern(engine.ctx, engine.ctx.sampleRate, family, starter?.hits || []);
+  pushUndo();
   engine.addTrack(FAMILY_DISPLAY_NAME[family] || family, pattern.buffer, pattern);
   activeTrackIndex = engine.tracks.length - 1;
   armedSound = paletteFor(family)[0]?.key || null;
@@ -474,7 +719,11 @@ async function handleDecodedAudio(arrayBuffer, name) {
     return;
   }
   uploadedName = name;
-  statusEl.textContent = `Loaded ${name} — set reverse/pitch, then Apply.`;
+  statusEl.textContent = `Loaded ${name} (${uploadedBuffer.duration.toFixed(1)}s) — trim, reverse/pitch, then Apply.`;
+  document.getElementById("fx-trim-start").value = "0";
+  document.getElementById("fx-trim-start").max = String(uploadedBuffer.duration);
+  document.getElementById("fx-trim-end").value = uploadedBuffer.duration.toFixed(1);
+  document.getElementById("fx-trim-end").max = String(uploadedBuffer.duration);
   document.getElementById("fx-apply-btn").disabled = false;
 }
 
@@ -594,6 +843,12 @@ const EFFECT_STACK_DEFS = [
   // actually used ("stock compression": a fixed, sensible default, not
   // something tweaked per-take).
   { key: "compress", param: "compressEnabled", slider: null },
+  // EQ, same reasoning: a real vocal-chain reference for this feature
+  // (see STATUS.md's Sombr research notes) explicitly described "stock
+  // EQ" — a sensible default presence boost, not something tweaked
+  // per-take — so a plain toggle matches the actual reference better
+  // than a multi-slider frequency/gain/Q control nobody asked to tune.
+  { key: "eq", param: "eqGainDb", slider: null, toggleValue: 3 },
 ];
 
 function wireEffectStack(prefix) {
@@ -620,12 +875,15 @@ function effectStackOptsFrom(prefix) {
     delayMs: 250,
     delayFeedback: 0.3,
     compressEnabled: false,
+    eqGainDb: 0,
+    eqFreqHz: 3000, // presence range — the "stock EQ" bump this preset approximates
+    eqQ: 1,
   };
   for (const def of EFFECT_STACK_DEFS) {
     const checked = document.getElementById(`${prefix}-fx-${def.key}`).checked;
     if (!checked) continue;
     if (!def.slider) {
-      opts[def.param] = true;
+      opts[def.param] = def.toggleValue ?? true;
       continue;
     }
     const slider = document.getElementById(`${prefix}-${def.slider}`);
@@ -641,7 +899,8 @@ function effectStackHasAny(opts) {
     opts.distortionAmount > 0 ||
     opts.reverbWet > 0 ||
     opts.delayWet > 0 ||
-    opts.compressEnabled
+    opts.compressEnabled ||
+    opts.eqGainDb !== 0
   );
 }
 
@@ -650,6 +909,11 @@ document.getElementById("fx-apply-btn").onclick = async () => {
   await engine.resume();
 
   let buffer = uploadedBuffer;
+  const trimStart = Number(document.getElementById("fx-trim-start").value);
+  const trimEnd = Number(document.getElementById("fx-trim-end").value);
+  if (trimStart > 0 || trimEnd < buffer.duration) {
+    buffer = trimBuffer(engine.ctx, buffer, trimStart, trimEnd);
+  }
   if (document.getElementById("fx-reverse").checked) buffer = reverseBuffer(engine.ctx, buffer);
   const semitones = Number(document.getElementById("fx-pitch").value);
   if (semitones !== 0) buffer = pitchShiftBuffer(engine.ctx, buffer, semitones);
@@ -668,6 +932,7 @@ document.getElementById("fx-apply-btn").onclick = async () => {
     finalBuffer = await offlineCtx.startRendering();
   }
 
+  pushUndo();
   engine.addTrack(`${uploadedName} (edited)`, finalBuffer);
   renderTrackList();
   renderTimeline();
@@ -711,6 +976,10 @@ voiceRecordBtn.onclick = async () => {
     try {
       recordedVoiceBuffer = await engine.ctx.decodeAudioData(arrayBuffer);
       voiceStatus.textContent = `Recorded ${recordedVoiceBuffer.duration.toFixed(1)}s`;
+      document.getElementById("voice-trim-start").value = "0";
+      document.getElementById("voice-trim-start").max = String(recordedVoiceBuffer.duration);
+      document.getElementById("voice-trim-end").value = recordedVoiceBuffer.duration.toFixed(1);
+      document.getElementById("voice-trim-end").max = String(recordedVoiceBuffer.duration);
       voiceRenderBtn.disabled = false;
     } catch {
       voiceStatus.textContent = "Couldn't decode the recording — try again.";
@@ -725,7 +994,14 @@ voiceRenderBtn.onclick = async () => {
   if (!recordedVoiceBuffer) return;
   await engine.resume();
 
-  let notes = detectNotes(recordedVoiceBuffer);
+  let sourceBuffer = recordedVoiceBuffer;
+  const trimStart = Number(document.getElementById("voice-trim-start").value);
+  const trimEnd = Number(document.getElementById("voice-trim-end").value);
+  if (trimStart > 0 || trimEnd < sourceBuffer.duration) {
+    sourceBuffer = trimBuffer(engine.ctx, sourceBuffer, trimStart, trimEnd);
+  }
+
+  let notes = detectNotes(sourceBuffer);
   if (document.getElementById("voice-autotune").checked) {
     const tonic = Number(document.getElementById("voice-tonic").value);
     const scale = document.getElementById("voice-scale").value === "minor" ? MINOR_SCALE : MAJOR_SCALE;
@@ -757,20 +1033,431 @@ voiceRenderBtn.onclick = async () => {
     finalBuffer = await offlineCtx.startRendering();
   }
 
+  pushUndo();
   engine.addTrack(`Voice as ${FAMILY_DISPLAY_NAME[family] || family}`, finalBuffer);
   renderTrackList();
   renderTimeline();
   voiceStatus.textContent = "Added to timeline.";
 };
 
+// --- Save / load a project (browser localStorage) ---
+// Pattern-backed tracks serialize as their real, compact hit data
+// (regenerated into audio on load via the same createPattern() every
+// other pattern track already uses). Non-pattern tracks (an uploaded
+// clip, a voice-note render, a demo song's sustained piano/lead layer)
+// have no such compact representation — their actual audio is encoded
+// as a WAV, which is the honest trade a browser-only, no-backend save
+// feature has to make: it works, but a project full of long uploaded
+// clips will use real localStorage space (typically ~5-10MB quota).
+const PROJECT_STORAGE_KEY = "dawsons:projects";
+
+function serializeTrackForSave(track) {
+  if (track.pattern) {
+    return {
+      kind: "pattern",
+      name: track.name,
+      family: track.pattern.family,
+      hits: track.pattern.hits,
+      totalSteps: track.pattern.totalSteps,
+      muted: track.muted,
+      solo: track.solo,
+      pan: track.pan,
+    };
+  }
+  return {
+    kind: "audio",
+    name: track.name,
+    muted: track.muted,
+    solo: track.solo,
+    pan: track.pan,
+    audioBase64: audioBufferToBase64Wav(track.buffer),
+  };
+}
+
+async function deserializeTrackFromSave(data) {
+  if (data.kind === "pattern") {
+    const pattern = createPattern(engine.ctx, engine.ctx.sampleRate, data.family, data.hits, data.totalSteps);
+    engine.addTrack(data.name, pattern.buffer, pattern);
+  } else {
+    const buffer = await base64WavToAudioBuffer(engine.ctx, data.audioBase64);
+    engine.addTrack(data.name, buffer);
+  }
+  const track = engine.tracks[engine.tracks.length - 1];
+  track.muted = data.muted;
+  track.solo = data.solo;
+  track.pan = data.pan;
+}
+
+function listSavedProjects() {
+  try {
+    return JSON.parse(localStorage.getItem(PROJECT_STORAGE_KEY) || "{}");
+  } catch {
+    return {};
+  }
+}
+
+async function saveProjectAs(name) {
+  const projects = listSavedProjects();
+  projects[name] = {
+    savedAt: new Date().toISOString(),
+    bpm: currentBpm,
+    tracks: engine.tracks.map(serializeTrackForSave),
+  };
+  try {
+    localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(projects));
+    return { ok: true };
+  } catch (err) {
+    // Quota exceeded is the realistic failure mode for a project full
+    // of uploaded/recorded audio — surface it plainly rather than
+    // silently losing the save.
+    return { ok: false, error: String(err) };
+  }
+}
+
+async function loadProjectByName(name) {
+  const projects = listSavedProjects();
+  const project = projects[name];
+  if (!project) return false;
+  pushUndo();
+  engine.stop();
+  engine.tracks = [];
+  currentSong = null;
+  currentBpm = project.bpm || 120;
+  setBpm(currentBpm);
+  document.getElementById("bpm-input").value = currentBpm;
+  for (const trackData of project.tracks) {
+    await deserializeTrackFromSave(trackData);
+  }
+  renderTrackList();
+  renderTimeline();
+  renderWaveform();
+  return true;
+}
+
+function deleteSavedProject(name) {
+  const projects = listSavedProjects();
+  delete projects[name];
+  localStorage.setItem(PROJECT_STORAGE_KEY, JSON.stringify(projects));
+}
+
+function renderProjectPanel(statusMessage = "") {
+  const panel = document.getElementById("project-panel");
+  const projects = listSavedProjects();
+  const names = Object.keys(projects).sort((a, b) => (projects[b].savedAt || "").localeCompare(projects[a].savedAt || ""));
+  panel.innerHTML = `
+    <div class="side-panel__header">
+      <strong>Saved projects</strong>
+      <button class="side-panel__close" id="project-panel-close">✕</button>
+    </div>
+    <div class="side-panel__body">
+      <label class="timeline-layer__inline-range">
+        New save name
+        <input type="text" id="project-save-name" placeholder="My song" value="${currentSong?.title || "My song"}" />
+        <button class="is-primary" id="project-save-btn">${uiIconSvg("save")} Save current project</button>
+      </label>
+      <p class="daw-note" id="project-save-status">${statusMessage}</p>
+      <hr />
+      ${
+        names.length
+          ? names
+              .map(
+                (name) => `
+        <div class="instrument-track">
+          <div class="instrument-track__body">
+            <div class="instrument-track__name">${name}</div>
+            <div class="daw-note" style="margin:0">Saved ${new Date(projects[name].savedAt).toLocaleString()} — ${projects[name].tracks.length} track(s)</div>
+          </div>
+          <button data-load-project="${name}">Load</button>
+          <button data-delete-project="${name}" title="Delete">✕</button>
+        </div>`
+              )
+              .join("")
+          : '<p class="daw-note">Nothing saved yet.</p>'
+      }
+    </div>`;
+
+  document.getElementById("project-panel-close").onclick = () => (panel.style.display = "none");
+  document.getElementById("project-save-btn").onclick = async () => {
+    const name = document.getElementById("project-save-name").value.trim() || "My song";
+    const status = document.getElementById("project-save-status");
+    status.textContent = "Saving…";
+    const result = await saveProjectAs(name);
+    renderProjectPanel(
+      result.ok ? `Saved "${name}".` : `Couldn't save — your browser's storage is full. Try deleting an old saved project first.`
+    );
+  };
+  panel.querySelectorAll("[data-load-project]").forEach((btn) => {
+    btn.onclick = async () => {
+      await loadProjectByName(btn.dataset.loadProject);
+      panel.style.display = "none";
+    };
+  });
+  panel.querySelectorAll("[data-delete-project]").forEach((btn) => {
+    btn.onclick = () => {
+      deleteSavedProject(btn.dataset.deleteProject);
+      renderProjectPanel();
+    };
+  });
+}
+
+function hideOtherPanels(except) {
+  for (const id of ["mixer-panel", "share-panel", "project-panel"]) {
+    if (id !== except) document.getElementById(id).style.display = "none";
+  }
+}
+
+document.getElementById("save-project-btn").onclick = () => {
+  hideOtherPanels("project-panel");
+  renderProjectPanel();
+  const panel = document.getElementById("project-panel");
+  panel.style.display = panel.style.display === "none" ? "block" : "none";
+};
+document.getElementById("load-project-btn").onclick = () => {
+  hideOtherPanels("project-panel");
+  renderProjectPanel();
+  document.getElementById("project-panel").style.display = "block";
+};
+
+// --- Mixer / master view ---
+// The same per-track controls already in the sidebar track list, laid
+// out as one dedicated glanceable mixer strip per track — the "where's
+// my mixer" gap every proper DAW has, plus a master gain fader driving
+// the engine's actual master bus (not a cosmetic control).
+function renderMixerPanel() {
+  const panel = document.getElementById("mixer-panel");
+  panel.innerHTML = `
+    <div class="side-panel__header">
+      <strong>Mixer</strong>
+      <button class="side-panel__close" id="mixer-panel-close">✕</button>
+    </div>
+    <div class="mixer-panel__strips">
+      ${engine.tracks
+        .map((t, i) => {
+          const family = trackFamily(t, i);
+          const icon = family ? instrumentIconSvg(family, `instrument-icon--${family}`) : uiIconSvg("note");
+          return `
+        <div class="mixer-strip">
+          <div class="mixer-strip__name">${icon}${t.name}</div>
+          <input class="mixer-strip__fader" type="range" min="0" max="150" value="${Math.round((t.gain?.gain?.value ?? 1) * 100)}" data-mixer-vol="${i}" title="Volume" orient="vertical" />
+          <input class="instrument-track__pan" type="range" min="-100" max="100" value="${Math.round(t.pan * 100)}" data-mixer-pan="${i}" title="Pan" />
+          <div class="mixer-strip__buttons">
+            <button class="instrument-track__mute${t.muted ? " is-muted" : ""}" data-mixer-mute="${i}">M</button>
+            <button class="instrument-track__mute${t.solo ? " is-solo" : ""}" data-mixer-solo="${i}">S</button>
+          </div>
+        </div>`;
+        })
+        .join("")}
+      <div class="mixer-strip mixer-strip--master">
+        <div class="mixer-strip__name">Master</div>
+        <input class="mixer-strip__fader" type="range" min="0" max="150" value="${Math.round(engine.masterGain.gain.value * 100)}" id="mixer-master-fader" title="Master volume" orient="vertical" />
+      </div>
+    </div>`;
+
+  document.getElementById("mixer-panel-close").onclick = () => (panel.style.display = "none");
+  panel.querySelectorAll("[data-mixer-vol]").forEach((input) => {
+    input.oninput = () => {
+      const i = Number(input.dataset.mixerVol);
+      const track = engine.tracks[i];
+      const vol = Number(input.value) / 100;
+      if (track.gain) track.gain.gain.value = vol;
+      track.savedVolume = vol; // read back on next play() if the engine supports it
+    };
+  });
+  panel.querySelectorAll("[data-mixer-pan]").forEach((input) => {
+    input.onmousedown = input.ontouchstart = () => pushUndo();
+    input.oninput = () => {
+      engine.setPan(Number(input.dataset.mixerPan), Number(input.value) / 100);
+      renderTrackList();
+    };
+  });
+  panel.querySelectorAll("[data-mixer-mute]").forEach((btn) => {
+    btn.onclick = () => {
+      const i = Number(btn.dataset.mixerMute);
+      pushUndo();
+      engine.setMuted(i, !engine.tracks[i].muted);
+      renderMixerPanel();
+      renderTrackList();
+    };
+  });
+  panel.querySelectorAll("[data-mixer-solo]").forEach((btn) => {
+    btn.onclick = () => {
+      const i = Number(btn.dataset.mixerSolo);
+      pushUndo();
+      engine.setSolo(i, !engine.tracks[i].solo);
+      renderMixerPanel();
+      renderTrackList();
+    };
+  });
+  document.getElementById("mixer-master-fader").oninput = (e) => {
+    engine.masterGain.gain.value = Number(e.target.value) / 100;
+  };
+}
+
+document.getElementById("mixer-btn").onclick = () => {
+  hideOtherPanels("mixer-panel");
+  renderMixerPanel();
+  const panel = document.getElementById("mixer-panel");
+  panel.style.display = panel.style.display === "none" ? "block" : "none";
+};
+
+// --- Share ---
+// A song built entirely from pattern-backed tracks (the default
+// instruments, anything added via "+", and a demo song's bass/arp/
+// drums layers) can be fully reconstructed from a small amount of
+// JSON — real state, not just a screenshot — so the link genuinely
+// recreates the project, not just a description of it. A demo song's
+// sustained piano/pad/lead layers regenerate from the song's own
+// (free, instant) generator function on the receiving end; only
+// actually-uploaded or recorded audio can't be included in a link
+// (there's no backend to host that file), and the share panel says so
+// plainly rather than silently dropping it.
+function buildShareUrl() {
+  const state = {
+    song: currentSong?.title || null,
+    bpm: currentBpm,
+    tracks: engine.tracks.map((t) =>
+      t.pattern
+        ? { kind: "pattern", name: t.name, family: t.pattern.family, hits: t.pattern.hits, totalSteps: t.pattern.totalSteps }
+        : { kind: "unshareable", name: t.name }
+    ),
+  };
+  const encoded = encodeURIComponent(btoa(JSON.stringify(state)));
+  const url = new URL(window.location.href);
+  url.search = "";
+  if (state.song) url.searchParams.set("song", state.song);
+  url.searchParams.set("state", encoded);
+  return { url: url.toString(), unshareableCount: state.tracks.filter((t) => t.kind === "unshareable").length };
+}
+
+async function applySharedState(encoded) {
+  let state;
+  try {
+    state = JSON.parse(atob(decodeURIComponent(encoded)));
+  } catch {
+    return;
+  }
+  if (state.song) {
+    const match = DEMO_SONGS.find((s) => s.title === state.song);
+    if (match) await loadSong(match);
+  } else {
+    engine.tracks = [];
+    currentSong = null;
+  }
+  currentBpm = state.bpm || 120;
+  setBpm(currentBpm);
+  document.getElementById("bpm-input").value = currentBpm;
+  for (const trackData of state.tracks) {
+    if (trackData.kind !== "pattern") continue;
+    const existingIndex = engine.tracks.findIndex((t) => t.name === trackData.name);
+    const pattern = createPattern(engine.ctx, engine.ctx.sampleRate, trackData.family, trackData.hits, trackData.totalSteps);
+    if (existingIndex >= 0) {
+      engine.tracks[existingIndex].pattern = pattern;
+      engine.tracks[existingIndex].buffer = pattern.buffer;
+    } else {
+      engine.addTrack(trackData.name, pattern.buffer, pattern);
+    }
+  }
+  renderTrackList();
+  renderTimeline();
+  renderWaveform();
+}
+
+function renderSharePanel() {
+  const panel = document.getElementById("share-panel");
+  const { url, unshareableCount } = buildShareUrl();
+  const message = encodeURIComponent(`Check out this song I made on Dawsons: ${url}`);
+  panel.innerHTML = `
+    <div class="side-panel__header">
+      <strong>Share this song</strong>
+      <button class="side-panel__close" id="share-panel-close">✕</button>
+    </div>
+    <div class="side-panel__body">
+      ${
+        unshareableCount
+          ? `<p class="daw-note">${unshareableCount} track(s) with uploaded/recorded audio can't be included in a link (there's no server to host the file) — download the full mix below to share those exactly.</p>`
+          : ""
+      }
+      <label class="timeline-layer__inline-range">
+        <input type="text" id="share-link-input" value="${url}" readonly style="width: 100%" />
+      </label>
+      <div class="debug-panel__buttons">
+        <button class="is-primary" id="share-copy-btn">Copy link</button>
+        <button id="share-native-btn">Share…</button>
+        <button id="share-whatsapp-btn">WhatsApp</button>
+        <button id="share-facebook-btn">Facebook</button>
+        <button id="share-download-btn">${uiIconSvg("save")} Download mix (WAV)</button>
+      </div>
+      <p class="daw-note" id="share-status"></p>
+    </div>`;
+
+  document.getElementById("share-panel-close").onclick = () => (panel.style.display = "none");
+  document.getElementById("share-copy-btn").onclick = async () => {
+    await navigator.clipboard.writeText(url);
+    document.getElementById("share-status").textContent = "Link copied.";
+  };
+  document.getElementById("share-whatsapp-btn").onclick = () => {
+    window.open(`https://api.whatsapp.com/send?text=${message}`, "_blank", "noopener");
+  };
+  document.getElementById("share-facebook-btn").onclick = () => {
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, "_blank", "noopener");
+  };
+  const nativeBtn = document.getElementById("share-native-btn");
+  if (navigator.share) {
+    nativeBtn.onclick = () => navigator.share({ title: "My Dawsons song", text: "Check out this song I made", url }).catch(() => {});
+  } else {
+    // No native share sheet (most desktop browsers) — fall back to a
+    // couple more direct share-intent links rather than a dead button.
+    nativeBtn.textContent = "Twitter/X";
+    nativeBtn.onclick = () => {
+      window.open(`https://twitter.com/intent/tweet?text=${message}`, "_blank", "noopener");
+    };
+  }
+  document.getElementById("share-download-btn").onclick = () => {
+    const totalSamples = Math.ceil(engine.maxDurationSec() * engine.ctx.sampleRate);
+    const mixBuffer = engine.ctx.createBuffer(2, Math.max(1, totalSamples), engine.ctx.sampleRate);
+    const anySoloed = engine.tracks.some((t) => t.solo);
+    for (const t of engine.tracks) {
+      if (t.muted || (anySoloed && !t.solo)) continue;
+      for (let ch = 0; ch < 2; ch++) {
+        const src = t.buffer.getChannelData(Math.min(ch, t.buffer.numberOfChannels - 1));
+        const dst = mixBuffer.getChannelData(ch);
+        for (let i = 0; i < src.length && i < dst.length; i++) dst[i] += src[i];
+      }
+    }
+    const wav = encodeWav(mixBuffer);
+    const blob = new Blob([wav], { type: "audio/wav" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = `${currentSong?.title || "dawsons-song"}.wav`;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  };
+}
+
+document.getElementById("share-btn").onclick = () => {
+  hideOtherPanels("share-panel");
+  renderSharePanel();
+  const panel = document.getElementById("share-panel");
+  panel.style.display = panel.style.display === "none" ? "block" : "none";
+};
+
+document.getElementById("undo-btn").onclick = handleUndo;
+document.getElementById("redo-btn").onclick = handleRedo;
+
 renderSongPicker();
 initializeDefaultTracks();
 updateScrubber();
+updateUndoRedoButtons();
 
-// If arriving from the Discover page's "Open a similar layered example"
-// link, load that song immediately instead of leaving the DAW empty.
-const requestedSong = new URLSearchParams(window.location.search).get("song");
-if (requestedSong) {
+// If arriving from a share link (full project state) or the Discover
+// page's "Open a similar layered example" link (just a demo song
+// title), restore accordingly rather than leaving the DAW empty.
+const urlParams = new URLSearchParams(window.location.search);
+const sharedState = urlParams.get("state");
+const requestedSong = urlParams.get("song");
+if (sharedState) {
+  applySharedState(sharedState);
+} else if (requestedSong) {
   const match = DEMO_SONGS.find((s) => s.title === requestedSong);
   if (match) loadSong(match);
 }

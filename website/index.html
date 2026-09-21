@@ -88,11 +88,25 @@
         </div>
 
         <div class="daw-transport">
-          <button class="is-primary" id="play-btn"><svg class="icon-inline" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4.5v15l13-7.5z"/></svg> Play</button>
-          <button id="pause-btn">Pause</button>
+          <button class="is-primary" id="play-pause-btn"><svg class="icon-inline" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4.5v15l13-7.5z"/></svg> Play</button>
           <button id="stop-btn">Stop</button>
+          <label class="daw-bpm" title="Tempo — applies to beat/note tracks (drums, bass, keys, guitar and any custom pattern track); pre-recorded melody layers in example songs stay at their original tempo">
+            <span>BPM</span>
+            <input type="number" id="bpm-input" min="40" max="240" step="1" value="120" />
+          </label>
           <span class="daw-preview__time" id="scrubber-time">0:00 / 0:00</span>
+          <span style="flex: 1"></span>
+          <button id="undo-btn" title="Undo (Ctrl/Cmd+Z)" disabled><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 8L3 12l4 4"/><path d="M3 12h10.5a5.5 5.5 0 0 1 0 11H11"/></svg> Undo</button>
+          <button id="redo-btn" title="Redo (Ctrl/Cmd+Shift+Z)" disabled><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 8l4 4-4 4"/><path d="M21 12H10.5a5.5 5.5 0 0 0 0 11H13"/></svg> Redo</button>
+          <button id="mixer-btn" title="Open mixer view"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 21V13M6 9V3"/><circle cx="6" cy="11" r="2"/><path d="M12 21V15M12 11V3"/><circle cx="12" cy="13" r="2"/><path d="M18 21V17M18 13V3"/><circle cx="18" cy="15" r="2"/></svg> Mixer</button>
+          <button id="save-project-btn" title="Save this project to your browser"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3"/><rect x="8" y="14" width="8" height="7"/></svg> Save</button>
+          <button id="load-project-btn" title="Load a saved project"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v2H3z"/><path d="M3 9l1.5 10a1 1 0 0 0 1 .9h13a1 1 0 0 0 1-.9L21 9"/></svg> Load</button>
+          <button id="share-btn" title="Share or copy a link to this song"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.3 10.7l7.4-4.4M8.3 13.3l7.4 4.4"/></svg> Share</button>
         </div>
+
+        <div id="mixer-panel" class="mixer-panel" style="display: none"></div>
+        <div id="share-panel" class="share-panel" style="display: none"></div>
+        <div id="project-panel" class="project-panel" style="display: none"></div>
 
         <div class="daw-preview" id="preview">
           <div class="daw-preview__waveform" id="waveform"></div>
@@ -106,6 +120,12 @@
               <div class="timeline-layer__special-body">
                 <button id="voice-record-btn"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M9 5.5h6M9 8.5h6" stroke-width="1.2"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5v3.5"/><path d="M8.5 21h7"/></svg> Record</button>
                 <span id="voice-status" class="daw-note" style="margin: 0"></span>
+                <label class="timeline-layer__inline-range" title="Crop out silence or a false start before it's turned into notes">
+                  Trim
+                  <input type="number" id="voice-trim-start" min="0" step="0.1" value="0" style="width: 4em" /> s
+                  to
+                  <input type="number" id="voice-trim-end" min="0" step="0.1" value="0" style="width: 4em" /> s
+                </label>
                 <select id="voice-instrument" title="Instrument">
                   <option value="keys">Piano</option>
                   <option value="guitar">Guitar</option>
@@ -158,6 +178,7 @@
                   <label class="effect-stack__toggle"><input type="checkbox" id="voice-fx-delay" /> Delay</label>
                   <input type="range" id="voice-delay" min="0" max="100" value="30" style="display: none" title="Wet %" />
                   <label class="effect-stack__toggle"><input type="checkbox" id="voice-fx-compress" /> Compression</label>
+                  <label class="effect-stack__toggle" title="A stock presence-boost EQ, the same reference vocal chain that motivated Robotic/Muffled/Distortion/Reverb/Compression"><input type="checkbox" id="voice-fx-eq" /> EQ</label>
                 </span>
                 <button class="is-primary" id="voice-render-btn" disabled>Add to timeline</button>
               </div>
@@ -171,6 +192,12 @@
                 <span id="anysound-status" class="daw-note" style="margin: 0"></span>
                 <label class="timeline-layer__inline-check">
                   <input type="checkbox" id="fx-reverse" /> Reverse
+                </label>
+                <label class="timeline-layer__inline-range" title="Crop to just this part of the clip before reversing/pitching/adding effects">
+                  Trim
+                  <input type="number" id="fx-trim-start" min="0" step="0.1" value="0" style="width: 4em" /> s
+                  to
+                  <input type="number" id="fx-trim-end" min="0" step="0.1" value="0" style="width: 4em" /> s
                 </label>
                 <label class="timeline-layer__inline-range">
                   Pitch
@@ -189,6 +216,7 @@
                   <label class="effect-stack__toggle"><input type="checkbox" id="fx-fx-delay" /> Delay</label>
                   <input type="range" id="fx-delay" min="0" max="100" value="30" style="display: none" title="Wet %" />
                   <label class="effect-stack__toggle"><input type="checkbox" id="fx-fx-compress" /> Compression</label>
+                  <label class="effect-stack__toggle" title="A stock presence-boost EQ"><input type="checkbox" id="fx-fx-eq" /> EQ</label>
                 </span>
                 <button class="is-primary" id="fx-apply-btn" disabled>Apply &amp; add to timeline</button>
               </div>
