@@ -1,6 +1,6 @@
 import { Engine } from "./audio-engine.js";
 import { DEMO_SONGS } from "./demo-songs.js";
-import { renderVoice } from "./synth.js";
+import { renderVoice, renderDrumHit } from "./synth.js";
 import { reverseBuffer, pitchShiftBuffer, trimBuffer, buildEffectChain } from "./effects.js";
 import { detectNotes, snapNotesToScale, MAJOR_SCALE, MINOR_SCALE } from "./pitch.js";
 import { STARTERS } from "./starter-patterns.js";
@@ -49,6 +49,7 @@ function snapshotTracks() {
     pitchSemitones: t.pitchSemitones,
     reverbWet: t.reverbWet,
     delayWet: t.delayWet,
+    loop: t.loop,
     originalBuffer: t.originalBuffer,
     pattern: t.pattern
       ? { family: t.pattern.family, hits: t.pattern.hits.map((h) => ({ ...h })), totalSteps: t.pattern.totalSteps }
@@ -212,6 +213,7 @@ function renderTrackList() {
         <div class="instrument-track__controls">
           <button class="instrument-track__mute${track.muted ? " is-muted" : ""}" data-mute="${i}">Mute</button>
           <button class="instrument-track__mute${track.solo ? " is-solo" : ""}" data-solo="${i}">Solo</button>
+          <button class="instrument-track__mute${track.loop ? " is-looping" : ""}" data-loop="${i}" title="Repeat this track for as long as the rest of the project plays">Loop</button>
           <input class="instrument-track__pan" type="range" min="-100" max="100" value="${Math.round(track.pan * 100)}" data-pan="${i}" title="Pan" />
           <button class="instrument-track__mute" data-move="up" data-index="${i}" title="Move up">↑</button>
           <button class="instrument-track__mute" data-move="down" data-index="${i}" title="Move down">↓</button>
@@ -239,6 +241,17 @@ function renderTrackList() {
       engine.setSolo(i, !track.solo);
       btn.classList.toggle("is-solo", track.solo);
       renderWaveform();
+    };
+  });
+  el.querySelectorAll("button[data-loop]").forEach((btn) => {
+    btn.onclick = () => {
+      const i = Number(btn.dataset.loop);
+      const track = engine.tracks[i];
+      pushUndo();
+      track.loop = !track.loop;
+      if (track.source) track.source.loop = track.loop; // takes effect immediately if already playing
+      btn.classList.toggle("is-looping", track.loop);
+      updateScrubber();
     };
   });
   el.querySelectorAll("input[data-pan]").forEach((input) => {
@@ -1116,16 +1129,23 @@ voiceRenderBtn.onclick = async () => {
   voiceStatus.textContent = "Added to timeline.";
 };
 
-// --- Playable on-screen MIDI keyboard: click a key (or use the
-// computer keyboard) to hear the selected instrument instantly —
-// GarageBand's "Musical Typing" on-screen keyboard, plus real
-// recording of a live performance into the timeline. ---
+// --- Playable on-screen instruments: an MPC-style 8-pad drum grid
+// (click a pad, or the computer keys 1234/QWER, for an instant
+// kick/snare/clap/hat — the classic hip-hop drum-machine/sampler
+// finger-drumming layout) above a piano keyboard (click a key, or
+// A S D F G H J K / W E T Y U, GarageBand's "Musical Typing" layout)
+// — both feed the same Record/Preview/Discard/Add-to-timeline take,
+// so a beat and a melody can be finger-drummed into the same take. ---
 const KEYBOARD_KEY_MAP = { a: 60, w: 61, s: 62, e: 63, d: 64, f: 65, t: 66, g: 67, y: 68, h: 69, u: 70, j: 71, k: 72 };
+// z/x/c/v (not q/w/e/r) for the pad grid's second row specifically so
+// nothing collides with the piano keyboard's own W/E/T/Y/U black-key
+// shortcuts below.
+const PAD_KEY_MAP = { 1: "kick", 2: "snare", 3: "clap", 4: "hihat", z: "kick2", x: "rimshot", c: "openhat", v: "crash" };
 const KEYBOARD_PREVIEW_DURATION_SEC = 0.9;
-const heldKeyboardKeys = new Map(); // key: note, value: { startedAtMs, fromComputerKey }
+const heldPads = new Map(); // id ("note:60" or "drum:kick") -> { startedAtMs }
 let keyboardRecording = false;
 let keyboardRecordStartMs = 0;
-let keyboardRecordedNotes = []; // {note, startSec, durationSec}
+let keyboardRecordedEvents = []; // {type: "note"|"drum", note|sound, startSec, durationSec}
 let keyboardTakeBuffer = null;
 
 function isTypingIntoField() {
@@ -1133,56 +1153,76 @@ function isTypingIntoField() {
   return el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
 }
 
-function keyboardNoteOn(note) {
-  if (heldKeyboardKeys.has(note)) return; // already sounding (key-repeat) — don't re-trigger
-  heldKeyboardKeys.set(note, { startedAtMs: performance.now() });
-  document.querySelectorAll(`.midi-keyboard [data-note="${note}"]`).forEach((el) => el.classList.add("is-active"));
+function padOn(id) {
+  if (heldPads.has(id)) return; // already sounding (key-repeat) — don't re-trigger
+  heldPads.set(id, { startedAtMs: performance.now() });
+  document.querySelectorAll(`[data-pad-id="${id}"]`).forEach((el) => el.classList.add("is-active"));
 
-  const family = document.getElementById("keyboard-instrument").value;
   const sampleRate = engine.ctx.sampleRate;
-  const buf = engine.ctx.createBuffer(2, Math.ceil(KEYBOARD_PREVIEW_DURATION_SEC * sampleRate), sampleRate);
-  renderVoice(engine.ctx, buf, family, [note], 0, KEYBOARD_PREVIEW_DURATION_SEC, sampleRate);
-  playBufferOnce(buf);
-}
-
-function keyboardNoteOff(note) {
-  const held = heldKeyboardKeys.get(note);
-  if (!held) return;
-  heldKeyboardKeys.delete(note);
-  document.querySelectorAll(`.midi-keyboard [data-note="${note}"]`).forEach((el) => el.classList.remove("is-active"));
-  if (keyboardRecording) {
-    const startSec = (held.startedAtMs - keyboardRecordStartMs) / 1000;
-    const durationSec = Math.max(0.12, (performance.now() - held.startedAtMs) / 1000);
-    keyboardRecordedNotes.push({ note, startSec, durationSec });
+  const [kind, value] = id.split(":");
+  if (kind === "note") {
+    const family = document.getElementById("keyboard-instrument").value;
+    const buf = engine.ctx.createBuffer(2, Math.ceil(KEYBOARD_PREVIEW_DURATION_SEC * sampleRate), sampleRate);
+    renderVoice(engine.ctx, buf, family, [Number(value)], 0, KEYBOARD_PREVIEW_DURATION_SEC, sampleRate);
+    playBufferOnce(buf);
+  } else {
+    const dur = 1.5; // generous fixed buffer; renderDrumHit's own envelope decides the real length
+    const buf = engine.ctx.createBuffer(2, Math.ceil(dur * sampleRate), sampleRate);
+    renderDrumHit(buf, value, 0, sampleRate);
+    playBufferOnce(buf);
   }
 }
 
-document.getElementById("midi-keyboard").addEventListener("pointerdown", async (e) => {
-  const keyEl = e.target.closest("[data-note]");
-  if (!keyEl) return;
-  await engine.resume();
-  keyboardNoteOn(Number(keyEl.dataset.note));
-});
-document.getElementById("midi-keyboard").addEventListener("pointerup", (e) => {
-  const keyEl = e.target.closest("[data-note]");
-  if (keyEl) keyboardNoteOff(Number(keyEl.dataset.note));
-});
-document.getElementById("midi-keyboard").addEventListener("pointerleave", (e) => {
-  const keyEl = e.target.closest("[data-note]");
-  if (keyEl) keyboardNoteOff(Number(keyEl.dataset.note));
-});
+function padOff(id) {
+  const held = heldPads.get(id);
+  if (!held) return;
+  heldPads.delete(id);
+  document.querySelectorAll(`[data-pad-id="${id}"]`).forEach((el) => el.classList.remove("is-active"));
+  if (keyboardRecording) {
+    const startSec = (held.startedAtMs - keyboardRecordStartMs) / 1000;
+    const durationSec = Math.max(0.12, (performance.now() - held.startedAtMs) / 1000);
+    const [kind, value] = id.split(":");
+    if (kind === "note") keyboardRecordedEvents.push({ type: "note", note: Number(value), startSec, durationSec });
+    else keyboardRecordedEvents.push({ type: "drum", sound: value, startSec });
+  }
+}
+
+function wirePadSurface(container, datasetKey) {
+  const idFor = (el) => `${datasetKey}:${el.dataset[datasetKey]}`;
+  container.addEventListener("pointerdown", async (e) => {
+    const el = e.target.closest(`[data-${datasetKey}]`);
+    if (!el) return;
+    await engine.resume();
+    padOn(idFor(el));
+  });
+  container.addEventListener("pointerup", (e) => {
+    const el = e.target.closest(`[data-${datasetKey}]`);
+    if (el) padOff(idFor(el));
+  });
+  container.addEventListener("pointerleave", (e) => {
+    const el = e.target.closest(`[data-${datasetKey}]`);
+    if (el) padOff(idFor(el));
+  });
+}
+wirePadSurface(document.getElementById("midi-keyboard"), "note");
+wirePadSurface(document.getElementById("mpc-pad-grid"), "drum");
 
 window.addEventListener("keydown", async (e) => {
   if (isTypingIntoField() || e.repeat) return;
-  const note = KEYBOARD_KEY_MAP[e.key.toLowerCase()];
-  if (note === undefined) return;
+  const key = e.key.toLowerCase();
+  const note = KEYBOARD_KEY_MAP[key];
+  const drum = PAD_KEY_MAP[key];
+  if (note === undefined && drum === undefined) return;
   await engine.resume();
-  keyboardNoteOn(note);
+  if (note !== undefined) padOn(`note:${note}`);
+  if (drum !== undefined) padOn(`drum:${drum}`);
 });
 window.addEventListener("keyup", (e) => {
-  const note = KEYBOARD_KEY_MAP[e.key.toLowerCase()];
-  if (note === undefined) return;
-  keyboardNoteOff(note);
+  const key = e.key.toLowerCase();
+  const note = KEYBOARD_KEY_MAP[key];
+  const drum = PAD_KEY_MAP[key];
+  if (note !== undefined) padOff(`note:${note}`);
+  if (drum !== undefined) padOff(`drum:${drum}`);
 });
 
 const keyboardStatus = document.getElementById("keyboard-status");
@@ -1192,13 +1232,15 @@ const keyboardAddBtn = document.getElementById("keyboard-add-btn");
 const keyboardDiscardBtn = document.getElementById("keyboard-discard-btn");
 
 function buildKeyboardTakeBuffer() {
-  if (!keyboardRecordedNotes.length) return null;
+  if (!keyboardRecordedEvents.length) return null;
   const family = document.getElementById("keyboard-instrument").value;
   const sampleRate = engine.ctx.sampleRate;
-  const totalDurationSec = Math.max(...keyboardRecordedNotes.map((n) => n.startSec + n.durationSec)) + 0.5;
+  const totalDurationSec = Math.max(...keyboardRecordedEvents.map((n) => n.startSec + (n.durationSec || 0.3))) + 0.5;
   const buf = engine.ctx.createBuffer(2, Math.ceil(totalDurationSec * sampleRate), sampleRate);
-  for (const n of keyboardRecordedNotes) {
-    renderVoice(engine.ctx, buf, family, [n.note], Math.max(0, n.startSec), n.durationSec, sampleRate);
+  for (const ev of keyboardRecordedEvents) {
+    const startSec = Math.max(0, ev.startSec);
+    if (ev.type === "note") renderVoice(engine.ctx, buf, family, [ev.note], startSec, ev.durationSec, sampleRate);
+    else renderDrumHit(buf, ev.sound, startSec, sampleRate);
   }
   return { buffer: buf, family };
 }
@@ -1208,27 +1250,27 @@ keyboardRecordBtn.onclick = async () => {
   if (!keyboardRecording) {
     keyboardRecording = true;
     keyboardRecordStartMs = performance.now();
-    keyboardRecordedNotes = [];
+    keyboardRecordedEvents = [];
     keyboardTakeBuffer = null;
     keyboardRecordBtn.innerHTML = `${uiIconSvg("stop")} Stop recording`;
     keyboardRecordBtn.classList.add("is-recording");
-    keyboardStatus.textContent = "Recording — play the keyboard now…";
+    keyboardStatus.textContent = "Recording — play the pads or keyboard now…";
     keyboardPreviewBtn.disabled = true;
     keyboardAddBtn.disabled = true;
     keyboardDiscardBtn.disabled = true;
   } else {
     keyboardRecording = false;
-    // Finalize any notes still held when Stop was pressed.
-    for (const note of [...heldKeyboardKeys.keys()]) keyboardNoteOff(note);
+    // Finalize any pads/keys still held when Stop was pressed.
+    for (const id of [...heldPads.keys()]) padOff(id);
     keyboardRecordBtn.innerHTML = `${uiIconSvg("mic")} Record performance`;
     keyboardRecordBtn.classList.remove("is-recording");
     const result = buildKeyboardTakeBuffer();
     if (!result) {
-      keyboardStatus.textContent = "No notes played — try again.";
+      keyboardStatus.textContent = "Nothing played — try again.";
       return;
     }
     keyboardTakeBuffer = result;
-    keyboardStatus.textContent = `Recorded ${keyboardRecordedNotes.length} note(s).`;
+    keyboardStatus.textContent = `Recorded ${keyboardRecordedEvents.length} hit(s)/note(s).`;
     keyboardPreviewBtn.disabled = false;
     keyboardAddBtn.disabled = false;
     keyboardDiscardBtn.disabled = false;
@@ -1288,6 +1330,7 @@ function serializeTrackForSave(track) {
       pitchSemitones: track.pitchSemitones,
       reverbWet: track.reverbWet,
       delayWet: track.delayWet,
+      loop: track.loop,
     };
   }
   return {
@@ -1299,6 +1342,7 @@ function serializeTrackForSave(track) {
     pitchSemitones: track.pitchSemitones,
     reverbWet: track.reverbWet,
     delayWet: track.delayWet,
+    loop: track.loop,
     // The untouched dry source, not the current (possibly pitched/
     // effected) buffer — so re-loading and then changing pitch again
     // is relative to the real original, not a compounded re-pitch of
@@ -1322,6 +1366,7 @@ async function deserializeTrackFromSave(data) {
   track.pitchSemitones = data.pitchSemitones || 0;
   track.reverbWet = data.reverbWet || 0;
   track.delayWet = data.delayWet || 0;
+  track.loop = data.loop || false;
   if (track.pitchSemitones || track.reverbWet || track.delayWet) await refreshTrackAudio(track);
 }
 
@@ -1638,6 +1683,7 @@ function buildShareUrl() {
             pitchSemitones: t.pitchSemitones,
             reverbWet: t.reverbWet,
             delayWet: t.delayWet,
+            loop: t.loop,
           }
         : { kind: "unshareable", name: t.name }
     ),
@@ -1683,6 +1729,7 @@ async function applySharedState(encoded) {
     track.pitchSemitones = trackData.pitchSemitones || 0;
     track.reverbWet = trackData.reverbWet || 0;
     track.delayWet = trackData.delayWet || 0;
+    track.loop = trackData.loop || false;
     if (track.pitchSemitones || track.reverbWet || track.delayWet) await refreshTrackAudio(track);
   }
   renderTrackList();

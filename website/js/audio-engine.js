@@ -30,6 +30,12 @@ class Track {
     this.reverbWet = 0;
     this.delayWet = 0;
     this.originalBuffer = buffer;
+    // When true, this track's buffer repeats for as long as the rest
+    // of the project plays, via the Web Audio API's own native
+    // AudioBufferSourceNode.loop — real looping, not a re-triggered
+    // copy. A short recording (a keyboard/pad take) under a longer
+    // backing track is the main use case.
+    this.loop = false;
   }
 
   get durationSec() {
@@ -121,6 +127,7 @@ class Engine {
       track.pitchSemitones = s.pitchSemitones || 0;
       track.reverbWet = s.reverbWet || 0;
       track.delayWet = s.delayWet || 0;
+      track.loop = s.loop || false;
       track.originalBuffer = s.originalBuffer || s.buffer;
       return track;
     });
@@ -196,6 +203,7 @@ class Engine {
       gain.gain.value = audible ? 1 : 0;
       const panner = this.ctx.createStereoPanner();
       panner.pan.value = track.pan;
+      source.loop = track.loop;
       source.connect(gain).connect(panner).connect(this.masterGain);
       source.start(this.ctx.currentTime, startSec);
       track.source = source;
@@ -256,8 +264,14 @@ class Engine {
     return this.pausedAtSec;
   }
 
+  // A looping track shouldn't dictate the project's overall length —
+  // it just repeats to fill whatever the longest non-looping track
+  // sets. Falls back to the looping tracks themselves if that's all
+  // there is, so the project still has a sensible finite length.
   maxDurationSec() {
-    return Math.max(0.001, ...this.tracks.map((t) => t.durationSec));
+    const nonLooping = this.tracks.filter((t) => !t.loop);
+    const basis = nonLooping.length ? nonLooping : this.tracks;
+    return Math.max(0.001, ...basis.map((t) => t.durationSec));
   }
 }
 

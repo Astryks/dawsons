@@ -229,6 +229,12 @@ body {
   border-color: var(--ochre);
 }
 
+.instrument-track__mute.is-looping {
+  background: var(--purple-deep);
+  color: #fff;
+  border-color: var(--purple-deep);
+}
+
 .instrument-track__pan {
   width: 44px;
   flex: 0 0 auto;
@@ -970,6 +976,54 @@ body {
   background: #e0304f;
   border-color: #e0304f;
   color: #fff;
+}
+
+/* --- An MPC/drum-machine-style pad grid: 8 large finger-drumming pads
+   (kick/snare/clap/hats/etc.), the classic hip-hop-production hardware
+   shape (an Akai MPC, an SP-1200, an 808) — general, decades-old
+   hardware concepts, not any one product's specific design. Sits above
+   the piano keyboard below, per "8 squares for a beat, keyboard below
+   it for a sound." --- */
+
+.mpc-pad-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.5rem;
+}
+
+.mpc-pad {
+  position: relative;
+  aspect-ratio: 1.3 / 1;
+  border-radius: 8px;
+  background: linear-gradient(160deg, #2e2050, #1c1533);
+  border: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.2rem;
+  font-size: 0.8rem;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+  transition: background 0.05s ease, transform 0.05s ease;
+}
+
+.mpc-pad:hover {
+  border-color: var(--purple);
+}
+
+.mpc-pad.is-active {
+  background: var(--purple-deep);
+  transform: scale(0.96);
+}
+
+.mpc-pad__key {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.4rem;
+  font-size: 0.65rem;
+  color: var(--text-dim);
 }
 
 /* --- A real, playable on-screen piano keyboard: click a key (or use

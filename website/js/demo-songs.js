@@ -323,6 +323,123 @@ function risingOverture() {
   };
 }
 
+// A classic four-on-the-floor house/disco skeleton — kick on every
+// beat, closed hats filling the off-beats, a clap on beats 2 and 4,
+// and an open hat right before the bar loops. This exact kick/clap/hat
+// arrangement is genre-standard rhythm vocabulary (the same structural
+// idea as `standardDrumBar`/`edmDrumBar` above), not any one track's
+// specific programming.
+function houseDrumBar() {
+  return [
+    { kind: "kick", dur: EIGHTH },
+    { kind: "hihat", dur: EIGHTH },
+    { kind: "clap", dur: EIGHTH },
+    { kind: "hihat", dur: EIGHTH },
+    { kind: "kick", dur: EIGHTH },
+    { kind: "hihat", dur: EIGHTH },
+    { kind: "clap", dur: EIGHTH },
+    { kind: "openhat", dur: EIGHTH },
+  ];
+}
+function fourBarHouseDrums() {
+  return [...houseDrumBar(), ...houseDrumBar(), ...houseDrumBar(), ...houseDrumBar()];
+}
+
+function filteredNights() {
+  const chords = [
+    [[48, 51, 55, 58], 36, [48, 51, 55], [67, 65, 63, 60]], // Cm7
+    [[53, 56, 60, 63], 41, [53, 56, 60], [68, 67, 65, 60]], // Fm7
+    [[58, 62, 65, 69], 46, [58, 62, 65], [65, 62, 58, 65]], // Bbmaj7
+    [[51, 55, 58, 62], 39, [51, 55, 58], [63, 62, 60, 58]], // Ebmaj7
+  ];
+  const stabs = [];
+  const bass = [];
+  const arp = [];
+  const hook = [];
+  for (const [ch, root, arpNotes, mel] of chords) {
+    stabs.push(chord(ch, BAR_SEC));
+    bass.push(...bassPulse(root));
+    arp.push(...arpeggio(arpNotes));
+    hook.push(...melodyPhrase(mel));
+  }
+  const drums = fourBarHouseDrums();
+  return {
+    title: "Filtered Nights",
+    genre: "House",
+    description:
+      "An original four-on-the-floor house loop (Cm7–Fm7–Bbmaj7–Ebmaj7) — punchy organ chord stabs, a Rhodes-style arpeggio, a bouncing synth-bass groove, and a classic kick/clap/hihat house beat. In the general style of filtered dance-floor house production, not any specific track.",
+    layers: [
+      { name: "Lead Hook", family: "lead", notes: hook },
+      { name: "Rhodes Arp", family: "epiano", notes: arp, pattern: eventsToHits(arp, EIGHTH) },
+      { name: "Organ Stabs", family: "organ", notes: stabs },
+      { name: "Bass", family: "synthbass", notes: bass, pattern: eventsToHits(bass, EIGHTH) },
+    ],
+    drums,
+    drumsPattern: drumHitsToPattern(drums, EIGHTH),
+  };
+}
+
+// A soft brushed-drum feel for a laid-back jazz ballad: no hard
+// kick/snare backbeat, just a repeating hihat/shaker/rimshot texture
+// standing in for a brush-on-snare "swish" — standard, genre-generic
+// jazz-combo rhythm vocabulary.
+function jazzBrushBar() {
+  return [
+    { kind: "hihat", dur: EIGHTH },
+    { kind: "shaker", dur: EIGHTH },
+    { kind: "rimshot", dur: EIGHTH },
+    { kind: "shaker", dur: EIGHTH },
+    { kind: "hihat", dur: EIGHTH },
+    { kind: "shaker", dur: EIGHTH },
+    { kind: "rimshot", dur: EIGHTH },
+    { kind: "shaker", dur: EIGHTH },
+  ];
+}
+function fourBarJazzBrushDrums() {
+  return [...jazzBrushBar(), ...jazzBrushBar(), ...jazzBrushBar(), ...jazzBrushBar()];
+}
+
+// A simple walking-bass shape (root, 3rd, 5th, 6th in quarter notes) —
+// the generic device every jazz bassist uses to "walk" through a
+// chord, not a specific transcribed bassline.
+function walkingBass(root) {
+  return [note(root, QUARTER), note(root + 4, QUARTER), note(root + 7, QUARTER), note(root + 9, QUARTER)];
+}
+
+function winterSerenade() {
+  const chords = [
+    [[55, 58, 62, 65], 43, [65, 69, 72], [70, 69, 67, 65]], // Gm7
+    [[60, 64, 67, 70], 48, [70, 74, 77], [64, 62, 60, 58]], // C7
+    [[53, 57, 60, 64], 41, [65, 69, 72], [69, 67, 65, 64]], // Fmaj7
+    [[62, 66, 69, 72], 50, [74, 78, 81], [66, 64, 62, 61]], // D7
+  ];
+  const piano = [];
+  const bass = [];
+  const arp = [];
+  const trumpetLead = [];
+  for (const [ch, root, arpNotes, mel] of chords) {
+    piano.push(chord(ch, BAR_SEC));
+    bass.push(...walkingBass(root));
+    arp.push(...arpeggio(arpNotes));
+    trumpetLead.push(...melodyPhrase(mel));
+  }
+  const drums = fourBarJazzBrushDrums();
+  return {
+    title: "Winter Serenade",
+    genre: "Holiday",
+    description:
+      "An original cool-jazz holiday ballad (Gm7–C7–Fmaj7–D7) — a warm, breathy trumpet lead, walking bass, piano comping, and a soft brushed-drum feel. In the general style of a laid-back jazz-club holiday set, not any specific recording.",
+    layers: [
+      { name: "Trumpet Lead", family: "trumpet", notes: trumpetLead },
+      { name: "Vibraphone Arp", family: "marimba", notes: arp, pattern: eventsToHits(arp, EIGHTH) },
+      { name: "Piano", family: "keys", notes: piano },
+      { name: "Bass", family: "bass", notes: bass, pattern: eventsToHits(bass, EIGHTH) },
+    ],
+    drums,
+    drumsPattern: drumHitsToPattern(drums, EIGHTH),
+  };
+}
+
 // Stockholm Nights — the user's own original song, uploaded for real
 // analysis through the same pipeline the desktop app's "upload a song,
 // see how it's built" feature uses (Demucs 6-stem separation + librosa
@@ -375,6 +492,8 @@ const DEMO_SONGS = [
   fieldParade(),
   risingOverture(),
   stockholmNights(),
+  filteredNights(),
+  winterSerenade(),
 ];
 
 export { DEMO_SONGS, BAR_SEC };
