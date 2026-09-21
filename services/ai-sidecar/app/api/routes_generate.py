@@ -10,7 +10,7 @@ import uuid
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from app.config import detect_device
+from app.config import detect_generation_device
 from app.jobs import manager
 from app.jobs.models import JobRecord, JobStatus
 from app.pipeline.generate import generate
@@ -31,7 +31,7 @@ class GenerateResponse(BaseModel):
 def _run_job(job_id: str, prompt: str, duration_sec: float) -> None:
     manager.update(job_id, status=JobStatus.RUNNING, stage="generating", progress=0.0)
     try:
-        out_path = generate(prompt, duration_sec, generate_dir(job_id), device=detect_device())
+        out_path = generate(prompt, duration_sec, generate_dir(job_id), device=detect_generation_device())
         manager.update(
             job_id,
             status=JobStatus.DONE,

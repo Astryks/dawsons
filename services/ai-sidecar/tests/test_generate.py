@@ -55,6 +55,31 @@ def test_generate_job_runs_through_to_done(tmp_path, monkeypatch):
     assert record["result"]["audio_file_path"] == str(fake_output)
 
 
+def test_generate_never_selects_mps(tmp_path, monkeypatch):
+    # A real run on this hardware's MPS backend was confirmed hung (see
+    # app/config.py's detect_generation_device docstring and STATUS.md) —
+    # generation must always route through detect_generation_device(),
+    # which excludes MPS, not the general detect_device() Demucs uses.
+    fake_output = tmp_path / "generated.wav"
+    fake_output.write_bytes(b"RIFF....WAVEfmt ")
+    seen_devices = []
+
+    def fake_generate(prompt, duration_sec, out_dir, device="cpu"):
+        seen_devices.append(device)
+        return fake_output
+
+    monkeypatch.setattr(routes_generate, "generate", fake_generate)
+
+    client.post("/generate", json={"prompt": "a mellow piano loop", "duration_sec": 12.0})
+
+    deadline = time.time() + 10
+    while time.time() < deadline and not seen_devices:
+        time.sleep(0.1)
+
+    assert seen_devices == ["cpu"] or seen_devices == ["cuda"]
+    assert "mps" not in seen_devices
+
+
 def test_generate_job_reports_failure(monkeypatch):
     def failing_generate(prompt, duration_sec, out_dir, device="cpu"):
         raise RuntimeError("out of memory")
