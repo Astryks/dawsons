@@ -14,6 +14,11 @@ pub struct TrackBuffer {
     pub samples: Arc<Vec<f32>>,
     pub gain: f32,
     pub muted: bool,
+    /// Interleaved-sample delay before this track's audio starts,
+    /// relative to the shared timeline position 0 — the backing for
+    /// dragging a region to a different point on the timeline. Silence
+    /// plays until the shared playhead reaches this offset.
+    pub start_offset: usize,
 }
 
 #[derive(Default)]
@@ -34,6 +39,7 @@ pub struct TrackInfo {
     /// `MixerState` doesn't know the engine's sample rate/channel count;
     /// callers with an `EngineConfig` convert this to seconds.
     pub len_samples: usize,
+    pub start_offset_samples: usize,
 }
 
 impl MixerState {
@@ -52,7 +58,11 @@ impl MixerState {
                 continue;
             }
             for (i, sample) in out.iter_mut().enumerate() {
-                if let Some(&s) = track.samples.get(self.position + i) {
+                let global_pos = self.position + i;
+                if global_pos < track.start_offset {
+                    continue; // silence before this track's dragged-to start point
+                }
+                if let Some(&s) = track.samples.get(global_pos - track.start_offset) {
                     *sample += s * track.gain;
                 }
             }
@@ -61,7 +71,11 @@ impl MixerState {
             *sample = sample.clamp(-1.0, 1.0);
         }
         self.position += out.len();
-        if self.tracks.iter().all(|t| self.position >= t.samples.len()) {
+        if self
+            .tracks
+            .iter()
+            .all(|t| self.position >= t.start_offset + t.samples.len())
+        {
             self.playing = false;
             self.position = 0;
         }
@@ -74,8 +88,21 @@ impl MixerState {
                 name: t.name.clone(),
                 muted: t.muted,
                 len_samples: t.samples.len(),
+                start_offset_samples: t.start_offset,
             })
             .collect()
+    }
+
+    /// Moves a track's region to start at `offset_samples` on the shared
+    /// timeline instead of wherever it currently starts — the backing
+    /// for dragging a region left/right in the timeline UI.
+    pub fn set_track_offset(&mut self, index: usize, offset_samples: usize) -> Result<(), String> {
+        let track = self
+            .tracks
+            .get_mut(index)
+            .ok_or_else(|| format!("no track at index {index}"))?;
+        track.start_offset = offset_samples;
+        Ok(())
     }
 
     pub fn set_muted(&mut self, index: usize, muted: bool) -> Result<(), String> {
@@ -120,7 +147,7 @@ impl MixerState {
         let len = self
             .tracks
             .iter()
-            .map(|t| t.samples.len())
+            .map(|t| t.start_offset + t.samples.len())
             .max()
             .unwrap_or(0);
         let mut out = vec![0.0f32; len];
@@ -129,7 +156,7 @@ impl MixerState {
                 continue;
             }
             for (i, sample) in track.samples.iter().enumerate() {
-                out[i] += sample * track.gain;
+                out[track.start_offset + i] += sample * track.gain;
             }
         }
         for sample in out.iter_mut() {
@@ -149,6 +176,7 @@ mod tests {
             samples: Arc::new(samples),
             gain: 1.0,
             muted: false,
+            start_offset: 0,
         }
     }
 
@@ -239,6 +267,7 @@ mod tests {
             samples: Arc::new(vec![0.0]),
             gain: 1.0,
             muted: false,
+            start_offset: 0,
         }
     }
 
@@ -296,5 +325,94 @@ mod tests {
             playing: false,
         };
         assert_eq!(state.track_info()[0].len_samples, 3);
+    }
+
+    #[test]
+    fn a_track_is_silent_before_its_start_offset() {
+        let mut delayed = track(vec![1.0, 1.0]);
+        delayed.start_offset = 2;
+        let mut state = MixerState {
+            tracks: vec![delayed],
+            position: 0,
+            playing: true,
+        };
+        let mut out = [0.0; 2];
+        state.render(&mut out);
+        assert_eq!(
+            out,
+            [0.0, 0.0],
+            "region hasn't started yet — must be silent"
+        );
+    }
+
+    #[test]
+    fn a_track_plays_its_own_samples_once_the_shared_position_reaches_its_offset() {
+        let mut delayed = track(vec![0.5, 0.5]);
+        delayed.start_offset = 2;
+        let mut state = MixerState {
+            tracks: vec![delayed],
+            position: 2,
+            playing: true,
+        };
+        let mut out = [0.0; 2];
+        state.render(&mut out);
+        assert_eq!(out, [0.5, 0.5]);
+    }
+
+    #[test]
+    fn set_track_offset_updates_the_track_and_is_reflected_in_track_info() {
+        let mut state = MixerState {
+            tracks: vec![track(vec![1.0, 1.0])],
+            position: 0,
+            playing: false,
+        };
+        state.set_track_offset(0, 500).unwrap();
+        assert_eq!(state.track_info()[0].start_offset_samples, 500);
+    }
+
+    #[test]
+    fn set_track_offset_out_of_range_errors() {
+        let mut state = MixerState {
+            tracks: vec![track(vec![1.0])],
+            position: 0,
+            playing: false,
+        };
+        assert!(state.set_track_offset(5, 100).is_err());
+    }
+
+    #[test]
+    fn playback_only_stops_once_every_track_finishes_including_its_offset() {
+        let mut delayed = track(vec![1.0]);
+        delayed.start_offset = 10;
+        let mut state = MixerState {
+            tracks: vec![delayed],
+            position: 9,
+            playing: true,
+        };
+        let mut out = [0.0; 1];
+        state.render(&mut out);
+        // Position is now 10 (== offset), the track's one sample hasn't
+        // played yet — must still be playing, not wrongly stopped early.
+        assert!(
+            state.playing,
+            "must not stop before a delayed track has actually played"
+        );
+    }
+
+    #[test]
+    fn render_full_mix_places_a_delayed_track_at_its_offset_not_at_zero() {
+        let mut delayed = track(vec![0.4, 0.4]);
+        delayed.start_offset = 2;
+        let state = MixerState {
+            tracks: vec![track(vec![0.1, 0.1]), delayed],
+            position: 0,
+            playing: false,
+        };
+        let mix = state.render_full_mix();
+        assert_eq!(mix.len(), 4);
+        assert!((mix[0] - 0.1).abs() < 1e-6);
+        assert!((mix[1] - 0.1).abs() < 1e-6);
+        assert!((mix[2] - 0.4).abs() < 1e-6);
+        assert!((mix[3] - 0.4).abs() < 1e-6);
     }
 }

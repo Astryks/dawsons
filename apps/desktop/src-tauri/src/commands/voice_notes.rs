@@ -184,6 +184,7 @@ pub fn play_voice_note_as_instrument(
         samples: std::sync::Arc::new(rendered),
         gain: 1.0,
         muted: false,
+        start_offset: 0,
     }];
     mixer.position = 0;
     mixer.playing = true;
@@ -247,6 +248,7 @@ pub fn play_voice_note_as_chord(
         samples: std::sync::Arc::new(samples),
         gain: 1.0,
         muted: false,
+        start_offset: 0,
     }];
     mixer.position = 0;
     mixer.playing = true;

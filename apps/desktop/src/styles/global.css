@@ -196,16 +196,26 @@ body {
 .layer__track {
   flex: 1;
   position: relative;
+  /* .layer__bar is now position:absolute (draggable) so it no longer
+     contributes to this container's height in normal flow — without an
+     explicit height here, this whole row would collapse to 0px. */
+  height: 28px;
 }
 
 .layer__bar {
   height: 28px;
   border-radius: 8px;
-  position: relative;
+  position: absolute;
+  top: 0;
   overflow: hidden;
+  cursor: grab;
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.18),
     inset 0 -6px 10px rgba(0, 0, 0, 0.15);
+}
+
+.layer__bar:active {
+  cursor: grabbing;
 }
 
 .layer__playhead {

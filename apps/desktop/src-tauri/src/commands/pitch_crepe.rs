@@ -124,6 +124,7 @@ pub fn play_crepe_notes_as_instrument(
         samples: std::sync::Arc::new(rendered),
         gain: 1.0,
         muted: false,
+        start_offset: 0,
     }];
     mixer.position = 0;
     mixer.playing = true;
