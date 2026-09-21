@@ -708,6 +708,27 @@ body {
 .instrument-icon--clarinet {
   color: var(--teal);
 }
+.instrument-icon--strings {
+  color: var(--purple);
+}
+.instrument-icon--organ {
+  color: var(--olive);
+}
+.instrument-icon--epiano {
+  color: var(--blue);
+}
+.instrument-icon--choir {
+  color: var(--rose);
+}
+.instrument-icon--synthbass {
+  color: var(--pastel-sky);
+}
+.instrument-icon--marimba {
+  color: var(--ochre);
+}
+.instrument-icon--trumpet {
+  color: var(--pastel-peach);
+}
 
 /* --- Special always-present timeline rows: Voice and Any Sound --- */
 

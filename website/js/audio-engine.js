@@ -4,6 +4,7 @@
 
 import { renderVoice, renderDrumHit } from "./synth.js";
 import { BAR_SEC } from "./demo-songs.js";
+import { createPattern } from "./pattern-editor.js";
 
 class Track {
   constructor(name, buffer, pattern = null) {
@@ -54,6 +55,16 @@ class Engine {
 
     const tracks = [];
     for (const layer of song.layers) {
+      if (layer.pattern) {
+        // Bass/arpeggio-role layers are built entirely from the same
+        // root/3rd/5th-cycle vocabulary the click-to-place grid already
+        // uses, so they convert losslessly into a genuinely editable
+        // pattern track instead of a fixed, only-mutable-by-remixing
+        // rendered buffer — real templates, not just playable demos.
+        const pattern = createPattern(this.ctx, sampleRate, layer.family, layer.pattern.hits, layer.pattern.totalSteps);
+        tracks.push(new Track(layer.name, pattern.buffer, pattern));
+        continue;
+      }
       const buf = this.ctx.createBuffer(2, totalSamples, sampleRate);
       let t = 0;
       for (const ev of layer.notes) {
@@ -64,13 +75,18 @@ class Engine {
     }
 
     if (song.drums.length) {
-      const drumBuf = this.ctx.createBuffer(2, totalSamples, sampleRate);
-      let t = 0;
-      for (const hit of song.drums) {
-        renderDrumHit(drumBuf, hit.kind, t, sampleRate);
-        t += hit.dur;
+      if (song.drumsPattern) {
+        const pattern = createPattern(this.ctx, sampleRate, "drums", song.drumsPattern.hits, song.drumsPattern.totalSteps);
+        tracks.push(new Track("Drums", pattern.buffer, pattern));
+      } else {
+        const drumBuf = this.ctx.createBuffer(2, totalSamples, sampleRate);
+        let t = 0;
+        for (const hit of song.drums) {
+          renderDrumHit(drumBuf, hit.kind, t, sampleRate);
+          t += hit.dur;
+        }
+        tracks.push(new Track("Drums", drumBuf));
       }
-      tracks.push(new Track("Drums", drumBuf));
     }
 
     this.loadTracks(tracks);

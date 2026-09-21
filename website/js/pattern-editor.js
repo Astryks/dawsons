@@ -38,6 +38,13 @@ const FAMILY_PALETTES = {
   flute: notePalette(72, "C"),
   saxophone: notePalette(58, "C"),
   clarinet: notePalette(62, "C"),
+  strings: notePalette(60, "C"),
+  organ: notePalette(60, "C"),
+  epiano: notePalette(60, "C"),
+  choir: notePalette(64, "C"),
+  synthbass: notePalette(40, "C"),
+  marimba: notePalette(72, "C"),
+  trumpet: notePalette(60, "C"),
 };
 
 function paletteFor(family) {
@@ -57,6 +64,14 @@ function rebuildBuffer(ctx, sampleRate, family, hits, totalSteps) {
     const startSec = hit.step * STEP_SEC;
     if (family === "drums") {
       renderDrumHit(buf, hit.sound, startSec, sampleRate);
+    } else if (hit.note !== undefined) {
+      // An absolute MIDI note, not a palette key — used for hits
+      // converted from real composed material (e.g. a demo song's
+      // bass/arpeggio line), where the harmonic root genuinely changes
+      // bar to bar and can't be expressed as one fixed palette root.
+      // Editing this step (see toggleStep) replaces it with a plain
+      // palette-key hit, same as any user-placed step.
+      renderVoice(ctx, buf, family, [hit.note], startSec, STEP_SEC * 1.8, sampleRate);
     } else {
       const entry = palette.find((s) => s.key === hit.sound);
       if (entry) renderVoice(ctx, buf, family, [entry.note], startSec, STEP_SEC * 1.8, sampleRate);

@@ -271,9 +271,15 @@ private struct SoundPickerSheet: View {
 private struct AddTrackSheet: View {
     let onPick: (InstrumentFamily) -> Void
 
+    // .voice/.anySound are special record/upload-driven rows, not plain
+    // pattern-backed tracks — they don't belong in this picker.
+    private var pickableFamilies: [InstrumentFamily] {
+        InstrumentFamily.allCases.filter { $0 != .voice && $0 != .anySound }
+    }
+
     var body: some View {
         NavigationStack {
-            List(InstrumentFamily.allCases) { family in
+            List(pickableFamilies) { family in
                 Button {
                     onPick(family)
                 } label: {
@@ -336,7 +342,7 @@ private struct RecordToInstrumentSheet: View {
                         .font(.headline)
 
                     Picker("Turn it into", selection: $selectedFamily) {
-                        ForEach(InstrumentFamily.allCases) { family in
+                        ForEach(InstrumentFamily.allCases.filter { $0 != .voice && $0 != .anySound }) { family in
                             Text(family.displayName).tag(family)
                         }
                     }

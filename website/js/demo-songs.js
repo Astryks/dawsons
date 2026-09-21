@@ -27,6 +27,34 @@ function melodyPhrase([a, b, c, d]) {
   return [note(a, QUARTER), note(b, QUARTER), note(c, QUARTER), note(d, QUARTER)];
 }
 
+// Converts a sequential note-event array ({pitches, dur}, back-to-back
+// in time — the shape bassPulse/arpeggio/melodyPhrase all produce) into
+// the pattern editor's step-indexed hit format ({step, note}), so a
+// layer built the normal way can ALSO be made click-to-place editable.
+// Only meaningful for a track whose grid resolution genuinely divides
+// evenly into these events' durations — true here since every demo
+// song's rhythm section is built from EIGHTH/QUARTER multiples of the
+// same BAR_SEC, matching the pattern editor's own STEP_SEC exactly.
+function eventsToHits(events, stepSec) {
+  const hits = [];
+  let stepCursor = 0;
+  for (const ev of events) {
+    if (ev.pitches.length) hits.push({ step: stepCursor, note: ev.pitches[0] });
+    stepCursor += Math.round(ev.dur / stepSec);
+  }
+  return { hits, totalSteps: stepCursor };
+}
+
+function drumHitsToPattern(drumEvents, stepSec) {
+  const hits = [];
+  let stepCursor = 0;
+  for (const ev of drumEvents) {
+    hits.push({ step: stepCursor, sound: ev.kind });
+    stepCursor += Math.round(ev.dur / stepSec);
+  }
+  return { hits, totalSteps: stepCursor };
+}
+
 function standardDrumBar() {
   return [
     { kind: "kick", dur: EIGHTH },
@@ -55,7 +83,14 @@ function buildFromChords(chords, build) {
     guitar.push(...arpeggio(arp));
     lead.push(...melodyPhrase(mel));
   }
-  return build(piano, bass, guitar, lead);
+  // Piano (sustained block chords) and lead (a genuine passing-tone
+  // melody) don't fit the click-to-place grid's root/3rd/5th/octave
+  // palette without distorting them — bass and the arpeggio-role line
+  // are both built entirely from that same 3-note-cycle vocabulary
+  // already, so they convert losslessly.
+  const bassPattern = eventsToHits(bass, EIGHTH);
+  const guitarPattern = eventsToHits(guitar, EIGHTH);
+  return build(piano, bass, guitar, lead, bassPattern, guitarPattern);
 }
 
 function morningLoop() {
@@ -65,17 +100,19 @@ function morningLoop() {
     [[45, 48, 52], 45, [57, 60, 64], [69, 67, 65, 64]],
     [[41, 45, 48], 41, [53, 57, 60], [67, 65, 64, 62]],
   ];
-  return buildFromChords(chords, (piano, bass, guitar, lead) => ({
+  const drums = fourBarDrums();
+  return buildFromChords(chords, (piano, bass, guitar, lead, bassPattern, guitarPattern) => ({
     title: "Morning Loop",
     genre: "Pop",
     description: "Upbeat pop progression (C–G–Am–F) — piano, bass, guitar, and a choir lead.",
     layers: [
       { name: "Vocal", family: "lead", notes: lead },
-      { name: "Guitar", family: "guitar", notes: guitar },
+      { name: "Guitar", family: "guitar", notes: guitar, pattern: guitarPattern },
       { name: "Piano", family: "keys", notes: piano },
-      { name: "Bass", family: "bass", notes: bass },
+      { name: "Bass", family: "bass", notes: bass, pattern: bassPattern },
     ],
-    drums: fourBarDrums(),
+    drums,
+    drumsPattern: drumHitsToPattern(drums, EIGHTH),
   }));
 }
 
@@ -86,17 +123,19 @@ function blueCorner() {
     [[48, 52, 55, 59], 36, [60, 64, 67], [67, 65, 64, 62]],
     [[57, 60, 64, 67], 45, [69, 72, 76], [76, 74, 72, 69]],
   ];
-  return buildFromChords(chords, (piano, bass, guitar, lead) => ({
+  const drums = fourBarDrums();
+  return buildFromChords(chords, (piano, bass, guitar, lead, bassPattern, guitarPattern) => ({
     title: "Blue Corner",
     genre: "Jazz",
     description: "Classic jazz turnaround (Dm7–G7–Cmaj7–Am7) — sax lead, piano, guitar comping, bass.",
     layers: [
       { name: "Sax Lead", family: "saxophone", notes: lead },
-      { name: "Guitar", family: "guitar", notes: guitar },
+      { name: "Guitar", family: "guitar", notes: guitar, pattern: guitarPattern },
       { name: "Piano", family: "keys", notes: piano },
-      { name: "Bass", family: "bass", notes: bass },
+      { name: "Bass", family: "bass", notes: bass, pattern: bassPattern },
     ],
-    drums: fourBarDrums(),
+    drums,
+    drumsPattern: drumHitsToPattern(drums, EIGHTH),
   }));
 }
 
@@ -107,17 +146,19 @@ function cornerGroove() {
     [[53, 57, 60], 41, [65, 69, 72], [72, 69, 65, 60]],
     [[55, 59, 62], 43, [67, 71, 74], [71, 69, 67, 62]],
   ];
-  return buildFromChords(chords, (piano, bass, synthRiff, hornStabs) => ({
+  const drums = fourBarDrums();
+  return buildFromChords(chords, (piano, bass, synthRiff, hornStabs, bassPattern, synthRiffPattern) => ({
     title: "Corner Groove",
     genre: "Hip-Hop",
     description: "Boom-bap style loop (Am–G–F–G) — horn-stab hook, synth riff, electric piano, deep bass.",
     layers: [
       { name: "Horn Stabs", family: "brass", notes: hornStabs },
-      { name: "Synth Riff", family: "lead", notes: synthRiff },
+      { name: "Synth Riff", family: "lead", notes: synthRiff, pattern: synthRiffPattern },
       { name: "Piano", family: "keys", notes: piano },
-      { name: "Bass", family: "bass", notes: bass },
+      { name: "Bass", family: "bass", notes: bass, pattern: bassPattern },
     ],
-    drums: fourBarDrums(),
+    drums,
+    drumsPattern: drumHitsToPattern(drums, EIGHTH),
   }));
 }
 
@@ -128,17 +169,19 @@ function firesideLoop() {
     [[60, 64, 67], 48, [72, 76, 79], [79, 77, 76, 74]],
     [[53, 57, 60], 41, [65, 69, 72], [72, 69, 65, 60]],
   ];
-  return buildFromChords(chords, (piano, bass, sparkle, lead) => ({
+  const drums = fourBarDrums();
+  return buildFromChords(chords, (piano, bass, sparkle, lead, bassPattern, sparklePattern) => ({
     title: "Fireside Loop",
     genre: "Holiday",
     description: "Warm holiday-pop loop (F–Bb–C–F) — glockenspiel sparkle, piano, bass, choir lead.",
     layers: [
       { name: "Choir Lead", family: "lead", notes: lead },
-      { name: "Sparkle", family: "bell", notes: sparkle },
+      { name: "Sparkle", family: "bell", notes: sparkle, pattern: sparklePattern },
       { name: "Piano", family: "keys", notes: piano },
-      { name: "Bass", family: "bass", notes: bass },
+      { name: "Bass", family: "bass", notes: bass, pattern: bassPattern },
     ],
-    drums: fourBarDrums(),
+    drums,
+    drumsPattern: drumHitsToPattern(drums, EIGHTH),
   }));
 }
 
@@ -179,6 +222,7 @@ function neonPulse() {
     arp.push(...arpeggio(arpNotes));
     lead.push(...melodyPhrase(mel));
   }
+  const drums = fourBarEdmDrums();
   return {
     title: "Neon Pulse",
     genre: "Electronic",
@@ -186,11 +230,12 @@ function neonPulse() {
       "Driving four-on-the-floor electronic loop (Am–Fm–Gm–Dm) — arpeggiated synth, pulsing sub bass, filtered pad, in the general style of filtered-synth dance/psytrance production, not any specific track.",
     layers: [
       { name: "Lead Synth", family: "lead", notes: lead },
-      { name: "Arp", family: "guitar", notes: arp },
+      { name: "Arp", family: "guitar", notes: arp, pattern: eventsToHits(arp, EIGHTH) },
       { name: "Pad", family: "pad", notes: pad },
-      { name: "Bass", family: "bass", notes: bass },
+      { name: "Bass", family: "bass", notes: bass, pattern: eventsToHits(bass, EIGHTH) },
     ],
-    drums: fourBarEdmDrums(),
+    drums,
+    drumsPattern: drumHitsToPattern(drums, EIGHTH),
   };
 }
 
@@ -230,6 +275,7 @@ function fieldParade() {
     counter.push(...arpeggio(counterNotes));
     melody.push(...melodyPhrase(mel));
   }
+  const drums = fourBarMarchDrums();
   return {
     title: "Field Parade",
     genre: "Marching Band",
@@ -237,10 +283,11 @@ function fieldParade() {
       "Bright brass march (Fmaj–Bbmaj–Cmaj–Fmaj) with a snare-roll cadence — bold brass melody and countermelody over a tuba-style bass pulse.",
     layers: [
       { name: "Brass Melody", family: "brass", notes: melody },
-      { name: "Brass Harmony", family: "saxophone", notes: counter },
-      { name: "Sousaphone", family: "bass", notes: bass },
+      { name: "Brass Harmony", family: "saxophone", notes: counter, pattern: eventsToHits(counter, EIGHTH) },
+      { name: "Sousaphone", family: "bass", notes: bass, pattern: eventsToHits(bass, EIGHTH) },
     ],
-    drums: fourBarMarchDrums(),
+    drums,
+    drumsPattern: drumHitsToPattern(drums, EIGHTH),
   };
 }
 
@@ -268,9 +315,9 @@ function risingOverture() {
       "A dramatic orchestral/opera-style overture (Am–F–C–G) — a soaring choir/vocal lead over string pad, brass fanfare accents, and a bell shimmer, built the way a symphonic overture layers voices.",
     layers: [
       { name: "Choir Lead", family: "lead", notes: vocal },
-      { name: "Brass Fanfare", family: "brass", notes: brassAccent },
+      { name: "Brass Fanfare", family: "brass", notes: brassAccent, pattern: eventsToHits(brassAccent, EIGHTH) },
       { name: "Strings", family: "pad", notes: strings },
-      { name: "Cello/Bass", family: "bass", notes: bass },
+      { name: "Cello/Bass", family: "bass", notes: bass, pattern: eventsToHits(bass, EIGHTH) },
     ],
     drums: [],
   };
@@ -302,6 +349,7 @@ function stockholmNights() {
     guitar.push(...arpeggio(arp));
     vocal.push(...melodyPhrase(mel));
   }
+  const stockholmDrums = fourBarDrums();
   return {
     title: "Stockholm Nights",
     genre: "Original",
@@ -309,11 +357,12 @@ function stockholmNights() {
       "A real song, analyzed: uploaded through the actual Demucs + librosa pipeline (109.96 BPM, C major, 0.959 confidence) — this loop uses the real first four detected chords (Fmaj7–Dmaj7–C–Dm) and a real melodic fragment extracted from the isolated vocal stem, not an invented progression.",
     layers: [
       { name: "Vocals", family: "lead", notes: vocal },
-      { name: "Guitar", family: "guitar", notes: guitar },
+      { name: "Guitar", family: "guitar", notes: guitar, pattern: eventsToHits(guitar, EIGHTH) },
       { name: "Piano", family: "keys", notes: piano },
-      { name: "Bass", family: "bass", notes: bass },
+      { name: "Bass", family: "bass", notes: bass, pattern: eventsToHits(bass, EIGHTH) },
     ],
-    drums: fourBarDrums(),
+    drums: stockholmDrums,
+    drumsPattern: drumHitsToPattern(stockholmDrums, EIGHTH),
   };
 }
 
