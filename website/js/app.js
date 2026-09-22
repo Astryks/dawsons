@@ -1166,11 +1166,12 @@ async function buildVoiceInstrumentBuffer() {
     sourceBuffer = trimBuffer(engine.ctx, sourceBuffer, trimStart, trimEnd);
   }
 
-  let notes = detectNotes(sourceBuffer);
+  const rawNotes = detectNotes(sourceBuffer);
+  let notes = rawNotes;
   if (document.getElementById("voice-autotune").checked) {
     const tonic = Number(document.getElementById("voice-tonic").value);
     const scale = document.getElementById("voice-scale").value === "minor" ? MINOR_SCALE : MAJOR_SCALE;
-    notes = snapNotesToScale(notes, tonic, scale);
+    notes = snapNotesToScale(rawNotes, tonic, scale);
   }
   if (!notes.length) {
     voiceStatus.textContent = "No clear pitch detected — try singing louder or more sustained notes.";
@@ -1179,17 +1180,31 @@ async function buildVoiceInstrumentBuffer() {
 
   const family = document.getElementById("voice-instrument").value;
   const sampleRate = engine.ctx.sampleRate;
-  const totalDurationSec = Math.max(...notes.map((n) => n.startSec + n.durationSec)) + 0.5;
-  const totalSamples = Math.ceil(totalDurationSec * sampleRate);
-  const rawBuffer = engine.ctx.createBuffer(2, totalSamples, sampleRate);
-  for (const n of notes) {
-    renderVoice(engine.ctx, rawBuffer, family, [n.note], n.startSec, n.durationSec, sampleRate);
+  let rawBuffer;
+  let totalSamples;
+  if (family === "__voice__") {
+    // Keep the singer's own voice instead of resynthesizing through an
+    // instrument — a real Auto-Tune-style pitch *correction*: each
+    // detected note segment of the ORIGINAL recording gets pitch-
+    // shifted by just the amount needed to snap it onto the chosen
+    // scale, not replaced by a synth tone. With Auto-tune unchecked,
+    // `notes === rawNotes` (zero correction everywhere), so this is
+    // just "add my voice as-is."
+    totalSamples = sourceBuffer.length;
+    rawBuffer = pitchCorrectBuffer(engine.ctx, sourceBuffer, rawNotes, notes, sampleRate);
+  } else {
+    const totalDurationSec = Math.max(...notes.map((n) => n.startSec + n.durationSec)) + 0.5;
+    totalSamples = Math.ceil(totalDurationSec * sampleRate);
+    rawBuffer = engine.ctx.createBuffer(2, totalSamples, sampleRate);
+    for (const n of notes) {
+      renderVoice(engine.ctx, rawBuffer, family, [n.note], n.startSec, n.durationSec, sampleRate);
+    }
   }
 
   const voiceOpts = effectStackOptsFrom("voice");
   let finalBuffer = rawBuffer;
   if (effectStackHasAny(voiceOpts)) {
-    const offlineCtx = new OfflineAudioContext(2, totalSamples, sampleRate);
+    const offlineCtx = new OfflineAudioContext(rawBuffer.numberOfChannels, totalSamples, sampleRate);
     const source = offlineCtx.createBufferSource();
     source.buffer = rawBuffer;
     const chainOut = buildEffectChain(offlineCtx, source, voiceOpts);
@@ -1198,6 +1213,41 @@ async function buildVoiceInstrumentBuffer() {
     finalBuffer = await offlineCtx.startRendering();
   }
   return { finalBuffer, family };
+}
+
+// Real pitch correction on the original recording, not a resynthesis:
+// for each detected note segment, extracts that slice of audio and
+// pitch-shifts *just it* by (corrected - detected) semitones via the
+// existing varispeed pitchShiftBuffer, then writes it back at the
+// segment's original start sample — clamped/truncated to the
+// segment's original length so segments stay aligned in time despite
+// pitch-shifting changing a slice's natural duration. Anything between
+// detected notes (breaths, consonants, silence) is left as the
+// unmodified original audio underneath.
+function pitchCorrectBuffer(ctx, buffer, rawNotes, correctedNotes, sampleRate) {
+  const out = ctx.createBuffer(buffer.numberOfChannels, buffer.length, sampleRate);
+  for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+    out.getChannelData(ch).set(buffer.getChannelData(ch));
+  }
+  for (let i = 0; i < rawNotes.length; i++) {
+    const semitones = correctedNotes[i].note - rawNotes[i].note;
+    if (!semitones) continue;
+    const startSample = Math.max(0, Math.floor(rawNotes[i].startSec * sampleRate));
+    const segSamples = Math.min(Math.floor(rawNotes[i].durationSec * sampleRate), buffer.length - startSample);
+    if (segSamples <= 0) continue;
+    const segBuffer = ctx.createBuffer(buffer.numberOfChannels, segSamples, sampleRate);
+    for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+      segBuffer.getChannelData(ch).set(buffer.getChannelData(ch).subarray(startSample, startSample + segSamples));
+    }
+    const shifted = pitchShiftBuffer(ctx, segBuffer, semitones);
+    for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+      const src = shifted.getChannelData(ch);
+      const dst = out.getChannelData(ch);
+      const n = Math.min(segSamples, src.length);
+      for (let k = 0; k < n; k++) dst[startSample + k] = src[k];
+    }
+  }
+  return out;
 }
 
 function playBufferOnce(buffer) {
