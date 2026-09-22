@@ -913,6 +913,61 @@ document.getElementById("anysound-url-btn").onclick = () => {
   if (input.value.trim()) handleUrlFetch(input.value.trim());
 };
 
+// --- Record audio actually playing in a browser tab, another window,
+// or the whole screen — the Screen Capture API's own "share tab/system
+// audio" option, built into every modern browser, no extension needed.
+// Feeds the exact same trim/reverse/pitch/effects pipeline as an
+// uploaded file (handleDecodedAudio), so it inherits all of that for
+// free instead of needing its own duplicate controls. ---
+let tabAudioRecorder = null;
+let tabAudioChunks = [];
+const tabRecordBtn = document.getElementById("anysound-tab-record-btn");
+const tabRecordBtnIdleHtml = tabRecordBtn.innerHTML;
+
+tabRecordBtn.onclick = async () => {
+  const statusEl = document.getElementById("anysound-status");
+  if (tabAudioRecorder && tabAudioRecorder.state === "recording") {
+    tabAudioRecorder.stop();
+    return;
+  }
+  let stream;
+  try {
+    // The Screen Capture API requires requesting `video` to offer
+    // tab/window/screen sharing at all — the video track is never
+    // rendered anywhere here and gets stopped the moment recording
+    // ends; only the audio track is actually used.
+    stream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+  } catch {
+    statusEl.textContent = "Screen/tab sharing was cancelled or denied.";
+    return;
+  }
+  if (!stream.getAudioTracks().length) {
+    stream.getTracks().forEach((t) => t.stop());
+    statusEl.textContent =
+      'That share had no audio track — pick a browser tab and check "Share tab audio" (or check "Share system audio" when sharing a whole screen) in the picker.';
+    return;
+  }
+  await engine.resume();
+  tabAudioChunks = [];
+  tabAudioRecorder = new MediaRecorder(stream);
+  tabAudioRecorder.ondataavailable = (e) => tabAudioChunks.push(e.data);
+  tabAudioRecorder.onstop = async () => {
+    stream.getTracks().forEach((t) => t.stop());
+    tabRecordBtn.innerHTML = tabRecordBtnIdleHtml;
+    statusEl.textContent = "Processing…";
+    const blob = new Blob(tabAudioChunks, { type: "audio/webm" });
+    await handleDecodedAudio(await blob.arrayBuffer(), "Tab audio");
+  };
+  // The browser's own "Stop sharing" bar is a second way to end this —
+  // treat that exactly like pressing our Stop button.
+  stream.getAudioTracks()[0].addEventListener("ended", () => {
+    if (tabAudioRecorder && tabAudioRecorder.state === "recording") tabAudioRecorder.stop();
+  });
+  tabAudioRecorder.start();
+  tabRecordBtn.innerHTML = `${uiIconSvg("stop")} Stop recording`;
+  statusEl.textContent = "Recording tab/system audio — play the sound you want to capture now…";
+};
+
 // Drag a file straight onto the timeline as an alternative to the file
 // picker — same handling either way.
 const timelineDropEl = document.getElementById("timeline");
