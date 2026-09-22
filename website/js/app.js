@@ -314,7 +314,9 @@ function renderTimeline() {
       // is a separate, bigger change to how that grid is laid out.
       const body = track.pattern
         ? renderPatternGridHtml(track, i)
-        : `<div class="timeline-layer__bar layer-color-${i % 6}" data-drag-track="${i}" style="width:${pct}%; left:${leftPct}%" title="Drag to move this clip earlier/later in the project"></div>`;
+        : `<div class="timeline-layer__bar layer-color-${i % 6}" data-drag-track="${i}" style="width:${pct}%; left:${leftPct}%" title="Drag the middle to move this clip, or its right edge to trim its length">
+            <div class="timeline-layer__resize-handle" data-resize-track="${i}"></div>
+          </div>`;
       return `
         <div class="timeline-layer${isActive ? " timeline-layer--active" : ""}" data-track-index="${i}">
           <div class="timeline-layer__label" data-track-index="${i}">${icon}${track.name}</div>
@@ -578,7 +580,32 @@ previewEl.addEventListener("pointerup", (e) => {
 // element under the pointer and break the drag); everything else
 // re-syncs once on release. ---
 let dragState = null;
+let resizeState = null;
 document.getElementById("timeline").addEventListener("pointerdown", (e) => {
+  const handle = e.target.closest("[data-resize-track]");
+  if (handle) {
+    const trackIndex = Number(handle.dataset.resizeTrack);
+    const track = engine.tracks[trackIndex];
+    const trackEl = handle.closest(".timeline-layer__track");
+    if (!track || !trackEl) return;
+    resizeState = {
+      trackIndex,
+      pointerId: e.pointerId,
+      startClientX: e.clientX,
+      startDurationSec: track.durationSec,
+      rowWidthPx: trackEl.getBoundingClientRect().width,
+      maxDur: engine.maxDurationSec(),
+    };
+    try {
+      handle.setPointerCapture(e.pointerId);
+    } catch {
+      /* some input sources (synthetic events, certain browsers) don't
+         register an active pointer to capture — the drag still works
+         via the timeline's own delegated move/up listeners. */
+    }
+    e.stopPropagation(); // don't also start a move-drag on the parent bar
+    return;
+  }
   const bar = e.target.closest("[data-drag-track]");
   if (!bar) return;
   const trackIndex = Number(bar.dataset.dragTrack);
@@ -594,9 +621,20 @@ document.getElementById("timeline").addEventListener("pointerdown", (e) => {
     rowWidthPx: trackEl.getBoundingClientRect().width,
     maxDur: engine.maxDurationSec(),
   };
-  bar.setPointerCapture(e.pointerId);
+  try {
+    bar.setPointerCapture(e.pointerId);
+  } catch {
+    /* see the resize handle's identical try/catch above */
+  }
 });
 document.getElementById("timeline").addEventListener("pointermove", (e) => {
+  if (resizeState && e.pointerId === resizeState.pointerId) {
+    const deltaSec = ((e.clientX - resizeState.startClientX) / resizeState.rowWidthPx) * resizeState.maxDur;
+    const newDurationSec = Math.max(0.1, Math.min(resizeState.startDurationSec, resizeState.startDurationSec + deltaSec));
+    const bar = document.querySelector(`[data-drag-track="${resizeState.trackIndex}"]`);
+    if (bar) bar.style.width = `${(newDurationSec / resizeState.maxDur) * 100}%`;
+    return;
+  }
   if (!dragState || e.pointerId !== dragState.pointerId) return;
   const deltaSec = ((e.clientX - dragState.startClientX) / dragState.rowWidthPx) * dragState.maxDur;
   const track = engine.tracks[dragState.trackIndex];
@@ -605,7 +643,24 @@ document.getElementById("timeline").addEventListener("pointermove", (e) => {
   const bar = document.querySelector(`[data-drag-track="${dragState.trackIndex}"]`);
   if (bar) bar.style.left = `${(track.startOffsetSec / dragState.maxDur) * 100}%`;
 });
-document.getElementById("timeline").addEventListener("pointerup", () => {
+document.getElementById("timeline").addEventListener("pointerup", async (e) => {
+  if (resizeState && e.pointerId === resizeState.pointerId) {
+    const deltaSec = ((e.clientX - resizeState.startClientX) / resizeState.rowWidthPx) * resizeState.maxDur;
+    const newDurationSec = Math.max(0.1, Math.min(resizeState.startDurationSec, resizeState.startDurationSec + deltaSec));
+    const track = engine.tracks[resizeState.trackIndex];
+    resizeState = null;
+    if (track && !track.pattern && newDurationSec < track.durationSec - 0.01) {
+      pushUndo();
+      // Trim the untouched dry source (not whatever pitched/effected
+      // buffer is currently playing) so a later pitch/reverb/delay
+      // change still starts from the right material — same invariant
+      // refreshTrackAudio() everywhere else already relies on.
+      track.originalBuffer = trimBuffer(engine.ctx, track.originalBuffer, 0, newDurationSec);
+      await refreshTrackAudio(track);
+    }
+    renderTimeline();
+    return;
+  }
   if (!dragState) return;
   dragState = null;
   if (engine.playing) engine.play(engine.positionSec()); // reschedule sources with the new offset
@@ -687,7 +742,26 @@ document.addEventListener("click", (e) => {
 });
 document.getElementById("timeline").addEventListener("contextmenu", (e) => {
   const layer = e.target.closest(".timeline-layer");
-  if (!layer || layer.dataset.trackIndex === undefined) return;
+  // Right-clicking empty space below the last track (no row there at
+  // all) still guides you straight to the instrument browser — you
+  // shouldn't have to already have a track to right-click on one.
+  if (!layer || layer.dataset.trackIndex === undefined) {
+    e.preventDefault();
+    closeContextMenu();
+    const menu = document.createElement("div");
+    menu.className = "context-menu";
+    menu.style.left = `${e.clientX}px`;
+    menu.style.top = `${e.clientY}px`;
+    menu.innerHTML = `<button data-menu-idx="0">+ Add an instrument</button>`;
+    document.body.appendChild(menu);
+    contextMenuEl = menu;
+    menu.querySelector("button").onclick = () => {
+      instrumentBrowserOpen = true;
+      closeContextMenu();
+      renderTimeline();
+    };
+    return;
+  }
   e.preventDefault();
   closeContextMenu();
   const i = Number(layer.dataset.trackIndex);

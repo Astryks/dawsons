@@ -368,6 +368,21 @@ body {
   filter: brightness(1.2);
 }
 
+.timeline-layer__resize-handle {
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 8px;
+  height: 100%;
+  cursor: ew-resize;
+  border-radius: 0 6px 6px 0;
+}
+
+.timeline-layer__resize-handle:hover,
+.timeline-layer__resize-handle:active {
+  background: rgba(255, 255, 255, 0.35);
+}
+
 .timeline-layer__playhead {
   position: absolute;
   top: -2px;
