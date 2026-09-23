@@ -1221,13 +1221,21 @@ voiceRecordBtn.onclick = async () => {
     const arrayBuffer = await blob.arrayBuffer();
     try {
       recordedVoiceBuffer = await engine.ctx.decodeAudioData(arrayBuffer);
-      voiceStatus.textContent = `Recorded ${recordedVoiceBuffer.duration.toFixed(1)}s`;
       document.getElementById("voice-trim-start").value = "0";
       document.getElementById("voice-trim-start").max = String(recordedVoiceBuffer.duration);
       document.getElementById("voice-trim-end").value = recordedVoiceBuffer.duration.toFixed(1);
       document.getElementById("voice-trim-end").max = String(recordedVoiceBuffer.duration);
       voiceRenderBtn.disabled = false;
       document.getElementById("producer-build-btn").disabled = false;
+      const keyGuess = detectKeyFromBuffer(recordedVoiceBuffer);
+      let statusMsg = `Recorded ${recordedVoiceBuffer.duration.toFixed(1)}s`;
+      if (keyGuess) {
+        document.getElementById("voice-tonic").value = String(keyGuess.tonic);
+        document.getElementById("voice-scale").value = keyGuess.scale;
+        const NOTE_NAMES = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"];
+        statusMsg += ` — detected key: ${NOTE_NAMES[keyGuess.tonic]} ${keyGuess.scale} (auto-set below, change if wrong)`;
+      }
+      voiceStatus.textContent = statusMsg;
     } catch {
       voiceStatus.textContent = "Couldn't decode the recording — try again.";
     }
@@ -1236,6 +1244,36 @@ voiceRecordBtn.onclick = async () => {
   voiceRecordBtn.innerHTML = `${uiIconSvg("stop")} Stop recording`;
   voiceStatus.textContent = "Recording…";
 };
+
+// A real (if simple) key-detection heuristic: run the same pitch
+// detector the rest of the Voice row already uses, build a duration-
+// weighted pitch-class histogram from what was actually sung, then
+// check which of the 24 possible (tonic, major/minor-scale) pairs
+// captures the most of that histogram — the scale whose 7 notes cover
+// the most of what you actually sang is the best guess. This is the
+// same general "pitch-class profile matching" idea behind classic key-
+// detection algorithms, written from scratch for this project — not
+// analyzing or reproducing any real song, just the user's own
+// recording.
+function detectKeyFromBuffer(buffer) {
+  const notes = detectNotes(buffer);
+  if (!notes.length) return null;
+  const weight = new Array(12).fill(0);
+  for (const n of notes) weight[((n.note % 12) + 12) % 12] += n.durationSec;
+  const MAJOR_DEGREES = [0, 2, 4, 5, 7, 9, 11];
+  const MINOR_DEGREES = [0, 2, 3, 5, 7, 8, 10];
+  let best = null;
+  for (let tonic = 0; tonic < 12; tonic++) {
+    for (const [scale, degrees] of [
+      ["major", MAJOR_DEGREES],
+      ["minor", MINOR_DEGREES],
+    ]) {
+      const score = degrees.reduce((sum, d) => sum + weight[(tonic + d) % 12], 0);
+      if (!best || score > best.score) best = { tonic, scale, score };
+    }
+  }
+  return best;
+}
 
 // Shared by Preview and Add-to-timeline so neither button duplicates
 // the pitch-detection/render/effects logic — returns null (with a
@@ -1685,16 +1723,34 @@ function padOn(id) {
 
   const sampleRate = engine.ctx.sampleRate;
   const [kind, value] = id.split(":");
+  let buf, name;
   if (kind === "note") {
     const family = document.getElementById("keyboard-instrument").value;
-    const buf = engine.ctx.createBuffer(2, Math.ceil(KEYBOARD_PREVIEW_DURATION_SEC * sampleRate), sampleRate);
+    buf = engine.ctx.createBuffer(2, Math.ceil(KEYBOARD_PREVIEW_DURATION_SEC * sampleRate), sampleRate);
     renderVoice(engine.ctx, buf, family, [Number(value)], 0, KEYBOARD_PREVIEW_DURATION_SEC, sampleRate);
-    playBufferOnce(buf);
+    name = `${FAMILY_DISPLAY_NAME[family] || family} note`;
   } else {
     const dur = 1.5; // generous fixed buffer; renderDrumHit's own envelope decides the real length
-    const buf = engine.ctx.createBuffer(2, Math.ceil(dur * sampleRate), sampleRate);
+    buf = engine.ctx.createBuffer(2, Math.ceil(dur * sampleRate), sampleRate);
     renderDrumHit(buf, value, 0, sampleRate);
-    playBufferOnce(buf);
+    name = soundLabel("drums", value);
+  }
+  playBufferOnce(buf);
+  // "I want to add subtle sounds in a second of the timeline" — this
+  // checkbox makes every key/pad press also drop that exact rendered
+  // hit into the timeline as its own tiny track, positioned via the
+  // same real startOffsetSec the drag-to-reposition feature uses, so
+  // it lands at the *actual* current playhead time, not step-quantized
+  // to any grid.
+  if (document.getElementById("keyboard-drop-at-playhead").checked) {
+    pushUndo();
+    engine.addTrack(name, buf);
+    const track = engine.tracks[engine.tracks.length - 1];
+    track.startOffsetSec = engine.positionSec();
+    activeTrackIndex = engine.tracks.length - 1;
+    renderTrackList();
+    renderTimeline();
+    updateScrubber();
   }
 }
 
