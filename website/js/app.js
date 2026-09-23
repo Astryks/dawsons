@@ -4,7 +4,7 @@ import { renderVoice, renderDrumHit } from "./synth.js";
 import { reverseBuffer, pitchShiftBuffer, trimBuffer, buildEffectChain } from "./effects.js";
 import { detectNotes, snapNotesToScale, MAJOR_SCALE, MINOR_SCALE } from "./pitch.js";
 import { STARTERS } from "./starter-patterns.js";
-import { paletteFor, soundLabel, createPattern, toggleStep, autoFillEveryBeats, setBpm, rebuildBuffer } from "./pattern-editor.js";
+import { paletteFor, soundLabel, createPattern, toggleStep, autoFillEveryBeats, setBpm, getStepSec, rebuildBuffer } from "./pattern-editor.js";
 import { instrumentIconSvg, uiIconSvg } from "./instrument-icons.js";
 import { audioBufferToBase64Wav, base64WavToAudioBuffer, encodeWav } from "./wav-encoder.js";
 
@@ -1217,6 +1217,7 @@ voiceRecordBtn.onclick = async () => {
       document.getElementById("voice-trim-end").value = recordedVoiceBuffer.duration.toFixed(1);
       document.getElementById("voice-trim-end").max = String(recordedVoiceBuffer.duration);
       voiceRenderBtn.disabled = false;
+      document.getElementById("producer-build-btn").disabled = false;
     } catch {
       voiceStatus.textContent = "Couldn't decode the recording — try again.";
     }
@@ -1343,8 +1344,158 @@ document.getElementById("voice-discard-btn").onclick = () => {
   voiceRenderBtn.disabled = true;
   document.getElementById("voice-preview-btn").disabled = true;
   document.getElementById("voice-discard-btn").disabled = true;
+  document.getElementById("producer-build-btn").disabled = true;
   voiceStatus.textContent = "Discarded.";
 };
+
+// --- In-house producer: builds a real, original drum/bass/chord/
+// melody arrangement — no AI model, just the same rule-based
+// composition approach every demo song already uses (a diatonic chord
+// builder + genre-specific progressions/rhythms, all standard, public-
+// domain music-theory vocabulary, not copied from any real song) —
+// then loops the user's own recording on top of it for ~2 minutes.
+// Everything it creates lands as ordinary, fully editable tracks.
+const MAJOR_SCALE_INTERVALS = [0, 2, 4, 5, 7, 9, 11];
+const MINOR_SCALE_INTERVALS = [0, 2, 3, 5, 7, 8, 10];
+const MAJOR_TRIAD_QUALITIES = ["maj", "min", "min", "maj", "maj", "min", "dim"];
+const MINOR_TRIAD_QUALITIES = ["min", "dim", "maj", "min", "min", "maj", "maj"];
+
+// Each genre picks a scale, a standard/generic progression (scale-
+// degree indices, 0-based — I=0, ii=1, iii/III=2, IV/iv=3, V/v=4,
+// vi/VI=5, vii°/VII=6), a family for the sustained chords and for the
+// arpeggio/comping pattern, the bass family, and an 8-step drum
+// rhythm template (one sound name or null per eighth-note step) —
+// the same generic rhythm-vocabulary idea demo-songs.js's own drum
+// bar generators already use.
+const PRODUCER_GENRES = {
+  pop: {
+    label: "Pop",
+    scale: "major",
+    progression: [0, 4, 5, 3], // I-V-vi-IV
+    chordFamily: "keys",
+    arpFamily: "guitar",
+    bassFamily: "bass",
+    drumBar: ["kick", "hihat", "snare", "hihat", "kick", "hihat", "snare", "hihat"],
+  },
+  hiphop: {
+    label: "Hip-Hop",
+    scale: "minor",
+    progression: [0, 5, 2, 6], // i-VI-III-VII
+    chordFamily: "epiano",
+    arpFamily: "lead",
+    bassFamily: "synthbass",
+    drumBar: ["kick", "hihat", "clap", "hihat", "kick", "hihat", "snare", "hihat"],
+  },
+  house: {
+    label: "House",
+    scale: "minor",
+    progression: [0, 3, 6, 2], // i-iv-VII-III
+    chordFamily: "organ",
+    arpFamily: "epiano",
+    bassFamily: "synthbass",
+    drumBar: ["kick", "hihat", "clap", "hihat", "kick", "hihat", "clap", "openhat"],
+  },
+  jazz: {
+    label: "Jazz",
+    scale: "major",
+    progression: [1, 4, 0, 5], // ii-V-I-vi
+    chordFamily: "keys",
+    arpFamily: "guitar",
+    bassFamily: "bass",
+    drumBar: ["hihat", "shaker", "rimshot", "shaker", "hihat", "shaker", "rimshot", "shaker"],
+  },
+  holiday: {
+    label: "Holiday",
+    scale: "major",
+    progression: [3, 0, 4, 5], // IV-I-V-vi
+    chordFamily: "keys",
+    arpFamily: "bell",
+    bassFamily: "bass",
+    drumBar: ["kick", "hihat", "snare", "hihat", "kick", "hihat", "snare", "hihat"],
+  },
+};
+
+// Builds one diatonic triad for scale degree `degreeIndex` (0-6) of
+// `tonic` (0-11, C=0) in the given scale — real (if simple) music
+// theory, not a specific song's voicing.
+function diatonicChord(tonic, scale, degreeIndex, octaveBase) {
+  const intervals = scale === "minor" ? MINOR_SCALE_INTERVALS : MAJOR_SCALE_INTERVALS;
+  const qualities = scale === "minor" ? MINOR_TRIAD_QUALITIES : MAJOR_TRIAD_QUALITIES;
+  const root = octaveBase + tonic + intervals[degreeIndex % 7];
+  const quality = qualities[degreeIndex % 7];
+  const third = root + (quality === "maj" ? 4 : 3);
+  const fifth = root + (quality === "dim" ? 6 : 7);
+  return [root, third, fifth];
+}
+
+async function buildAutoProducerSong() {
+  if (!recordedVoiceBuffer) return;
+  await engine.resume();
+  const genreKey = document.getElementById("producer-genre").value;
+  const genre = PRODUCER_GENRES[genreKey];
+  const tonic = Number(document.getElementById("voice-tonic").value);
+  const sampleRate = engine.ctx.sampleRate;
+  const stepSec = getStepSec();
+  const barSec = stepSec * 8;
+  const targetDurationSec = 120;
+  const totalBars = Math.max(4, Math.ceil(targetDurationSec / barSec));
+  const totalSteps = totalBars * 8;
+
+  pushUndo();
+
+  // Drums: the same 8-step rhythm tiled across every bar.
+  const drumHits = [];
+  for (let bar = 0; bar < totalBars; bar++) {
+    for (let s = 0; s < 8; s++) {
+      const sound = genre.drumBar[s];
+      if (sound) drumHits.push({ step: bar * 8 + s, sound });
+    }
+  }
+  const drumPattern = createPattern(engine.ctx, sampleRate, "drums", drumHits, totalSteps);
+  engine.addTrack("Producer: Drums", drumPattern.buffer, drumPattern);
+
+  // Bass: a quarter-note root pulse (steps 0/2/4/6) that follows the
+  // progression's chord for each bar — the same bassPulse shape every
+  // demo song already uses, just generated per bar here instead of
+  // hand-written per song.
+  const bassHits = [];
+  const arpHits = [];
+  const chordFamily = genre.chordFamily;
+  const chordBuf = engine.ctx.createBuffer(2, Math.ceil(totalBars * barSec * sampleRate), sampleRate);
+  for (let bar = 0; bar < totalBars; bar++) {
+    const degree = genre.progression[bar % genre.progression.length];
+    const [root, third, fifth] = diatonicChord(tonic, genre.scale, degree, 48);
+    for (const s of [0, 2, 4, 6]) bassHits.push({ step: bar * 8 + s, note: root - 12 });
+    const arpCycle = [root, third, fifth, third, root, third, fifth, third];
+    for (let s = 0; s < 8; s++) arpHits.push({ step: bar * 8 + s, note: arpCycle[s] });
+    renderVoice(engine.ctx, chordBuf, chordFamily, [root, third, fifth], bar * barSec, barSec, sampleRate);
+  }
+  const bassPattern = createPattern(engine.ctx, sampleRate, genre.bassFamily, bassHits, totalSteps);
+  engine.addTrack("Producer: Bass", bassPattern.buffer, bassPattern);
+  const arpPattern = createPattern(engine.ctx, sampleRate, genre.arpFamily, arpHits, totalSteps);
+  engine.addTrack("Producer: Arp", arpPattern.buffer, arpPattern);
+  engine.addTrack("Producer: Chords", chordBuf);
+
+  // The user's own recording loops on top of the arrangement for its
+  // full length, like sampling/looping a vocal hook over a produced
+  // backing track — a real, common production technique.
+  let vocalBuffer = recordedVoiceBuffer;
+  const trimStart = Number(document.getElementById("voice-trim-start").value);
+  const trimEnd = Number(document.getElementById("voice-trim-end").value);
+  if (trimStart > 0 || trimEnd < vocalBuffer.duration) {
+    vocalBuffer = trimBuffer(engine.ctx, vocalBuffer, trimStart, trimEnd);
+  }
+  engine.addTrack("Producer: Your voice", vocalBuffer);
+  const vocalTrack = engine.tracks[engine.tracks.length - 1];
+  vocalTrack.loop = true;
+
+  renderTrackList();
+  renderTimeline();
+  updateScrubber();
+  voiceStatus.textContent = `Built a ${totalBars}-bar ${genre.label} arrangement in ${["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"][tonic]} ${genre.scale} (~${Math.round((totalBars * barSec) / 60)} min) — your voice loops on top. Everything's a normal track: edit, mute, or remove any of it.`;
+}
+
+document.getElementById("producer-build-btn").onclick = buildAutoProducerSong;
 
 voiceRenderBtn.onclick = async () => {
   const result = await buildVoiceInstrumentBuffer();

@@ -184,6 +184,17 @@
                 <button id="voice-preview-btn" disabled title="Hear it through the chosen instrument before adding it">Preview</button>
                 <button class="is-primary" id="voice-render-btn" disabled>Add to timeline</button>
                 <button id="voice-discard-btn" disabled title="Throw away this recording and start over">Discard</button>
+                <label class="timeline-layer__inline-range" title="Builds an original drum/bass/chord/melody arrangement in this genre and key, then loops your recording underneath it for about two minutes">
+                  In-house producer
+                  <select id="producer-genre">
+                    <option value="pop">Pop</option>
+                    <option value="hiphop">Hip-Hop</option>
+                    <option value="house">House</option>
+                    <option value="jazz">Jazz</option>
+                    <option value="holiday">Holiday</option>
+                  </select>
+                  <button class="is-primary" id="producer-build-btn" disabled>Turn into a song</button>
+                </label>
               </div>
             </div>
             <div class="timeline-layer timeline-layer--special">
