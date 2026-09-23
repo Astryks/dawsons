@@ -3,7 +3,7 @@ import { DEMO_SONGS } from "./demo-songs.js";
 import { renderVoice, renderDrumHit } from "./synth.js";
 import { reverseBuffer, pitchShiftBuffer, trimBuffer, buildEffectChain } from "./effects.js";
 import { detectNotes, snapNotesToScale, MAJOR_SCALE, MINOR_SCALE } from "./pitch.js";
-import { STARTERS } from "./starter-patterns.js";
+import { STARTERS, PRESET_LIBRARY } from "./starter-patterns.js";
 import { paletteFor, soundLabel, createPattern, toggleStep, autoFillEveryBeats, setBpm, getStepSec, rebuildBuffer } from "./pattern-editor.js";
 import { instrumentIconSvg, uiIconSvg } from "./instrument-icons.js";
 import { audioBufferToBase64Wav, base64WavToAudioBuffer, encodeWav } from "./wav-encoder.js";
@@ -17,9 +17,8 @@ let playheadTimer = null;
 // which sound from its palette is currently "armed" to place on tap.
 let activeTrackIndex = null;
 let armedSound = null;
-// Whether the GarageBand-style instrument browser is open in the
-// timeline, and the current text in its search box.
-let instrumentBrowserOpen = false;
+// Current text in the sidebar instrument browser's search box (the
+// browser itself is always visible now, not a toggle-open panel).
 let instrumentSearchQuery = "";
 // Tempo, in beats per minute. Only genuinely retimes pattern-backed
 // tracks (drums/bass/keys/guitar/any custom pattern track), since their
@@ -172,23 +171,11 @@ function trackFamily(track, index) {
   return track.pattern?.family || currentSong?.layers[index]?.family || null;
 }
 
-function renderSongPicker() {
-  const el = document.getElementById("song-picker");
-  el.innerHTML = "";
-  for (const song of DEMO_SONGS) {
-    const div = document.createElement("div");
-    div.className = "instrument-track";
-    div.innerHTML = `
-      <div class="instrument-track__icon">${uiIconSvg("note")}</div>
-      <div class="instrument-track__body">
-        <div class="instrument-track__name">${song.title}</div>
-        <div class="daw-note" style="margin:0">${song.genre}</div>
-      </div>`;
-    div.onclick = () => loadSong(song);
-    el.appendChild(div);
-  }
-}
-
+// The example-song picker UI was removed per direct feedback ("remove
+// the preset templates, they're not good") — the sidebar now leads
+// with the instrument browser and the preset pattern library instead.
+// `loadSong` itself stays: a shared link built before this change
+// (`?song=...`) should keep working, not silently break.
 async function loadSong(song) {
   await engine.resume();
   pushUndo();
@@ -330,18 +317,20 @@ function renderTimeline() {
 
   const emptyNote = engine.tracks.length
     ? ""
-    : '<p class="daw-note">Every track was removed — tap "+" below or pick an example song to start again.</p>';
+    : '<p class="daw-note">Every track was removed — use "Add an instrument" or a preset in the sidebar to start again.</p>';
 
-  el.innerHTML = trackRows + emptyNote + renderInstrumentBrowserHtml();
+  el.innerHTML = trackRows + emptyNote;
   renderWaveform();
 }
 
 // A GarageBand Sound-Library-style browser: search box + instruments
 // grouped by category, each with its own icon and two clear actions
 // (a ready-to-go starter riff, or a blank grid to build from nothing)
-// instead of one flat alphabet-soup button list. Always lists every
-// family, including ones already on the timeline — GarageBand lets you
-// add a second Piano track just as easily as a first.
+// instead of one flat alphabet-soup button list. Lives permanently in
+// the left sidebar now (not a toggle-open panel) — "show a detailed
+// dropdown of instruments on the left." Always lists every family,
+// including ones already on the timeline — GarageBand lets you add a
+// second Piano track just as easily as a first.
 function renderInstrumentCategoriesHtml(query) {
   const q = query.trim().toLowerCase();
   const categoriesHtml = INSTRUMENT_CATEGORIES.map((cat) => {
@@ -363,18 +352,9 @@ function renderInstrumentCategoriesHtml(query) {
   return categoriesHtml || '<p class="daw-note">No instruments match that search.</p>';
 }
 
-function renderInstrumentBrowserHtml() {
-  if (!instrumentBrowserOpen) {
-    return `<button type="button" class="timeline-add-btn" id="add-instrument-btn">+ Add an instrument</button>`;
-  }
-  return `
-    <div class="instrument-browser">
-      <div class="instrument-browser__header">
-        <input type="text" id="instrument-search" class="instrument-browser__search" placeholder="Search instruments…" value="${instrumentSearchQuery}" autofocus />
-        <button type="button" class="side-panel__close" id="instrument-browser-close" title="Close">✕</button>
-      </div>
-      <div id="instrument-browser-results">${renderInstrumentCategoriesHtml(instrumentSearchQuery)}</div>
-    </div>`;
+function renderSidebarInstrumentBrowser() {
+  const el = document.getElementById("sidebar-instrument-browser");
+  el.innerHTML = renderInstrumentCategoriesHtml(instrumentSearchQuery);
 }
 
 function handleAddBlankTrack(family) {
@@ -383,7 +363,44 @@ function handleAddBlankTrack(family) {
   engine.addTrack(FAMILY_DISPLAY_NAME[family] || family, pattern.buffer, pattern);
   activeTrackIndex = engine.tracks.length - 1;
   armedSound = paletteFor(family)[0]?.key || null;
-  instrumentBrowserOpen = false;
+  renderTrackList();
+  renderTimeline();
+  renderSoundPicker();
+}
+
+// The sidebar's "Preset patterns" panel — several genuinely distinct,
+// named patterns per instrument (see starter-patterns.js) instead of
+// the removed example-song picker. One click drops a fully-arranged
+// pattern track straight into the timeline, already on the beat.
+function renderPresetLibrary() {
+  const el = document.getElementById("preset-library");
+  el.innerHTML = PRESET_LIBRARY.map(
+    (group) => `
+      <div class="instrument-browser__category">
+        <div class="instrument-browser__category-name">${group.label}</div>
+        ${group.presets
+          .map(
+            (preset) => `
+          <div class="instrument-browser__row">
+            <div class="instrument-browser__icon instrument-icon--${group.family}">${instrumentIconSvg(group.family)}</div>
+            <div class="instrument-browser__name">${preset.label}</div>
+            <button type="button" class="instrument-browser__action" data-add-preset="${preset.key}" title="Add this preset to the timeline">Add</button>
+          </div>`,
+          )
+          .join("")}
+      </div>`,
+  ).join("");
+}
+
+function handleAddPreset(presetKey) {
+  const group = PRESET_LIBRARY.find((g) => g.presets.some((p) => p.key === presetKey));
+  const preset = group?.presets.find((p) => p.key === presetKey);
+  if (!preset) return;
+  const pattern = createPattern(engine.ctx, engine.ctx.sampleRate, preset.family, preset.hits);
+  pushUndo();
+  engine.addTrack(preset.label, pattern.buffer, pattern);
+  activeTrackIndex = engine.tracks.length - 1;
+  armedSound = paletteFor(preset.family)[0]?.key || null;
   renderTrackList();
   renderTimeline();
   renderSoundPicker();
@@ -683,28 +700,6 @@ document.getElementById("timeline").addEventListener("click", (e) => {
     renderSoundPicker();
     return;
   }
-  if (e.target.closest("#add-instrument-btn")) {
-    instrumentBrowserOpen = true;
-    instrumentSearchQuery = "";
-    renderTimeline();
-    document.getElementById("instrument-search")?.focus();
-    return;
-  }
-  if (e.target.closest("#instrument-browser-close")) {
-    instrumentBrowserOpen = false;
-    renderTimeline();
-    return;
-  }
-  const addFamilyBtn = e.target.closest("[data-add-family]");
-  if (addFamilyBtn) {
-    handleAddInstrumentTrack(addFamilyBtn.dataset.addFamily);
-    return;
-  }
-  const addBlankFamilyBtn = e.target.closest("[data-add-blank-family]");
-  if (addBlankFamilyBtn) {
-    handleAddBlankTrack(addBlankFamilyBtn.dataset.addBlankFamily);
-    return;
-  }
   // Clicking anywhere else on a track's row (e.g. a plain audio bar,
   // not a pattern step) still selects it and opens its sidebar picker
   // — "click a part of the song, it guides you to the dropdown on the
@@ -717,14 +712,32 @@ document.getElementById("timeline").addEventListener("click", (e) => {
   }
 });
 
-// Filters the instrument browser's results live as you type — updates
-// only the results div (not the whole panel via renderTimeline) so the
-// search input never loses focus/cursor position mid-keystroke.
-document.getElementById("timeline").addEventListener("input", (e) => {
-  if (e.target.id !== "instrument-search") return;
+// Filters the sidebar instrument browser live as you type — updates
+// only the results div (not the whole sidebar) so the search input
+// never loses focus/cursor position mid-keystroke.
+document.getElementById("sidebar-instrument-search").addEventListener("input", (e) => {
   instrumentSearchQuery = e.target.value;
-  const results = document.getElementById("instrument-browser-results");
-  if (results) results.innerHTML = renderInstrumentCategoriesHtml(instrumentSearchQuery);
+  renderSidebarInstrumentBrowser();
+  document.getElementById("sidebar-instrument-search").focus();
+});
+
+// The instrument browser and preset library both live in the sidebar
+// now, outside #timeline, so they get their own click delegation.
+document.querySelector(".daw-sidebar").addEventListener("click", (e) => {
+  const addFamilyBtn = e.target.closest("[data-add-family]");
+  if (addFamilyBtn) {
+    handleAddInstrumentTrack(addFamilyBtn.dataset.addFamily);
+    return;
+  }
+  const addBlankFamilyBtn = e.target.closest("[data-add-blank-family]");
+  if (addBlankFamilyBtn) {
+    handleAddBlankTrack(addBlankFamilyBtn.dataset.addBlankFamily);
+    return;
+  }
+  const addPresetBtn = e.target.closest("[data-add-preset]");
+  if (addPresetBtn) {
+    handleAddPreset(addPresetBtn.dataset.addPreset);
+  }
 });
 
 // --- Right-click context menu: mute/solo/rename/clear/remove a track,
@@ -744,22 +757,14 @@ document.getElementById("timeline").addEventListener("contextmenu", (e) => {
   const layer = e.target.closest(".timeline-layer");
   // Right-clicking empty space below the last track (no row there at
   // all) still guides you straight to the instrument browser — you
-  // shouldn't have to already have a track to right-click on one.
+  // shouldn't have to already have a track to right-click on one. The
+  // browser lives permanently in the sidebar now, so this just scrolls
+  // it into view and focuses the search box instead of "opening" it.
   if (!layer || layer.dataset.trackIndex === undefined) {
     e.preventDefault();
     closeContextMenu();
-    const menu = document.createElement("div");
-    menu.className = "context-menu";
-    menu.style.left = `${e.clientX}px`;
-    menu.style.top = `${e.clientY}px`;
-    menu.innerHTML = `<button data-menu-idx="0">+ Add an instrument</button>`;
-    document.body.appendChild(menu);
-    contextMenuEl = menu;
-    menu.querySelector("button").onclick = () => {
-      instrumentBrowserOpen = true;
-      closeContextMenu();
-      renderTimeline();
-    };
+    document.getElementById("sidebar-instrument-browser").scrollIntoView({ behavior: "smooth", block: "center" });
+    document.getElementById("sidebar-instrument-search").focus();
     return;
   }
   e.preventDefault();
@@ -794,7 +799,13 @@ document.getElementById("timeline").addEventListener("contextmenu", (e) => {
       engine.removeTrack(i);
     },
   });
-  items.push({ label: "+ Add an instrument", action: () => (instrumentBrowserOpen = true) });
+  items.push({
+    label: "+ Add an instrument",
+    action: () => {
+      document.getElementById("sidebar-instrument-browser").scrollIntoView({ behavior: "smooth", block: "center" });
+      document.getElementById("sidebar-instrument-search").focus();
+    },
+  });
 
   menu.innerHTML = items.map((item, idx) => `<button data-menu-idx="${idx}">${item.label}</button>`).join("");
   document.body.appendChild(menu);
@@ -883,7 +894,6 @@ function handleAddInstrumentTrack(family) {
   engine.addTrack(FAMILY_DISPLAY_NAME[family] || family, pattern.buffer, pattern);
   activeTrackIndex = engine.tracks.length - 1;
   armedSound = paletteFor(family)[0]?.key || null;
-  instrumentBrowserOpen = false;
   renderTrackList();
   renderTimeline();
   renderSoundPicker();
@@ -1610,11 +1620,43 @@ voiceRenderBtn.onclick = async () => {
 // A S D F G H J K / W E T Y U, GarageBand's "Musical Typing" layout)
 // — both feed the same Record/Preview/Discard/Add-to-timeline take,
 // so a beat and a melody can be finger-drummed into the same take. ---
-const KEYBOARD_KEY_MAP = { a: 60, w: 61, s: 62, e: 63, d: 64, f: 65, t: 66, g: 67, y: 68, h: 69, u: 70, j: 71, k: 72 };
-// z/x/c/v (not q/w/e/r) for the pad grid's second row specifically so
-// nothing collides with the piano keyboard's own W/E/T/Y/U black-key
-// shortcuts below.
-const PAD_KEY_MAP = { 1: "kick", 2: "snare", 3: "clap", 4: "hihat", z: "kick2", x: "rimshot", c: "openhat", v: "crash" };
+// Two octaves via the classic "Musical Typing"-style layout: the
+// bottom row (Z...M) plays one octave of white keys with S/D/G/H/J as
+// the black keys above them, and the row above (Q...U) continues into
+// the next octave with 2/3/5/6/7 as its black keys — a long-standing,
+// generic computer-keyboard-as-MIDI-keyboard convention (not specific
+// to any one product), chosen because it actually uses most of the
+// keyboard instead of one cramped octave.
+const KEYBOARD_KEY_MAP = {
+  z: 60,
+  s: 61,
+  x: 62,
+  d: 63,
+  c: 64,
+  v: 65,
+  g: 66,
+  b: 67,
+  h: 68,
+  n: 69,
+  j: 70,
+  m: 71,
+  q: 72,
+  2: 73,
+  w: 74,
+  3: 75,
+  e: 76,
+  r: 77,
+  5: 78,
+  t: 79,
+  6: 80,
+  y: 81,
+  7: 82,
+  u: 83,
+};
+// F1-F8, not letters/digits — the two-octave keyboard above now uses
+// nearly the entire alphanumeric block, so the pads get their own
+// unclaimed row instead of colliding with it.
+const PAD_KEY_MAP = { f1: "kick", f2: "snare", f3: "clap", f4: "hihat", f5: "kick2", f6: "rimshot", f7: "openhat", f8: "crash" };
 const KEYBOARD_PREVIEW_DURATION_SEC = 0.9;
 const heldPads = new Map(); // id ("note:60" or "drum:kick") -> { startedAtMs }
 let keyboardRecording = false;
@@ -1627,10 +1669,19 @@ function isTypingIntoField() {
   return el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable);
 }
 
+// The on-screen keys/pads carry `data-note="60"` or `data-drum="kick"`
+// — there's no literal `data-pad-id` attribute in the markup, so the
+// selector has to be built from the same `"note:60"`/`"drum:kick"` id
+// scheme padOn/padOff/wirePadSurface already share.
+function padElements(id) {
+  const [kind, value] = id.split(":");
+  return document.querySelectorAll(`[data-${kind}="${value}"]`);
+}
+
 function padOn(id) {
   if (heldPads.has(id)) return; // already sounding (key-repeat) — don't re-trigger
   heldPads.set(id, { startedAtMs: performance.now() });
-  document.querySelectorAll(`[data-pad-id="${id}"]`).forEach((el) => el.classList.add("is-active"));
+  padElements(id).forEach((el) => el.classList.add("is-active"));
 
   const sampleRate = engine.ctx.sampleRate;
   const [kind, value] = id.split(":");
@@ -1651,7 +1702,7 @@ function padOff(id) {
   const held = heldPads.get(id);
   if (!held) return;
   heldPads.delete(id);
-  document.querySelectorAll(`[data-pad-id="${id}"]`).forEach((el) => el.classList.remove("is-active"));
+  padElements(id).forEach((el) => el.classList.remove("is-active"));
   if (keyboardRecording) {
     const startSec = (held.startedAtMs - keyboardRecordStartMs) / 1000;
     const durationSec = Math.max(0.12, (performance.now() - held.startedAtMs) / 1000);
@@ -1687,6 +1738,7 @@ window.addEventListener("keydown", async (e) => {
   const note = KEYBOARD_KEY_MAP[key];
   const drum = PAD_KEY_MAP[key];
   if (note === undefined && drum === undefined) return;
+  if (drum !== undefined) e.preventDefault(); // F1-F8 otherwise trigger browser/OS shortcuts on some machines
   await engine.resume();
   if (note !== undefined) padOn(`note:${note}`);
   if (drum !== undefined) padOn(`drum:${drum}`);
@@ -2297,8 +2349,9 @@ document.getElementById("share-btn").onclick = () => {
 document.getElementById("undo-btn").onclick = handleUndo;
 document.getElementById("redo-btn").onclick = handleRedo;
 
-renderSongPicker();
 initializeDefaultTracks();
+renderSidebarInstrumentBrowser();
+renderPresetLibrary();
 updateScrubber();
 updateUndoRedoButtons();
 

@@ -43,9 +43,6 @@
 
     <div class="daw-body">
       <aside class="daw-sidebar">
-        <div class="daw-sidebar__section-title">Example songs</div>
-        <div id="song-picker"></div>
-
         <div class="daw-sidebar__section-title">Your layers</div>
         <div id="track-list"></div>
 
@@ -53,6 +50,14 @@
         <div class="sound-picker" id="sound-picker">
           <p class="daw-note">Click a beat track's row in the timeline to edit its sounds.</p>
         </div>
+
+        <div class="daw-sidebar__section-title">Add an instrument</div>
+        <input type="text" id="sidebar-instrument-search" class="instrument-browser__search" placeholder="Search instruments…" />
+        <div id="sidebar-instrument-browser"></div>
+
+        <div class="daw-sidebar__section-title">Preset patterns</div>
+        <p class="daw-note" style="margin-top: 0">Click a preset to drop a fully-arranged, ready-to-edit pattern straight into the timeline.</p>
+        <div id="preset-library"></div>
 
         <div class="daw-sidebar__section-title">Add a sound</div>
         <div class="instrument-track" id="upload-track" style="cursor: pointer">
@@ -115,6 +120,73 @@
 
         <div class="daw-timeline">
           <div class="timeline-special" id="special-tracks">
+            <div class="timeline-layer timeline-layer--special">
+              <div class="timeline-layer__label"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg> MIDI Instrument</div>
+              <div class="timeline-layer__special-body timeline-layer__special-body--column">
+                <div class="midi-keyboard-controls">
+                  <select id="keyboard-instrument" class="midi-keyboard-controls__instrument" title="Instrument — change this to make the keyboard below sound like anything">
+                    <option value="keys">Piano</option>
+                    <option value="guitar">Guitar</option>
+                    <option value="bass">Bass</option>
+                    <option value="lead">Lead</option>
+                    <option value="pad">Pad</option>
+                    <option value="brass">Brass</option>
+                    <option value="bell">Bell</option>
+                    <option value="flute">Flute</option>
+                    <option value="saxophone">Saxophone</option>
+                    <option value="clarinet">Clarinet</option>
+                    <option value="strings">Strings</option>
+                    <option value="organ">Organ</option>
+                    <option value="epiano">Electric Piano</option>
+                    <option value="choir">Choir</option>
+                    <option value="synthbass">Synth Bass</option>
+                    <option value="marimba">Marimba</option>
+                    <option value="trumpet">Trumpet</option>
+                  </select>
+                  <button id="keyboard-record-btn"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg> Record performance</button>
+                  <span id="keyboard-status" class="daw-note" style="margin: 0">Click keys/pads, or play with your computer keyboard.</span>
+                  <button id="keyboard-preview-btn" disabled>Preview</button>
+                  <button class="is-primary" id="keyboard-add-btn" disabled>Add to timeline</button>
+                  <button id="keyboard-discard-btn" disabled>Discard</button>
+                </div>
+                <div class="mpc-pad-grid" id="mpc-pad-grid">
+                  <div class="mpc-pad" data-drum="kick"><span>Kick</span><span class="mpc-pad__key">F1</span></div>
+                  <div class="mpc-pad" data-drum="snare"><span>Snare</span><span class="mpc-pad__key">F2</span></div>
+                  <div class="mpc-pad" data-drum="clap"><span>Clap</span><span class="mpc-pad__key">F3</span></div>
+                  <div class="mpc-pad" data-drum="hihat"><span>Hat</span><span class="mpc-pad__key">F4</span></div>
+                  <div class="mpc-pad" data-drum="kick2"><span>Deep Kick</span><span class="mpc-pad__key">F5</span></div>
+                  <div class="mpc-pad" data-drum="rimshot"><span>Rimshot</span><span class="mpc-pad__key">F6</span></div>
+                  <div class="mpc-pad" data-drum="openhat"><span>Open Hat</span><span class="mpc-pad__key">F7</span></div>
+                  <div class="mpc-pad" data-drum="crash"><span>Crash</span><span class="mpc-pad__key">F8</span></div>
+                </div>
+                <div class="midi-keyboard" id="midi-keyboard">
+                  <div class="midi-keyboard__white" data-note="60"><span class="midi-keyboard__label">Z</span></div>
+                  <div class="midi-keyboard__white" data-note="62"><span class="midi-keyboard__label">X</span></div>
+                  <div class="midi-keyboard__white" data-note="64"><span class="midi-keyboard__label">C</span></div>
+                  <div class="midi-keyboard__white" data-note="65"><span class="midi-keyboard__label">V</span></div>
+                  <div class="midi-keyboard__white" data-note="67"><span class="midi-keyboard__label">B</span></div>
+                  <div class="midi-keyboard__white" data-note="69"><span class="midi-keyboard__label">N</span></div>
+                  <div class="midi-keyboard__white" data-note="71"><span class="midi-keyboard__label">M</span></div>
+                  <div class="midi-keyboard__white" data-note="72"><span class="midi-keyboard__label">Q</span></div>
+                  <div class="midi-keyboard__white" data-note="74"><span class="midi-keyboard__label">W</span></div>
+                  <div class="midi-keyboard__white" data-note="76"><span class="midi-keyboard__label">E</span></div>
+                  <div class="midi-keyboard__white" data-note="77"><span class="midi-keyboard__label">R</span></div>
+                  <div class="midi-keyboard__white" data-note="79"><span class="midi-keyboard__label">T</span></div>
+                  <div class="midi-keyboard__white" data-note="81"><span class="midi-keyboard__label">Y</span></div>
+                  <div class="midi-keyboard__white" data-note="83"><span class="midi-keyboard__label">U</span></div>
+                  <div class="midi-keyboard__black" data-note="61" style="left: 4.14%"><span class="midi-keyboard__label">S</span></div>
+                  <div class="midi-keyboard__black" data-note="63" style="left: 11.29%"><span class="midi-keyboard__label">D</span></div>
+                  <div class="midi-keyboard__black" data-note="66" style="left: 25.57%"><span class="midi-keyboard__label">G</span></div>
+                  <div class="midi-keyboard__black" data-note="68" style="left: 32.71%"><span class="midi-keyboard__label">H</span></div>
+                  <div class="midi-keyboard__black" data-note="70" style="left: 39.86%"><span class="midi-keyboard__label">J</span></div>
+                  <div class="midi-keyboard__black" data-note="73" style="left: 54.14%"><span class="midi-keyboard__label">2</span></div>
+                  <div class="midi-keyboard__black" data-note="75" style="left: 61.29%"><span class="midi-keyboard__label">3</span></div>
+                  <div class="midi-keyboard__black" data-note="78" style="left: 75.57%"><span class="midi-keyboard__label">5</span></div>
+                  <div class="midi-keyboard__black" data-note="80" style="left: 82.71%"><span class="midi-keyboard__label">6</span></div>
+                  <div class="midi-keyboard__black" data-note="82" style="left: 89.86%"><span class="midi-keyboard__label">7</span></div>
+                </div>
+              </div>
+            </div>
             <div class="timeline-layer timeline-layer--special">
               <div class="timeline-layer__label"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M9 5.5h6M9 8.5h6" stroke-width="1.2"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5v3.5"/><path d="M8.5 21h7"/></svg> Voice</div>
               <div class="timeline-layer__special-body">
@@ -196,62 +268,6 @@
                   </select>
                   <button class="is-primary" id="producer-build-btn" disabled>Turn into a song</button>
                 </label>
-              </div>
-            </div>
-            <div class="timeline-layer timeline-layer--special">
-              <div class="timeline-layer__label"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg> Play an instrument</div>
-              <div class="timeline-layer__special-body timeline-layer__special-body--column">
-                <div class="midi-keyboard-controls">
-                  <select id="keyboard-instrument" title="Instrument">
-                    <option value="keys">Piano</option>
-                    <option value="guitar">Guitar</option>
-                    <option value="bass">Bass</option>
-                    <option value="lead">Lead</option>
-                    <option value="pad">Pad</option>
-                    <option value="brass">Brass</option>
-                    <option value="bell">Bell</option>
-                    <option value="flute">Flute</option>
-                    <option value="saxophone">Saxophone</option>
-                    <option value="clarinet">Clarinet</option>
-                    <option value="strings">Strings</option>
-                    <option value="organ">Organ</option>
-                    <option value="epiano">Electric Piano</option>
-                    <option value="choir">Choir</option>
-                    <option value="synthbass">Synth Bass</option>
-                    <option value="marimba">Marimba</option>
-                    <option value="trumpet">Trumpet</option>
-                  </select>
-                  <button id="keyboard-record-btn"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg> Record performance</button>
-                  <span id="keyboard-status" class="daw-note" style="margin: 0">Click keys, or play with your computer keyboard (A S D F G H J K, W E T Y U for the black keys).</span>
-                  <button id="keyboard-preview-btn" disabled>Preview</button>
-                  <button class="is-primary" id="keyboard-add-btn" disabled>Add to timeline</button>
-                  <button id="keyboard-discard-btn" disabled>Discard</button>
-                </div>
-                <div class="mpc-pad-grid" id="mpc-pad-grid">
-                  <div class="mpc-pad" data-drum="kick"><span>Kick</span><span class="mpc-pad__key">1</span></div>
-                  <div class="mpc-pad" data-drum="snare"><span>Snare</span><span class="mpc-pad__key">2</span></div>
-                  <div class="mpc-pad" data-drum="clap"><span>Clap</span><span class="mpc-pad__key">3</span></div>
-                  <div class="mpc-pad" data-drum="hihat"><span>Hat</span><span class="mpc-pad__key">4</span></div>
-                  <div class="mpc-pad" data-drum="kick2"><span>Deep Kick</span><span class="mpc-pad__key">Z</span></div>
-                  <div class="mpc-pad" data-drum="rimshot"><span>Rimshot</span><span class="mpc-pad__key">X</span></div>
-                  <div class="mpc-pad" data-drum="openhat"><span>Open Hat</span><span class="mpc-pad__key">C</span></div>
-                  <div class="mpc-pad" data-drum="crash"><span>Crash</span><span class="mpc-pad__key">V</span></div>
-                </div>
-                <div class="midi-keyboard" id="midi-keyboard">
-                  <div class="midi-keyboard__white" data-note="60"><span class="midi-keyboard__label">A</span></div>
-                  <div class="midi-keyboard__white" data-note="62"><span class="midi-keyboard__label">S</span></div>
-                  <div class="midi-keyboard__white" data-note="64"><span class="midi-keyboard__label">D</span></div>
-                  <div class="midi-keyboard__white" data-note="65"><span class="midi-keyboard__label">F</span></div>
-                  <div class="midi-keyboard__white" data-note="67"><span class="midi-keyboard__label">G</span></div>
-                  <div class="midi-keyboard__white" data-note="69"><span class="midi-keyboard__label">H</span></div>
-                  <div class="midi-keyboard__white" data-note="71"><span class="midi-keyboard__label">J</span></div>
-                  <div class="midi-keyboard__white" data-note="72"><span class="midi-keyboard__label">K</span></div>
-                  <div class="midi-keyboard__black" data-note="61" style="left: 9.5%"><span class="midi-keyboard__label">W</span></div>
-                  <div class="midi-keyboard__black" data-note="63" style="left: 22%"><span class="midi-keyboard__label">E</span></div>
-                  <div class="midi-keyboard__black" data-note="66" style="left: 47%"><span class="midi-keyboard__label">T</span></div>
-                  <div class="midi-keyboard__black" data-note="68" style="left: 59.5%"><span class="midi-keyboard__label">Y</span></div>
-                  <div class="midi-keyboard__black" data-note="70" style="left: 72%"><span class="midi-keyboard__label">U</span></div>
-                </div>
               </div>
             </div>
             <div class="timeline-layer timeline-layer--special">

@@ -606,6 +606,12 @@ body {
   margin-bottom: 0.3rem;
 }
 
+#sidebar-instrument-search {
+  width: 100%;
+  margin-bottom: 0.4rem;
+  box-sizing: border-box;
+}
+
 .instrument-browser__search {
   flex: 1;
   padding: 0.5rem 0.7rem;
