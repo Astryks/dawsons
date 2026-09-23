@@ -1,0 +1,98 @@
+/* Shared layout for SEO / LLM intent hub pages — MyDawsons marketing only. */
+.hub-main {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem 3.5rem;
+  line-height: 1.55;
+}
+.hub-main h1 {
+  font-size: 1.75rem;
+  margin: 0 0 0.75rem;
+  line-height: 1.25;
+}
+.hub-eyebrow {
+  color: var(--purple);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 0 0 0.5rem;
+}
+.hub-intro {
+  color: var(--text-dim);
+  font-size: 1.05rem;
+  margin: 0 0 1.25rem;
+}
+.hub-ctas {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin: 0 0 2rem;
+}
+.hub-ctas a {
+  display: inline-block;
+  padding: 0.55rem 1rem;
+  border-radius: 999px;
+  text-decoration: none;
+  font-size: 0.9rem;
+  font-weight: 600;
+  border: 1px solid var(--border);
+  background: var(--panel-alt);
+  color: var(--text);
+}
+.hub-ctas a.is-primary {
+  background: var(--purple-deep);
+  border-color: var(--purple-deep);
+  color: #fff;
+}
+.hub-section {
+  margin: 0 0 1.75rem;
+}
+.hub-section h2 {
+  font-size: 1.15rem;
+  margin: 0 0 0.5rem;
+}
+.hub-section p,
+.hub-section li {
+  color: var(--text-dim);
+  margin: 0 0 0.65rem;
+}
+.hub-section ul {
+  margin: 0 0 0.65rem;
+  padding-left: 1.2rem;
+}
+.hub-section a {
+  color: var(--blue);
+}
+.hub-faq details {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.75rem 1rem;
+  margin: 0 0 0.6rem;
+}
+.hub-faq summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.hub-faq details p {
+  margin: 0.6rem 0 0;
+  color: var(--text-dim);
+}
+.hub-related {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  margin-top: 0.5rem;
+}
+.hub-related a {
+  color: var(--teal);
+  font-size: 0.9rem;
+}
+.hub-note {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+  margin-top: 2rem;
+}
