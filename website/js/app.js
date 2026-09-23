@@ -1367,51 +1367,138 @@ const MINOR_TRIAD_QUALITIES = ["min", "dim", "maj", "min", "min", "maj", "maj"];
 // rhythm template (one sound name or null per eighth-note step) —
 // the same generic rhythm-vocabulary idea demo-songs.js's own drum
 // bar generators already use.
+// Two drum-density variants per feel — "full" for a chorus/drop/hook,
+// "sparse" for a verse (or omitted entirely for an intro/breakdown) —
+// so a section actually sounds different from the one next to it,
+// not just a different chord underneath the same beat.
+const DRUM_VARIANTS = {
+  popFull: ["kick", "hihat", "snare", "hihat", "kick", "hihat", "snare", "hihat"],
+  popSparse: ["kick", null, null, null, "snare", null, null, null],
+  hiphopFull: ["kick", "hihat", "clap", "hihat", "kick", "hihat", "snare", "hihat"],
+  hiphopSparse: ["kick", null, "hihat", null, "kick", null, "hihat", null],
+  houseFull: ["kick", "hihat", "clap", "hihat", "kick", "hihat", "clap", "openhat"],
+  houseSparse: ["kick", null, null, null, "kick", null, null, null],
+  blues: ["kick", "hihat", "snare", "hihat", "kick", "hihat", "snare", "hihat"],
+  jazz: ["hihat", "shaker", "rimshot", "shaker", "hihat", "shaker", "rimshot", "shaker"],
+  holidayFull: ["kick", "hihat", "snare", "hihat", "kick", "hihat", "snare", "hihat"],
+  holidaySparse: ["kick", null, null, null, "snare", null, null, null],
+};
+
+// Real song FORM per genre — the actual gap this replaces: one
+// progression tiled flat for two minutes reads the same regardless of
+// genre, but a pop song's verse/chorus/bridge contrast, a 12-bar
+// blues's constant cycling, a jazz standard's 32-bar AABA form, hip-
+// hop's loop-with-a-hook, and house's build/drop/breakdown are
+// genuinely different, well-documented structures — public-domain
+// song-form vocabulary (like knowing a sonnet has 14 lines), not
+// anything transcribed from a specific real recording. Each section:
+// {name, bars, progression (scale-degree cycle for just this
+// section), drums (a DRUM_VARIANTS key or null for no drums), layers
+// (which of bass/arp/chords play here)}.
 const PRODUCER_GENRES = {
   pop: {
     label: "Pop",
     scale: "major",
-    progression: [0, 4, 5, 3], // I-V-vi-IV
     chordFamily: "keys",
     arpFamily: "guitar",
     bassFamily: "bass",
-    drumBar: ["kick", "hihat", "snare", "hihat", "kick", "hihat", "snare", "hihat"],
+    sections: [
+      { name: "Intro", bars: 4, progression: [0, 4, 5, 3], drums: null, layers: { bass: false, arp: false, chords: true } },
+      { name: "Verse", bars: 8, progression: [0, 4, 5, 3], drums: "popSparse", layers: { bass: true, arp: false, chords: true } },
+      { name: "Chorus", bars: 8, progression: [0, 4, 5, 3], drums: "popFull", layers: { bass: true, arp: true, chords: true } },
+      { name: "Verse", bars: 8, progression: [0, 4, 5, 3], drums: "popSparse", layers: { bass: true, arp: false, chords: true } },
+      { name: "Chorus", bars: 8, progression: [0, 4, 5, 3], drums: "popFull", layers: { bass: true, arp: true, chords: true } },
+      { name: "Bridge", bars: 4, progression: [5, 3, 0, 4], drums: null, layers: { bass: true, arp: false, chords: true } },
+      { name: "Chorus", bars: 8, progression: [0, 4, 5, 3], drums: "popFull", layers: { bass: true, arp: true, chords: true } },
+      { name: "Outro", bars: 4, progression: [3, 0, 0, 0], drums: null, layers: { bass: false, arp: false, chords: true } },
+    ],
   },
   hiphop: {
     label: "Hip-Hop",
     scale: "minor",
-    progression: [0, 5, 2, 6], // i-VI-III-VII
     chordFamily: "epiano",
     arpFamily: "lead",
     bassFamily: "synthbass",
-    drumBar: ["kick", "hihat", "clap", "hihat", "kick", "hihat", "snare", "hihat"],
+    sections: [
+      { name: "Intro", bars: 4, progression: [0, 5, 2, 6], drums: "hiphopFull", layers: { bass: true, arp: false, chords: false } },
+      { name: "Verse", bars: 16, progression: [0, 5, 2, 6], drums: "hiphopSparse", layers: { bass: true, arp: false, chords: false } },
+      { name: "Hook", bars: 8, progression: [0, 5, 2, 6], drums: "hiphopFull", layers: { bass: true, arp: true, chords: true } },
+      { name: "Verse", bars: 16, progression: [0, 5, 2, 6], drums: "hiphopSparse", layers: { bass: true, arp: false, chords: false } },
+      { name: "Hook", bars: 8, progression: [0, 5, 2, 6], drums: "hiphopFull", layers: { bass: true, arp: true, chords: true } },
+      { name: "Outro", bars: 4, progression: [0, 5, 2, 6], drums: "hiphopSparse", layers: { bass: true, arp: false, chords: false } },
+    ],
+  },
+  // The 12-bar blues form (I-I-I-I-IV-IV-I-I-V-IV-I-V), cycled as
+  // "choruses" the way a real blues actually works — there's no
+  // verse/chorus split, the structure IS the repeating 12 bars;
+  // "solo" choruses drop the chord comping to spotlight the lead the
+  // way a real band trades solos over the same changes.
+  blues: {
+    label: "Blues",
+    scale: "major",
+    chordFamily: "keys",
+    arpFamily: "guitar",
+    bassFamily: "bass",
+    sections: [
+      { name: "Chorus 1 (head)", bars: 12, progression: [0, 0, 0, 0, 3, 3, 0, 0, 4, 3, 0, 4], drums: "blues", layers: { bass: true, arp: true, chords: true } },
+      { name: "Chorus 2 (solo)", bars: 12, progression: [0, 0, 0, 0, 3, 3, 0, 0, 4, 3, 0, 4], drums: "blues", layers: { bass: true, arp: true, chords: false } },
+      { name: "Chorus 3 (solo)", bars: 12, progression: [0, 0, 0, 0, 3, 3, 0, 0, 4, 3, 0, 4], drums: "blues", layers: { bass: true, arp: true, chords: false } },
+      { name: "Chorus 4 (head out)", bars: 12, progression: [0, 0, 0, 0, 3, 3, 0, 0, 4, 3, 0, 4], drums: "blues", layers: { bass: true, arp: true, chords: true } },
+    ],
   },
   house: {
     label: "House",
     scale: "minor",
-    progression: [0, 3, 6, 2], // i-iv-VII-III
     chordFamily: "organ",
     arpFamily: "epiano",
     bassFamily: "synthbass",
-    drumBar: ["kick", "hihat", "clap", "hihat", "kick", "hihat", "clap", "openhat"],
+    sections: [
+      { name: "Intro", bars: 8, progression: [0, 3, 6, 2], drums: "houseSparse", layers: { bass: false, arp: false, chords: false } },
+      { name: "Build", bars: 8, progression: [0, 3, 6, 2], drums: "houseSparse", layers: { bass: true, arp: false, chords: false } },
+      { name: "Drop", bars: 16, progression: [0, 3, 6, 2], drums: "houseFull", layers: { bass: true, arp: true, chords: true } },
+      { name: "Breakdown", bars: 8, progression: [0, 3, 6, 2], drums: null, layers: { bass: false, arp: true, chords: true } },
+      { name: "Build", bars: 8, progression: [0, 3, 6, 2], drums: "houseSparse", layers: { bass: true, arp: false, chords: false } },
+      { name: "Drop", bars: 16, progression: [0, 3, 6, 2], drums: "houseFull", layers: { bass: true, arp: true, chords: true } },
+    ],
   },
+  // A real 32-bar AABA jazz-standard form: two A sections stating the
+  // same progression, a contrasting B (bridge) built on the V/ii
+  // dominant cycle, then A again — repeated as a second "solo" chorus
+  // with the comping (chords) dropped so the lead reads as soloing
+  // over the same form, the standard way a jazz combo trades choruses.
   jazz: {
     label: "Jazz",
     scale: "major",
-    progression: [1, 4, 0, 5], // ii-V-I-vi
     chordFamily: "keys",
     arpFamily: "guitar",
     bassFamily: "bass",
-    drumBar: ["hihat", "shaker", "rimshot", "shaker", "hihat", "shaker", "rimshot", "shaker"],
+    sections: [
+      { name: "Head A", bars: 8, progression: [1, 4, 0, 5], drums: "jazz", layers: { bass: true, arp: true, chords: true } },
+      { name: "Head A", bars: 8, progression: [1, 4, 0, 5], drums: "jazz", layers: { bass: true, arp: true, chords: true } },
+      { name: "Head B (bridge)", bars: 8, progression: [4, 4, 1, 1], drums: "jazz", layers: { bass: true, arp: true, chords: true } },
+      { name: "Head A", bars: 8, progression: [1, 4, 0, 5], drums: "jazz", layers: { bass: true, arp: true, chords: true } },
+      { name: "Solo A", bars: 8, progression: [1, 4, 0, 5], drums: "jazz", layers: { bass: true, arp: true, chords: false } },
+      { name: "Solo A", bars: 8, progression: [1, 4, 0, 5], drums: "jazz", layers: { bass: true, arp: true, chords: false } },
+      { name: "Solo B (bridge)", bars: 8, progression: [4, 4, 1, 1], drums: "jazz", layers: { bass: true, arp: true, chords: false } },
+      { name: "Solo A", bars: 8, progression: [1, 4, 0, 5], drums: "jazz", layers: { bass: true, arp: true, chords: false } },
+    ],
   },
   holiday: {
     label: "Holiday",
     scale: "major",
-    progression: [3, 0, 4, 5], // IV-I-V-vi
     chordFamily: "keys",
     arpFamily: "bell",
     bassFamily: "bass",
-    drumBar: ["kick", "hihat", "snare", "hihat", "kick", "hihat", "snare", "hihat"],
+    sections: [
+      { name: "Intro", bars: 4, progression: [3, 0, 4, 5], drums: null, layers: { bass: false, arp: true, chords: true } },
+      { name: "Verse", bars: 8, progression: [3, 0, 4, 5], drums: "holidaySparse", layers: { bass: true, arp: false, chords: true } },
+      { name: "Chorus", bars: 8, progression: [3, 0, 4, 5], drums: "holidayFull", layers: { bass: true, arp: true, chords: true } },
+      { name: "Verse", bars: 8, progression: [3, 0, 4, 5], drums: "holidaySparse", layers: { bass: true, arp: false, chords: true } },
+      { name: "Chorus", bars: 8, progression: [3, 0, 4, 5], drums: "holidayFull", layers: { bass: true, arp: true, chords: true } },
+      { name: "Bridge", bars: 4, progression: [5, 4, 3, 0], drums: null, layers: { bass: true, arp: false, chords: true } },
+      { name: "Chorus", bars: 8, progression: [3, 0, 4, 5], drums: "holidayFull", layers: { bass: true, arp: true, chords: true } },
+      { name: "Outro", bars: 4, progression: [3, 0, 4, 5], drums: null, layers: { bass: false, arp: true, chords: true } },
+    ],
   },
 };
 
@@ -1437,39 +1524,48 @@ async function buildAutoProducerSong() {
   const sampleRate = engine.ctx.sampleRate;
   const stepSec = getStepSec();
   const barSec = stepSec * 8;
-  const targetDurationSec = 120;
-  const totalBars = Math.max(4, Math.ceil(targetDurationSec / barSec));
+  const totalBars = genre.sections.reduce((sum, s) => sum + s.bars, 0);
   const totalSteps = totalBars * 8;
 
   pushUndo();
 
-  // Drums: the same 8-step rhythm tiled across every bar.
+  // Walk the genre's real song-form section by section — each one can
+  // have its own progression, drum density (or none), and which of
+  // bass/arp/chords are even present — instead of one flat loop tiled
+  // for the whole length regardless of genre.
   const drumHits = [];
-  for (let bar = 0; bar < totalBars; bar++) {
-    for (let s = 0; s < 8; s++) {
-      const sound = genre.drumBar[s];
-      if (sound) drumHits.push({ step: bar * 8 + s, sound });
-    }
-  }
-  const drumPattern = createPattern(engine.ctx, sampleRate, "drums", drumHits, totalSteps);
-  engine.addTrack("Producer: Drums", drumPattern.buffer, drumPattern);
-
-  // Bass: a quarter-note root pulse (steps 0/2/4/6) that follows the
-  // progression's chord for each bar — the same bassPulse shape every
-  // demo song already uses, just generated per bar here instead of
-  // hand-written per song.
   const bassHits = [];
   const arpHits = [];
   const chordFamily = genre.chordFamily;
   const chordBuf = engine.ctx.createBuffer(2, Math.ceil(totalBars * barSec * sampleRate), sampleRate);
-  for (let bar = 0; bar < totalBars; bar++) {
-    const degree = genre.progression[bar % genre.progression.length];
-    const [root, third, fifth] = diatonicChord(tonic, genre.scale, degree, 48);
-    for (const s of [0, 2, 4, 6]) bassHits.push({ step: bar * 8 + s, note: root - 12 });
-    const arpCycle = [root, third, fifth, third, root, third, fifth, third];
-    for (let s = 0; s < 8; s++) arpHits.push({ step: bar * 8 + s, note: arpCycle[s] });
-    renderVoice(engine.ctx, chordBuf, chordFamily, [root, third, fifth], bar * barSec, barSec, sampleRate);
+  let barOffset = 0;
+  for (const section of genre.sections) {
+    const drumTemplate = section.drums ? DRUM_VARIANTS[section.drums] : null;
+    for (let i = 0; i < section.bars; i++) {
+      const bar = barOffset + i;
+      if (drumTemplate) {
+        for (let s = 0; s < 8; s++) {
+          const sound = drumTemplate[s];
+          if (sound) drumHits.push({ step: bar * 8 + s, sound });
+        }
+      }
+      const degree = section.progression[i % section.progression.length];
+      const [root, third, fifth] = diatonicChord(tonic, genre.scale, degree, 48);
+      if (section.layers.bass) {
+        for (const s of [0, 2, 4, 6]) bassHits.push({ step: bar * 8 + s, note: root - 12 });
+      }
+      if (section.layers.arp) {
+        const arpCycle = [root, third, fifth, third, root, third, fifth, third];
+        for (let s = 0; s < 8; s++) arpHits.push({ step: bar * 8 + s, note: arpCycle[s] });
+      }
+      if (section.layers.chords) {
+        renderVoice(engine.ctx, chordBuf, chordFamily, [root, third, fifth], bar * barSec, barSec, sampleRate);
+      }
+    }
+    barOffset += section.bars;
   }
+  const drumPattern = createPattern(engine.ctx, sampleRate, "drums", drumHits, totalSteps);
+  engine.addTrack("Producer: Drums", drumPattern.buffer, drumPattern);
   const bassPattern = createPattern(engine.ctx, sampleRate, genre.bassFamily, bassHits, totalSteps);
   engine.addTrack("Producer: Bass", bassPattern.buffer, bassPattern);
   const arpPattern = createPattern(engine.ctx, sampleRate, genre.arpFamily, arpHits, totalSteps);
