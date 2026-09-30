@@ -63,5 +63,19 @@ this list is checked before adding any new dependency.
 |---|---|---|
 | FluidR3_GM.sf2 (General MIDI SoundFont) | MIT (Copyright Frank Wen) | Instrument library — the single asset behind the full 128-program GM instrument set. Not committed to git (148MB) — fetched via `scripts/download_soundfont.sh`, same pattern as model weights. Source: [pianobooster/fluid-soundfont](https://github.com/pianobooster/fluid-soundfont). |
 
+## Browser Studio (`website/studio/`)
+
+| Component / asset | License | Notes |
+|---|---|---|
+| smplr 1.1.0 | MIT | Vendored at `website/studio/vendor/`; web-audio sampler that streams the instruments below |
+| Splendid Grand Piano (AKAI) | Public domain | Streamed from smpldsnds.github.io |
+| Greg Sullivan Wurlitzer EP200 | CC-BY 3.0 | Attribution in `website/studio/SOUND_LIBRARY.md` and the app footer's credits link |
+| VCSL (Versilian Community Sample Library) | CC0 1.0 | TX81Z FM piano |
+| FluidR3_GM renderings (gleitz/midi-js-soundfonts) | MIT (SoundFont) / CC-BY 3.0 (renderings) | All other GM instruments; MusyngKite/FatBoy (CC-BY-SA) deliberately excluded |
+| Sonic Pi sample pack | CC0 1.0 | Vendored one-shots + loop library (amen/breakbeat loops excluded) |
+| TR-808 (M. Fischer 1994) and LM-2 one-shots via smpldsnds/drum-machines | Public domain | Vendored |
+
+Full per-set provenance and confidence notes: [`website/studio/SOUND_LIBRARY.md`](website/studio/SOUND_LIBRARY.md).
+
 This file is updated whenever a new third-party dependency is added — see
 the checklist in `docs/ARCHITECTURE.md`.
