@@ -170,6 +170,7 @@ export class Timeline {
       if (c.rate !== 1) badges.push(`${c.rate.toFixed(2)}× tape`);
       if (c.stretch !== 1) badges.push(`${c.stretch.toFixed(2)}× stretch`);
       if (c.pitch) badges.push(`${c.pitch > 0 ? "+" : ""}${c.pitch} st`);
+      if (c.reverbWet) badges.push(`${Math.round(c.reverbWet * 100)}% verb`);
     }
     if (c.loop) badges.push("LOOP");
     el.innerHTML = `<canvas></canvas><div class="clip__label">${escapeHtml(c.name)}${

@@ -3,6 +3,8 @@
 //  - reverse:      sample order flipped
 //  - stretch:      WSOLA time-stretch (length changes, pitch stays)
 //  - pitch:        semitone shift with length kept (stretch + resample)
+//  - reverb:       convolution against a synthesized (not sampled)
+//                   decaying-noise impulse response — no IR file needed
 // "Tape speed" (varispeed: slower = lower, like slowing a tape) is not
 // done here — it's just playbackRate at play/export time.
 
@@ -10,14 +12,41 @@ import { getCtx } from "./audio.js";
 
 const yieldUI = () => new Promise((r) => setTimeout(r, 0));
 
-export async function processClipBuffer(src, { reversed = false, stretch = 1, pitch = 0 }) {
+export async function processClipBuffer(src, { reversed = false, stretch = 1, pitch = 0, reverbWet = 0, reverbRoom = 0.5 }) {
   let buf = src;
   if (reversed) buf = reverseBuffer(buf);
   const ratio = Math.pow(2, pitch / 12);
   const factor = stretch * ratio;
   if (Math.abs(factor - 1) > 1e-3) buf = await wsola(buf, factor);
   if (Math.abs(ratio - 1) > 1e-3) buf = await resample(buf, ratio);
+  if (reverbWet > 0) buf = await applyReverb(buf, reverbWet, reverbRoom);
   return buf;
+}
+
+// A synthesized impulse response (exponentially-decaying noise, the
+// standard cheap substitute for a recorded room/plate IR) convolved
+// against the clip — no sample file, so no licensing question.
+// `room` (0..1) controls tail length and decay shape.
+async function applyReverb(buf, wet, room) {
+  const tailSec = 0.5 + room * 2.5;
+  const off = new OfflineAudioContext(buf.numberOfChannels, buf.length + Math.ceil(tailSec * buf.sampleRate), buf.sampleRate);
+  const ir = off.createBuffer(2, Math.floor(buf.sampleRate * tailSec), buf.sampleRate);
+  for (let ch = 0; ch < 2; ch++) {
+    const d = ir.getChannelData(ch);
+    for (let i = 0, n = d.length; i < n; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / n, 2 + room * 4);
+  }
+  const src = off.createBufferSource();
+  src.buffer = buf;
+  const convolver = off.createConvolver();
+  convolver.buffer = ir;
+  const wetGain = off.createGain();
+  wetGain.gain.value = wet;
+  const dryGain = off.createGain();
+  dryGain.gain.value = 1 - wet;
+  src.connect(dryGain).connect(off.destination);
+  src.connect(convolver).connect(wetGain).connect(off.destination);
+  src.start(0);
+  return off.startRendering();
 }
 
 export function reverseBuffer(buf) {

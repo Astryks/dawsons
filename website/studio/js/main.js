@@ -515,6 +515,8 @@ function updateClipBar() {
     $("#cb-rate-o").textContent = `${clip.rate.toFixed(2)}×`;
     $("#cb-stretch").value = String(clip.stretch);
     $("#cb-pitch").value = String(clip.pitch);
+    $("#cb-reverb").value = String(Math.round((clip.reverbWet || 0) * 100));
+    $("#cb-reverb-o").textContent = `${Math.round((clip.reverbWet || 0) * 100)}%`;
   }
   $("#cb-tr-down").hidden = $("#cb-tr-up").hidden = f.track.kind !== "keys";
 }
@@ -551,6 +553,15 @@ $("#cb-pitch").onchange = (e) => {
   const f = sel();
   if (!f) return;
   f.clip.pitch = Number(e.target.value);
+  reprocess(f.clip);
+};
+$("#cb-reverb").oninput = (e) => {
+  $("#cb-reverb-o").textContent = `${e.target.value}%`;
+};
+$("#cb-reverb").onchange = (e) => {
+  const f = sel();
+  if (!f || f.clip.kind !== "audio") return;
+  f.clip.reverbWet = Number(e.target.value) / 100;
   reprocess(f.clip);
 };
 $("#cb-fit").onclick = () => {

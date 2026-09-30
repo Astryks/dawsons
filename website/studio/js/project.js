@@ -152,6 +152,8 @@ export function addAudioClip(track, buffer, start, name = "Clip") {
     reversed: false,
     stretch: 1,
     pitch: 0,
+    reverbWet: 0,
+    reverbRoom: 0.5,
     rate: 1,
     loop: false,
     length: buffer.duration,

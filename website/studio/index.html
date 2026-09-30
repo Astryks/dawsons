@@ -134,6 +134,8 @@
             <select id="cb-stretch"><option>0.5</option><option>0.667</option><option>0.75</option><option selected>1</option><option>1.25</option><option>1.5</option><option>2</option></select></label>
           <label title="Change pitch without changing length">Pitch
             <select id="cb-pitch"></select></label>
+          <label title="Synthesized reverb tail — no sample file, so no licensing question">Reverb
+            <input type="range" id="cb-reverb" min="0" max="100" step="1" value="0" /><output id="cb-reverb-o">0%</output></label>
           <button class="chip" id="cb-fit" title="Stretch the loop to a whole number of bars at the project tempo">Fit to tempo</button>
         </span>
         <span class="cb-notes">
