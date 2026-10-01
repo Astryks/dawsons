@@ -329,6 +329,38 @@ export default function App() {
     invoke<DemoSongInfo[]>("list_demo_songs").then(setDemoSongs).catch((err) => setDemoSongError(String(err)));
   }, []);
 
+  // The reverse of handlePromoteVoiceNoteToProject's write path: whenever
+  // the selected project changes — including the very first project
+  // auto-selected by refreshProjects() on launch, or a brand new project
+  // just created — pull its persisted Scene Graph back out of SQLite via
+  // the existing get_scene_graph command and render it into the visible
+  // timeline via the existing load_stems_from_result command, so
+  // previously-saved tracks (including ones promoted from a voice note)
+  // actually reappear instead of leaving an empty/default timeline. A
+  // project with no saved Scene Graph yet (brand new, or never analyzed)
+  // or no project selected at all is treated as an empty song rather than
+  // an error, so the timeline just shows empty as before.
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const graph = currentProjectId
+          ? await invoke<Record<string, any> | null>("get_scene_graph", { projectId: currentProjectId })
+          : null;
+        if (cancelled) return;
+        await invoke("load_stems_from_result", {
+          result: graph ?? { schemaVersion: "1.0.0", song: { tracks: [] } },
+        });
+        if (!cancelled) await refreshTracks();
+      } catch (err) {
+        if (!cancelled) setAudioError(String(err));
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentProjectId]);
+
   useEffect(() => {
     if (!isPlaying) return;
     const interval = setInterval(async () => {
