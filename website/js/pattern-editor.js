@@ -73,6 +73,15 @@ const FAMILY_PALETTES = {
   synthbass: notePalette(40, "C"),
   marimba: notePalette(72, "C"),
   trumpet: notePalette(60, "C"),
+  clavinet: notePalette(60, "C"),
+  guitar_clean: notePalette(60, "C"),
+  guitar_distorted: notePalette(52, "C"),
+  violin: notePalette(72, "C"),
+  cello: notePalette(48, "C"),
+  harp: notePalette(64, "C"),
+  trombone: notePalette(48, "C"),
+  oboe: notePalette(65, "C"),
+  pluck: notePalette(60, "C"),
 };
 
 function paletteFor(family) {

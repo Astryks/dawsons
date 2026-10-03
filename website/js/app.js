@@ -140,6 +140,18 @@ const EXTRA_FAMILIES = [
   "synthbass",
   "marimba",
   "trumpet",
+  // Broader GarageBand-style coverage, added per direct request — see
+  // synth.js for each one's actual DSP (reusing the same building
+  // blocks as the original 17, not a new synthesis technique).
+  "clavinet",
+  "guitar_clean",
+  "guitar_distorted",
+  "violin",
+  "cello",
+  "harp",
+  "trombone",
+  "oboe",
+  "pluck",
 ];
 const ALL_FAMILIES = [...DEFAULT_FAMILIES, ...EXTRA_FAMILIES];
 
@@ -150,11 +162,11 @@ const ALL_FAMILIES = [...DEFAULT_FAMILIES, ...EXTRA_FAMILIES];
 const INSTRUMENT_CATEGORIES = [
   { name: "Drums & Percussion", families: ["drums"] },
   { name: "Bass", families: ["bass", "synthbass"] },
-  { name: "Keyboards", families: ["keys", "epiano", "organ"] },
-  { name: "Guitars", families: ["guitar"] },
-  { name: "Strings & Choir", families: ["strings", "choir"] },
-  { name: "Winds & Brass", families: ["saxophone", "clarinet", "flute", "trumpet", "brass"] },
-  { name: "Synth Leads & Pads", families: ["lead", "pad"] },
+  { name: "Keyboards", families: ["keys", "epiano", "organ", "clavinet"] },
+  { name: "Guitars", families: ["guitar", "guitar_clean", "guitar_distorted"] },
+  { name: "Strings & Choir", families: ["strings", "choir", "violin", "cello", "harp"] },
+  { name: "Winds & Brass", families: ["saxophone", "clarinet", "flute", "trumpet", "brass", "trombone", "oboe"] },
+  { name: "Synth Leads & Pads", families: ["lead", "pad", "pluck"] },
   { name: "Mallets & Bells", families: ["bell", "marimba"] },
 ];
 const FAMILY_DISPLAY_NAME = {
@@ -176,6 +188,15 @@ const FAMILY_DISPLAY_NAME = {
   synthbass: "Synth Bass",
   marimba: "Marimba",
   trumpet: "Trumpet",
+  clavinet: "Clavinet",
+  guitar_clean: "Clean Electric Guitar",
+  guitar_distorted: "Distorted Electric Guitar",
+  violin: "Violin",
+  cello: "Cello",
+  harp: "Harp",
+  trombone: "Trombone",
+  oboe: "Oboe",
+  pluck: "Pluck",
 };
 
 function trackFamily(track, index) {
@@ -225,6 +246,7 @@ function renderTrackList() {
           <input class="instrument-track__pan" type="range" min="25" max="400" value="${Math.round(track.stretchFactor * 100)}" data-stretch="${i}" title="Stretch playback duration (resamples — pitch moves with speed, like a tape)" />
           <span class="daw-note" style="margin: 0" data-stretch-label="${i}">${Math.round(track.stretchFactor * 100)}%</span>
           <button class="instrument-track__mute" data-midi-export="${i}" title="Experimental: tracks one dominant pitch at a time (same technique as Sing-to-instrument). Works on a clean solo instrument/vocal line; will be messy on a full mixed song, chords, or drums.">MIDI</button>
+          <button class="instrument-track__mute" data-convert-instrument="${i}" title="Convert this track's melody to the instrument currently selected in the Voice row below — same monophonic pitch tracker as Sing-to-instrument, works best on a clean solo line.">To Instrument</button>
           `
           }
           <button class="instrument-track__mute" data-move="up" data-index="${i}" title="Move up">↑</button>
@@ -310,6 +332,9 @@ function renderTrackList() {
   });
   el.querySelectorAll("button[data-midi-export]").forEach((btn) => {
     btn.onclick = () => handleExportTrackMidi(Number(btn.dataset.midiExport));
+  });
+  el.querySelectorAll("button[data-convert-instrument]").forEach((btn) => {
+    btn.onclick = () => handleConvertTrackToInstrument(Number(btn.dataset.convertInstrument));
   });
   el.querySelectorAll("button[data-move]").forEach((btn) => {
     btn.onclick = () => {
@@ -1388,15 +1413,25 @@ function detectKeyFromBuffer(buffer) {
 // Shared by Preview and Add-to-timeline so neither button duplicates
 // the pitch-detection/render/effects logic — returns null (with a
 // status message already set) if there's nothing usable to render yet.
-async function buildVoiceInstrumentBuffer() {
-  if (!recordedVoiceBuffer) return null;
+// `sourceBufferOverride` lets handleConvertTrackToInstrument (below)
+// reuse this exact pipeline — pitch detection, auto-tune, instrument
+// rendering, effect stack — against an uploaded/recorded track's own
+// buffer instead of a live mic take, rather than duplicating any of
+// this logic. When an override is given, the Voice row's own trim
+// fields and status line are left alone (they describe the mic
+// recording, not whatever track is being converted).
+async function buildVoiceInstrumentBuffer(sourceBufferOverride) {
+  const usingOverride = !!sourceBufferOverride;
+  if (!usingOverride && !recordedVoiceBuffer) return null;
   await engine.resume();
 
-  let sourceBuffer = recordedVoiceBuffer;
-  const trimStart = Number(document.getElementById("voice-trim-start").value);
-  const trimEnd = Number(document.getElementById("voice-trim-end").value);
-  if (trimStart > 0 || trimEnd < sourceBuffer.duration) {
-    sourceBuffer = trimBuffer(engine.ctx, sourceBuffer, trimStart, trimEnd);
+  let sourceBuffer = usingOverride ? sourceBufferOverride : recordedVoiceBuffer;
+  if (!usingOverride) {
+    const trimStart = Number(document.getElementById("voice-trim-start").value);
+    const trimEnd = Number(document.getElementById("voice-trim-end").value);
+    if (trimStart > 0 || trimEnd < sourceBuffer.duration) {
+      sourceBuffer = trimBuffer(engine.ctx, sourceBuffer, trimStart, trimEnd);
+    }
   }
 
   const rawNotes = detectNotes(sourceBuffer);
@@ -1407,7 +1442,7 @@ async function buildVoiceInstrumentBuffer() {
     notes = snapNotesToScale(rawNotes, tonic, scale);
   }
   if (!notes.length) {
-    voiceStatus.textContent = "No clear pitch detected — try singing louder or more sustained notes.";
+    if (!usingOverride) voiceStatus.textContent = "No clear pitch detected — try singing louder or more sustained notes.";
     return null;
   }
 
@@ -1481,6 +1516,36 @@ function pitchCorrectBuffer(ctx, buffer, rawNotes, correctedNotes, sampleRate) {
     }
   }
   return out;
+}
+
+// "Ability to record a song and convert to any instrument selected" —
+// the Voice row already does exactly this for a live mic take; the
+// real gap was that it never ran on an uploaded/already-on-timeline
+// track. Reuses buildVoiceInstrumentBuffer (same pitch-tracking,
+// auto-tune, instrument-rendering, effect-stack pipeline the Voice row
+// already uses and this session already verified) against the track's
+// own current buffer, using whichever instrument/auto-tune/effect
+// settings are currently set in the Voice row — no second picker
+// built. Same honest single-melody-line limitation as Melody to MIDI,
+// since it's the exact same underlying monophonic pitch tracker: works
+// well on a clean solo instrument/vocal recording, not a full mixed
+// song, chords, drums, or noisy audio.
+async function handleConvertTrackToInstrument(i) {
+  const track = engine.tracks[i];
+  if (!track || track.pattern) return;
+  const statusEl = document.getElementById("anysound-status");
+  const result = await buildVoiceInstrumentBuffer(track.buffer);
+  if (!result) {
+    statusEl.textContent = `Couldn't detect a clear single-note melody in "${track.name}" — this reuses the same monophonic pitch tracker as Sing-to-instrument, so it needs a clean solo instrument/vocal line, not a full mixed song, chords, or drums.`;
+    return;
+  }
+  pushUndo();
+  const instrumentLabel = result.family === "__voice__" ? "pitch-corrected voice" : FAMILY_DISPLAY_NAME[result.family] || result.family;
+  engine.addTrack(`${track.name} → ${instrumentLabel}`, result.finalBuffer);
+  activeTrackIndex = engine.tracks.length - 1;
+  renderTrackList();
+  renderTimeline();
+  statusEl.textContent = `Converted "${track.name}" to ${instrumentLabel}, using the instrument currently selected in the Voice row above.`;
 }
 
 function playBufferOnce(buffer) {

@@ -186,23 +186,44 @@
                 </p>
                 <div class="midi-keyboard-controls">
                   <select id="keyboard-instrument" class="midi-keyboard-controls__instrument" title="Instrument — change this to make the keyboard below sound like anything">
-                    <option value="keys">Piano</option>
-                    <option value="guitar">Guitar</option>
-                    <option value="bass">Bass</option>
-                    <option value="lead">Lead</option>
-                    <option value="pad">Pad</option>
-                    <option value="brass">Brass</option>
-                    <option value="bell">Bell</option>
-                    <option value="flute">Flute</option>
-                    <option value="saxophone">Saxophone</option>
-                    <option value="clarinet">Clarinet</option>
-                    <option value="strings">Strings</option>
-                    <option value="organ">Organ</option>
-                    <option value="epiano">Electric Piano</option>
-                    <option value="choir">Choir</option>
-                    <option value="synthbass">Synth Bass</option>
-                    <option value="marimba">Marimba</option>
-                    <option value="trumpet">Trumpet</option>
+                    <optgroup label="Keyboards">
+                      <option value="keys">Piano</option>
+                      <option value="epiano">Electric Piano</option>
+                      <option value="organ">Organ</option>
+                      <option value="clavinet">Clavinet</option>
+                    </optgroup>
+                    <optgroup label="Guitars &amp; Bass">
+                      <option value="guitar">Guitar (Acoustic)</option>
+                      <option value="guitar_clean">Clean Electric Guitar</option>
+                      <option value="guitar_distorted">Distorted Electric Guitar</option>
+                      <option value="bass">Bass</option>
+                      <option value="synthbass">Synth Bass</option>
+                    </optgroup>
+                    <optgroup label="Strings &amp; Choir">
+                      <option value="strings">Strings</option>
+                      <option value="violin">Violin</option>
+                      <option value="cello">Cello</option>
+                      <option value="harp">Harp</option>
+                      <option value="choir">Choir</option>
+                    </optgroup>
+                    <optgroup label="Winds &amp; Brass">
+                      <option value="flute">Flute</option>
+                      <option value="clarinet">Clarinet</option>
+                      <option value="oboe">Oboe</option>
+                      <option value="saxophone">Saxophone</option>
+                      <option value="brass">Brass</option>
+                      <option value="trumpet">Trumpet</option>
+                      <option value="trombone">Trombone</option>
+                    </optgroup>
+                    <optgroup label="Synths">
+                      <option value="lead">Lead</option>
+                      <option value="pad">Pad</option>
+                      <option value="pluck">Pluck</option>
+                    </optgroup>
+                    <optgroup label="Mallets &amp; Bells">
+                      <option value="bell">Bell</option>
+                      <option value="marimba">Marimba</option>
+                    </optgroup>
                   </select>
                   <button id="keyboard-record-btn"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg> Record performance</button>
                   <span id="keyboard-status" class="daw-note" style="margin: 0">Click keys/pads, or play with your computer keyboard.</span>
@@ -264,23 +285,44 @@
                 </label>
                 <select id="voice-instrument" title="Instrument">
                   <option value="__voice__">Your own voice (pitch-corrected)</option>
-                  <option value="keys">Piano</option>
-                  <option value="guitar">Guitar</option>
-                  <option value="bass">Bass</option>
-                  <option value="lead">Lead</option>
-                  <option value="pad">Pad</option>
-                  <option value="brass">Brass</option>
-                  <option value="bell">Bell</option>
-                  <option value="flute">Flute</option>
-                  <option value="saxophone">Saxophone</option>
-                  <option value="clarinet">Clarinet</option>
-                  <option value="strings">Strings</option>
-                  <option value="organ">Organ</option>
-                  <option value="epiano">Electric Piano</option>
-                  <option value="choir">Choir</option>
-                  <option value="synthbass">Synth Bass</option>
-                  <option value="marimba">Marimba</option>
-                  <option value="trumpet">Trumpet</option>
+                  <optgroup label="Keyboards">
+                    <option value="keys">Piano</option>
+                    <option value="epiano">Electric Piano</option>
+                    <option value="organ">Organ</option>
+                    <option value="clavinet">Clavinet</option>
+                  </optgroup>
+                  <optgroup label="Guitars &amp; Bass">
+                    <option value="guitar">Guitar (Acoustic)</option>
+                    <option value="guitar_clean">Clean Electric Guitar</option>
+                    <option value="guitar_distorted">Distorted Electric Guitar</option>
+                    <option value="bass">Bass</option>
+                    <option value="synthbass">Synth Bass</option>
+                  </optgroup>
+                  <optgroup label="Strings &amp; Choir">
+                    <option value="strings">Strings</option>
+                    <option value="violin">Violin</option>
+                    <option value="cello">Cello</option>
+                    <option value="harp">Harp</option>
+                    <option value="choir">Choir</option>
+                  </optgroup>
+                  <optgroup label="Winds &amp; Brass">
+                    <option value="flute">Flute</option>
+                    <option value="clarinet">Clarinet</option>
+                    <option value="oboe">Oboe</option>
+                    <option value="saxophone">Saxophone</option>
+                    <option value="brass">Brass</option>
+                    <option value="trumpet">Trumpet</option>
+                    <option value="trombone">Trombone</option>
+                  </optgroup>
+                  <optgroup label="Synths">
+                    <option value="lead">Lead</option>
+                    <option value="pad">Pad</option>
+                    <option value="pluck">Pluck</option>
+                  </optgroup>
+                  <optgroup label="Mallets &amp; Bells">
+                    <option value="bell">Bell</option>
+                    <option value="marimba">Marimba</option>
+                  </optgroup>
                 </select>
                 <label class="timeline-layer__inline-check">
                   <input type="checkbox" id="voice-autotune" /> Auto-tune

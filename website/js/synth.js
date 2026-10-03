@@ -47,7 +47,7 @@ function waveformSample(wave, freq, t) {
   return 2 * (cycles - Math.floor(cycles + 0.5));
 }
 
-const PLUCKED_FAMILIES = new Set(["guitar", "bass"]);
+const PLUCKED_FAMILIES = new Set(["guitar", "bass", "guitar_clean", "guitar_distorted", "harp"]);
 
 // A time-varying one-pole lowpass, applied sample-by-sample to a raw
 // oscillator signal. Real instruments are brightest right at the
@@ -269,6 +269,113 @@ function renderVoice(ctx, buffer, family, pitches, startSec, durationSec, sample
       bright: { attackHz: 5800, sustainHz: 2200, tau: 0.11 },
       noiseAttack: { level: 0.06, durSec: 0.035, decayTau: 0.022 },
     },
+    // --- Added for broader GarageBand-style coverage (keyboards/
+    // guitars/strings/winds/synths), per direct request. Every entry
+    // below reuses the exact same building blocks as the 17 instruments
+    // above (oscillator shapes, ADSR, the brightness lowpass envelope,
+    // vibrato/detune, noiseAttack transients, and — for guitar_clean/
+    // guitar_distorted/harp — the existing Karplus-Strong plucked-string
+    // path) rather than introducing any new synthesis technique.
+    //
+    // Clavinet: a funk-keys classic — near-instant attack, fast decay to
+    // a thin sustain, and a short percussive click at the strike (the
+    // real clavinet's distinctive "pick" transient).
+    clavinet: {
+      wave: "square",
+      attack: 0.002,
+      decay: 0.12,
+      sustain: 0.15,
+      release: 0.08,
+      gain: 0.22,
+      bright: { attackHz: 5000, sustainHz: 1200, tau: 0.08 },
+      noiseAttack: { level: 0.05, durSec: 0.008, decayTau: 0.005 },
+    },
+    // Clean electric guitar: brighter, longer-ringing pluck than the
+    // acoustic `guitar` entry above (lower damping → longer sustain) —
+    // same Karplus-Strong string model, just a different damping value.
+    guitar_clean: { gain: 0.42, pluckDamping: 0.9975 },
+    // Distorted electric guitar: the same clean-electric pluck, run
+    // through a tanh soft-clip (the identical technique as effects.js's
+    // makeDistortionCurve, applied inline here per-sample instead of as
+    // a separate offline pass) for real overdrive grit, not just a
+    // louder clean tone.
+    guitar_distorted: { gain: 0.4, pluckDamping: 0.996, pluckDrive: 6 },
+    // Violin: a solo bowed string — faster attack and brighter cutoff
+    // than the `strings` ensemble entry (a real section's attack blurs
+    // together more than one player), no chorus detune since this is
+    // one voice, not a section.
+    violin: {
+      wave: "sawtooth",
+      attack: 0.1,
+      decay: 0.1,
+      sustain: 0.85,
+      release: 0.35,
+      gain: 0.18,
+      vibrato: true,
+      bright: { attackHz: 5000, sustainHz: 2800, tau: 0.15 },
+      noiseAttack: { level: 0.025, durSec: 0.05, decayTau: 0.04 },
+    },
+    // Cello: the same bowed-string envelope shape as violin, pitched an
+    // octave-plus lower with a slower attack and darker sustained tone
+    // (a cello's bow takes longer to "speak" than a violin's).
+    cello: {
+      wave: "sawtooth",
+      attack: 0.2,
+      decay: 0.15,
+      sustain: 0.85,
+      release: 0.5,
+      gain: 0.19,
+      vibrato: true,
+      bright: { attackHz: 3200, sustainHz: 1400, tau: 0.25 },
+      noiseAttack: { level: 0.03, durSec: 0.08, decayTau: 0.06 },
+    },
+    // Harp: a third Karplus-Strong voice — shorter damping than the
+    // guitars (a plucked harp string rings clearly but decays faster
+    // than a guitar's lower, heavier strings) and louder, for the
+    // characteristic bright, sparkling pluck.
+    harp: { gain: 0.48, pluckDamping: 0.9945 },
+    // Trombone: warmer and slower to speak than the existing brass/
+    // trumpet entries — a real trombone's slide makes its attack less
+    // crisp than a valve instrument's.
+    trombone: {
+      wave: "sawtooth",
+      attack: 0.055,
+      decay: 0.12,
+      sustain: 0.75,
+      release: 0.18,
+      gain: 0.19,
+      detune: true,
+      vibrato: true,
+      bright: { attackHz: 4200, sustainHz: 1600, tau: 0.16 },
+      noiseAttack: { level: 0.055, durSec: 0.03, decayTau: 0.02 },
+    },
+    // Oboe: a brighter, more nasal double-reed cousin of `clarinet`
+    // above — a sawtooth (harmonically richer than clarinet's square)
+    // with a higher sustained cutoff for that characteristic reediness.
+    oboe: {
+      wave: "sawtooth",
+      attack: 0.04,
+      decay: 0.08,
+      sustain: 0.85,
+      release: 0.12,
+      gain: 0.17,
+      vibrato: true,
+      bright: { attackHz: 5200, sustainHz: 3000, tau: 0.12 },
+      noiseAttack: { level: 0.045, durSec: 0.02, decayTau: 0.012 },
+    },
+    // Pluck: a synth pluck lead (oscillator-based, NOT Karplus-Strong —
+    // a classic "plucky" synth patch is a fast-decaying tone, not a
+    // physically-modeled string) — distinct from marimba's sine-wave
+    // mallet hit via a brighter sawtooth and a slightly longer tail.
+    pluck: {
+      wave: "sawtooth",
+      attack: 0.002,
+      decay: 0.25,
+      sustain: 0.05,
+      release: 0.1,
+      gain: 0.22,
+      bright: { attackHz: 6000, sustainHz: 900, tau: 0.08 },
+    },
   };
   const shape = shapes[family] || shapes.keys;
   // +7 cents: a classic, subtle chorus-style detune amount — enough to
@@ -301,14 +408,23 @@ function renderVoice(ctx, buffer, family, pitches, startSec, durationSec, sample
       // pretending to be a plucked string — see karplusStrongPluck.
       // Damping jitter means no two plucks of the same note decay at
       // exactly the same rate, same idea as the pitch/timing jitter.
-      const baseDamping = family === "bass" ? 0.9985 : 0.996;
+      // `shape.pluckDamping` lets guitar_clean/guitar_distorted/harp
+      // each ring differently (see their entries above) while still
+      // sharing this one string model with the original guitar/bass.
+      const baseDamping = shape.pluckDamping ?? (family === "bass" ? 0.9985 : 0.996);
       const damping = baseDamping + (Math.random() * 2 - 1) * 0.0006;
       const samples = karplusStrongPluck(freq, durationSec, sampleRate, damping);
       const fadeInSamples = Math.min(samples.length, Math.floor(0.002 * sampleRate));
       const ampJitter = 0.92 + Math.random() * 0.16;
+      // Distorted electric guitar only: a tanh soft-clip on the plucked
+      // signal itself — real overdrive grit, not just a louder clean
+      // tone (same technique as effects.js's makeDistortionCurve).
+      const drive = shape.pluckDrive;
+      const driveNorm = drive ? Math.tanh(drive) : 1;
       for (let i = 0; i < samples.length; i++) {
         const fadeIn = i < fadeInSamples ? i / fadeInSamples : 1;
-        const value = samples[i] * fadeIn * shape.gain * ampJitter;
+        const rawSample = drive ? Math.tanh(samples[i] * drive) / driveNorm : samples[i];
+        const value = rawSample * fadeIn * shape.gain * ampJitter;
         const idx = startSample + i;
         if (idx >= 0 && idx < data0.length) {
           data0[idx] += value;
