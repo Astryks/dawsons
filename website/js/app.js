@@ -29,6 +29,11 @@ let armedSound = null;
 // Current text in the sidebar instrument browser's search box (the
 // browser itself is always visible now, not a toggle-open panel).
 let instrumentSearchQuery = "";
+// Which category chip is active in the sidebar instrument browser
+// ("All" or one of INSTRUMENT_CATEGORIES's names) — composes with the
+// search box above, Ableton-browser-style (category filter + text
+// filter both narrow the same list).
+let instrumentCategoryFilter = "All";
 // Tempo, in beats per minute. Only genuinely retimes pattern-backed
 // tracks (drums/bass/keys/guitar/any custom pattern track), since their
 // audio is synthesized fresh from step data — see pattern-editor.js's
@@ -409,36 +414,68 @@ function renderTimeline() {
   renderWaveform();
 }
 
-// A GarageBand Sound-Library-style browser: search box + instruments
-// grouped by category, each with its own icon and two clear actions
-// (a ready-to-go starter riff, or a blank grid to build from nothing)
-// instead of one flat alphabet-soup button list. Lives permanently in
-// the left sidebar now (not a toggle-open panel) — "show a detailed
-// dropdown of instruments on the left." Always lists every family,
-// including ones already on the timeline — GarageBand lets you add a
-// second Piano track just as easily as a first.
+// Ableton-Live-browser-style: a row of category filter chips above a
+// clean, compact, single-line instrument list — adopting that layout
+// *pattern* (chips + tight list), not Ableton's own colors/branding.
+// One extra "All" chip clears the category filter; the real taxonomy
+// is still INSTRUMENT_CATEGORIES, reused as-is.
+function renderInstrumentChipsHtml() {
+  const names = ["All", ...INSTRUMENT_CATEGORIES.map((c) => c.name)];
+  return names
+    .map(
+      (name) => `
+      <button type="button" class="instrument-browser__chip${name === instrumentCategoryFilter ? " is-active" : ""}" data-category-chip="${name}">${name}</button>`,
+    )
+    .join("");
+}
+
+// A single-line, icon + name row — clicking the row itself adds the
+// instrument with its ready-to-go starter riff (the common case, same
+// default as before); the small "+" is the secondary affordance for an
+// empty grid to build from scratch, so the default list reads as a
+// clean compact list instead of a button-heavy one.
+function renderInstrumentRowHtml(f) {
+  return `
+    <div class="instrument-browser__row" data-add-family="${f}" title="Click to add with a ready-to-go starter riff">
+      <div class="instrument-browser__icon instrument-icon--${f}">${instrumentIconSvg(f)}</div>
+      <div class="instrument-browser__name">${FAMILY_DISPLAY_NAME[f]}</div>
+      <button type="button" class="instrument-browser__blank-btn" data-add-blank-family="${f}" title="Add an empty grid to build from scratch instead">+</button>
+    </div>`;
+}
+
+// Composes the category chip filter with the existing text search —
+// both narrow the same list together. Always lists every family in the
+// active category/categories, including ones already on the timeline —
+// GarageBand/Ableton both let you add a second Piano track just as
+// easily as a first.
 function renderInstrumentCategoriesHtml(query) {
   const q = query.trim().toLowerCase();
-  const categoriesHtml = INSTRUMENT_CATEGORIES.map((cat) => {
-    const rows = cat.families
-      .filter((f) => !q || FAMILY_DISPLAY_NAME[f].toLowerCase().includes(q))
-      .map(
-        (f) => `
-        <div class="instrument-browser__row">
-          <div class="instrument-browser__icon instrument-icon--${f}">${instrumentIconSvg(f)}</div>
-          <div class="instrument-browser__name">${FAMILY_DISPLAY_NAME[f]}</div>
-          <button type="button" class="instrument-browser__action" data-add-family="${f}" title="Add with a ready-to-go starter riff">Starter</button>
-          <button type="button" class="instrument-browser__action instrument-browser__action--ghost" data-add-blank-family="${f}" title="Add an empty grid to build from scratch">Blank</button>
-        </div>`,
-      )
-      .join("");
-    if (!rows) return "";
-    return `<div class="instrument-browser__category"><div class="instrument-browser__category-name">${cat.name}</div>${rows}</div>`;
-  }).join("");
+  const showAllCategories = instrumentCategoryFilter === "All";
+  const cats = INSTRUMENT_CATEGORIES.filter((cat) => showAllCategories || cat.name === instrumentCategoryFilter);
+  const categoriesHtml = cats
+    .map((cat) => {
+      const rows = cat.families
+        .filter((f) => !q || FAMILY_DISPLAY_NAME[f].toLowerCase().includes(q))
+        .map(renderInstrumentRowHtml)
+        .join("");
+      if (!rows) return "";
+      // With a specific category chip active, its pressed state already
+      // communicates the category — the repeated header would be
+      // redundant. Keep the header only when "All" is showing several
+      // categories at once, where it's still the only way to tell them
+      // apart while scanning.
+      if (showAllCategories) {
+        return `<div class="instrument-browser__category"><div class="instrument-browser__category-name">${cat.name}</div>${rows}</div>`;
+      }
+      return rows;
+    })
+    .join("");
   return categoriesHtml || '<p class="daw-note">No instruments match that search.</p>';
 }
 
 function renderSidebarInstrumentBrowser() {
+  const chipsEl = document.getElementById("sidebar-instrument-chips");
+  if (chipsEl) chipsEl.innerHTML = renderInstrumentChipsHtml();
   const el = document.getElementById("sidebar-instrument-browser");
   el.innerHTML = renderInstrumentCategoriesHtml(instrumentSearchQuery);
 }
@@ -810,14 +847,26 @@ document.getElementById("sidebar-instrument-search").addEventListener("input", (
 // The instrument browser and preset library both live in the sidebar
 // now, outside #timeline, so they get their own click delegation.
 document.querySelector(".daw-sidebar").addEventListener("click", (e) => {
-  const addFamilyBtn = e.target.closest("[data-add-family]");
-  if (addFamilyBtn) {
-    handleAddInstrumentTrack(addFamilyBtn.dataset.addFamily);
+  // Category chip — filters the list below; composes with the text
+  // search box rather than replacing it.
+  const chipBtn = e.target.closest("[data-category-chip]");
+  if (chipBtn) {
+    instrumentCategoryFilter = chipBtn.dataset.categoryChip;
+    renderSidebarInstrumentBrowser();
     return;
   }
+  // Checked before [data-add-family]: the compact row's small "+" blank
+  // button is nested *inside* a row that itself carries data-add-family,
+  // so this order has to win or every "+" click would incorrectly add
+  // the starter riff instead.
   const addBlankFamilyBtn = e.target.closest("[data-add-blank-family]");
   if (addBlankFamilyBtn) {
     handleAddBlankTrack(addBlankFamilyBtn.dataset.addBlankFamily);
+    return;
+  }
+  const addFamilyBtn = e.target.closest("[data-add-family]");
+  if (addFamilyBtn) {
+    handleAddInstrumentTrack(addFamilyBtn.dataset.addFamily);
     return;
   }
   const addPresetBtn = e.target.closest("[data-add-preset]");
