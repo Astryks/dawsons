@@ -39,6 +39,34 @@ function pitchShiftBuffer(ctx, buffer, semitones) {
   return out;
 }
 
+// Time-stretch a clip's playback duration by resampling — the same
+// vari-speed technique as pitchShiftBuffer above, just parameterized by
+// a direct duration ratio instead of semitones: ratio > 1 lengthens
+// (slows down), ratio < 1 shortens (speeds up). Pitch moves with speed
+// (same honest trade-off pitchShiftBuffer's own comment already
+// discloses) — a true pitch-preserving stretch needs a phase vocoder,
+// which is a materially bigger DSP undertaking than this homepage demo
+// warrants; this is the same real, working technique already shipped
+// elsewhere in this file, just exposed as its own per-track control.
+function stretchBuffer(ctx, buffer, ratio) {
+  if (!ratio || ratio === 1) return buffer;
+  const newLength = Math.max(1, Math.round(buffer.length * ratio));
+  const rate = buffer.length / newLength;
+  const out = ctx.createBuffer(buffer.numberOfChannels, newLength, buffer.sampleRate);
+  for (let ch = 0; ch < buffer.numberOfChannels; ch++) {
+    const src = buffer.getChannelData(ch);
+    const dst = out.getChannelData(ch);
+    for (let i = 0; i < newLength; i++) {
+      const srcPos = i * rate;
+      const i0 = Math.floor(srcPos);
+      const i1 = Math.min(src.length - 1, i0 + 1);
+      const frac = srcPos - i0;
+      dst[i] = (src[i0] || 0) * (1 - frac) + (src[i1] || 0) * frac;
+    }
+  }
+  return out;
+}
+
 // Crops a buffer to [startSec, endSec] — the "edit mask" for an
 // imported clip or a voice recording: cut out just the part you
 // actually want before reversing/pitching/adding it to the timeline,
@@ -185,4 +213,4 @@ function buildEffectChain(ctx, sourceNode, opts) {
   return node;
 }
 
-export { reverseBuffer, pitchShiftBuffer, trimBuffer, buildEffectChain };
+export { reverseBuffer, pitchShiftBuffer, stretchBuffer, trimBuffer, buildEffectChain };

@@ -30,6 +30,15 @@ class Track {
     this.reverbWet = 0;
     this.delayWet = 0;
     this.originalBuffer = buffer;
+    // Per-track reverse (toggle) and time-stretch (duration multiplier,
+    // 1 = original length — resampled via the same vari-speed technique
+    // as pitchSemitones, so stretching also shifts pitch, same honest
+    // trade-off already disclosed there). Only meaningful for a plain
+    // (non-pattern) audio track; refreshTrackAudio in app.js skips both
+    // for pattern tracks. Always recomputed fresh from `originalBuffer`
+    // on change, same as pitch — not cumulative/destructive.
+    this.reversed = false;
+    this.stretchFactor = 1;
     // When true, this track's buffer repeats for as long as the rest
     // of the project plays, via the Web Audio API's own native
     // AudioBufferSourceNode.loop — real looping, not a re-triggered
@@ -135,6 +144,8 @@ class Engine {
       track.loop = s.loop || false;
       track.startOffsetSec = s.startOffsetSec || 0;
       track.originalBuffer = s.originalBuffer || s.buffer;
+      track.reversed = s.reversed || false;
+      track.stretchFactor = s.stretchFactor || 1;
       return track;
     });
   }

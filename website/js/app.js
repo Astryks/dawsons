@@ -1,8 +1,9 @@
 import { Engine } from "./audio-engine.js";
 import { DEMO_SONGS } from "./demo-songs.js";
 import { renderVoice, renderDrumHit } from "./synth.js";
-import { reverseBuffer, pitchShiftBuffer, trimBuffer, buildEffectChain } from "./effects.js";
+import { reverseBuffer, pitchShiftBuffer, stretchBuffer, trimBuffer, buildEffectChain } from "./effects.js";
 import { detectNotes, snapNotesToScale, MAJOR_SCALE, MINOR_SCALE } from "./pitch.js";
+import { encodeMidiFile } from "./midi-encoder.js";
 import { STARTERS, PRESET_LIBRARY } from "./starter-patterns.js";
 import { paletteFor, soundLabel, createPattern, toggleStep, autoFillEveryBeats, setBpm, getStepSec, rebuildBuffer } from "./pattern-editor.js";
 import { instrumentIconSvg, uiIconSvg } from "./instrument-icons.js";
@@ -59,6 +60,8 @@ function snapshotTracks() {
     loop: t.loop,
     startOffsetSec: t.startOffsetSec,
     originalBuffer: t.originalBuffer,
+    reversed: t.reversed,
+    stretchFactor: t.stretchFactor,
     pattern: t.pattern
       ? { family: t.pattern.family, hits: t.pattern.hits.map((h) => ({ ...h })), totalSteps: t.pattern.totalSteps }
       : null,
@@ -211,6 +214,19 @@ function renderTrackList() {
           <button class="instrument-track__mute${track.solo ? " is-solo" : ""}" data-solo="${i}">Solo</button>
           <button class="instrument-track__mute${track.loop ? " is-looping" : ""}" data-loop="${i}" title="Repeat this track for as long as the rest of the project plays">Loop</button>
           <input class="instrument-track__pan" type="range" min="-100" max="100" value="${Math.round(track.pan * 100)}" data-pan="${i}" title="Pan" />
+          ${
+            track.pattern
+              ? ""
+              : `
+          <button class="instrument-track__mute${track.reversed ? " is-looping" : ""}" data-reverse="${i}" title="Reverse this clip">Rev</button>
+          <button class="instrument-track__mute" data-pitch-down="${i}" title="Pitch down 1 semitone">Pitch−</button>
+          <span class="daw-note" style="margin: 0" data-pitch-label="${i}">${track.pitchSemitones > 0 ? "+" : ""}${track.pitchSemitones}st</span>
+          <button class="instrument-track__mute" data-pitch-up="${i}" title="Pitch up 1 semitone">Pitch+</button>
+          <input class="instrument-track__pan" type="range" min="25" max="400" value="${Math.round(track.stretchFactor * 100)}" data-stretch="${i}" title="Stretch playback duration (resamples — pitch moves with speed, like a tape)" />
+          <span class="daw-note" style="margin: 0" data-stretch-label="${i}">${Math.round(track.stretchFactor * 100)}%</span>
+          <button class="instrument-track__mute" data-midi-export="${i}" title="Experimental: tracks one dominant pitch at a time (same technique as Sing-to-instrument). Works on a clean solo instrument/vocal line; will be messy on a full mixed song, chords, or drums.">MIDI</button>
+          `
+          }
           <button class="instrument-track__mute" data-move="up" data-index="${i}" title="Move up">↑</button>
           <button class="instrument-track__mute" data-move="down" data-index="${i}" title="Move down">↓</button>
           <button class="instrument-track__mute" data-remove="${i}" title="Remove">✕</button>
@@ -257,6 +273,43 @@ function renderTrackList() {
     input.oninput = () => {
       engine.setPan(Number(input.dataset.pan), Number(input.value) / 100);
     };
+  });
+  el.querySelectorAll("button[data-reverse]").forEach((btn) => {
+    btn.onclick = async () => {
+      const i = Number(btn.dataset.reverse);
+      pushUndo();
+      await setTrackReversed(i, !engine.tracks[i].reversed);
+    };
+  });
+  el.querySelectorAll("button[data-pitch-down]").forEach((btn) => {
+    btn.onclick = async () => {
+      const i = Number(btn.dataset.pitchDown);
+      pushUndo();
+      await setTrackPitch(i, (engine.tracks[i].pitchSemitones || 0) - 1);
+    };
+  });
+  el.querySelectorAll("button[data-pitch-up]").forEach((btn) => {
+    btn.onclick = async () => {
+      const i = Number(btn.dataset.pitchUp);
+      pushUndo();
+      await setTrackPitch(i, (engine.tracks[i].pitchSemitones || 0) + 1);
+    };
+  });
+  el.querySelectorAll("input[data-stretch]").forEach((input) => {
+    // Resampling the whole buffer on every `input` tick would be
+    // wasteful for a long clip — live-update the % label while
+    // dragging, same as the mixer's pitch slider, and only actually
+    // re-render the audio once the drag settles (onchange).
+    input.onmousedown = input.ontouchstart = () => pushUndo();
+    const i = Number(input.dataset.stretch);
+    input.oninput = () => {
+      const label = el.querySelector(`[data-stretch-label="${i}"]`);
+      if (label) label.textContent = `${input.value}%`;
+    };
+    input.onchange = () => setTrackStretch(i, Number(input.value) / 100);
+  });
+  el.querySelectorAll("button[data-midi-export]").forEach((btn) => {
+    btn.onclick = () => handleExportTrackMidi(Number(btn.dataset.midiExport));
   });
   el.querySelectorAll("button[data-move]").forEach((btn) => {
     btn.onclick = () => {
@@ -926,26 +979,64 @@ async function handleDecodedAudio(arrayBuffer, name) {
   document.getElementById("fx-apply-btn").disabled = false;
 }
 
-async function handleUploadedFile(file) {
-  await handleDecodedAudio(await file.arrayBuffer(), file.name);
+// (2026-10-03) Sid: "upload multiple audio files click... make it ready
+// to go when users upload the mp3 or mp4 files." Two real gaps here,
+// not one:
+//   1. A genuine bug: #upload-input already has the `multiple` attribute
+//      in index.html, but this handler used to read only
+//      `e.target.files[0]` — selecting several files silently dropped
+//      every one but the first.
+//   2. Even a single file used to land in the single-slot "Any Sound"
+//      staging panel (uploadedBuffer/#fx-apply-btn below), requiring a
+//      manual trim-then-"Apply" click before it became a real track —
+//      fine for one file you want to pre-trim, unworkable for several
+//      at once, and not "ready to go" for the common case either way.
+// Every file picked here now decodes straight into its own new, already-
+// playable, already-draggable track (reverse/pitch/stretch are then
+// available per-track from its row in the sidebar — see
+// setTrackReversed/setTrackPitch/setTrackStretch) with no extra click.
+// The older pre-trim-before-committing flow isn't gone: a direct URL
+// fetch or a tab/system-audio recording (handleDecodedAudio's other two
+// callers) still go through the Any Sound row's trim/reverse/pitch/
+// Apply staging, for anyone who specifically wants to cut a clip down
+// before it ever touches the timeline.
+async function handleReadyUploadFiles(files) {
+  if (!files.length) return;
+  await engine.resume();
+  pushUndo();
+  let added = 0;
+  const failed = [];
+  for (const file of files) {
+    try {
+      const arrayBuffer = await file.arrayBuffer();
+      const buffer = await engine.ctx.decodeAudioData(arrayBuffer);
+      const name = file.name.replace(/\.[^/.]+$/, "") || file.name;
+      engine.addTrack(name, buffer);
+      added++;
+    } catch {
+      failed.push(file.name);
+    }
+  }
+  if (added) {
+    activeTrackIndex = engine.tracks.length - 1;
+    renderTrackList();
+    renderTimeline();
+    renderSoundPicker();
+  }
+  const statusEl = document.getElementById("anysound-status");
+  let msg = added === 1 ? `Added "${files[0].name}" as a ready track — drag, stretch, reverse or pitch it from its row on the left.` : added > 1 ? `Added ${added} new tracks — drag, stretch, reverse or pitch each from its row on the left.` : "";
+  if (failed.length) msg += `${msg ? " " : ""}Couldn't decode: ${failed.join(", ")}.`;
+  statusEl.textContent = msg || "Nothing could be decoded as audio — check the file format.";
+  document.getElementById("timeline").scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 document.getElementById("upload-track").onclick = () => document.getElementById("upload-input").click();
 document.getElementById("anysound-upload-btn").onclick = () => document.getElementById("upload-input").click();
-// Real bug found testing a 63MB .mp4 upload from the hero button (Sid,
-// 2026-10-03): the upload actually decodes fine (decodeAudioData handles
-// an audio track inside a video container), but gave zero visible
-// feedback — the "Loaded ... — trim, reverse/pitch, then Apply" status and
-// the Apply button only live in the "Any Sound" row, far down the page,
-// so a hero-triggered upload looked like it silently did nothing. Scroll
-// that row into view on every upload now (not just hero-triggered ones;
-// no real downside to always doing it), same fix already applied to the
-// hero Record button.
 document.getElementById("upload-input").onchange = async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  document.getElementById("anysound-upload-btn").closest(".timeline-layer--special").scrollIntoView({ behavior: "smooth", block: "center" });
-  await handleUploadedFile(file);
+  const files = Array.from(e.target.files || []);
+  if (!files.length) return;
+  await handleReadyUploadFiles(files);
+  e.target.value = ""; // allow re-selecting the exact same file(s) again later
 };
 
 // A direct URL to an audio file the user already controls/has rights to
@@ -1082,8 +1173,8 @@ timelineDropEl.addEventListener("dragleave", () => timelineDropEl.classList.remo
 timelineDropEl.addEventListener("drop", async (e) => {
   e.preventDefault();
   timelineDropEl.classList.remove("is-drag-over");
-  const file = e.dataTransfer.files && e.dataTransfer.files[0];
-  if (file) await handleUploadedFile(file);
+  const files = Array.from(e.dataTransfer.files || []);
+  if (files.length) await handleReadyUploadFiles(files);
 });
 
 function wireSlider(id, valId, fmt) {
@@ -2269,7 +2360,14 @@ function renderMixerPanel() {
 // bake in their own effect stacks before adding a track.
 async function refreshTrackAudio(track) {
   const dry = track.pattern ? track.pattern.buffer : track.originalBuffer;
-  let processed = track.pitchSemitones ? pitchShiftBuffer(engine.ctx, dry, track.pitchSemitones) : dry;
+  // Reverse and stretch only make sense on a plain audio track — a
+  // pattern track is a step grid synthesized fresh from its own hits,
+  // not a recorded clip with a "direction" or a fixed length to resize.
+  let processed = !track.pattern && track.reversed ? reverseBuffer(engine.ctx, dry) : dry;
+  if (track.pitchSemitones) processed = pitchShiftBuffer(engine.ctx, processed, track.pitchSemitones);
+  if (!track.pattern && track.stretchFactor && track.stretchFactor !== 1) {
+    processed = stretchBuffer(engine.ctx, processed, track.stretchFactor);
+  }
   if (track.reverbWet || track.delayWet) {
     const offlineCtx = new OfflineAudioContext(processed.numberOfChannels, processed.length, processed.sampleRate);
     const source = offlineCtx.createBufferSource();
@@ -2293,6 +2391,14 @@ async function setTrackPitch(i, semitones) {
   if (!track) return;
   track.pitchSemitones = Math.max(-12, Math.min(12, semitones));
   await refreshTrackAudio(track);
+  // Real bug found live-testing the new sidebar Pitch+/Pitch- buttons
+  // (2026-10-03): this function never re-rendered the sidebar track
+  // list, so its own pitch label stayed stuck at "0st" after a click —
+  // the Mixer panel never showed this because it updates its pitch
+  // label directly on the slider's own `oninput`, not via this
+  // function. Added here so every caller (Mixer slider, sidebar
+  // buttons) gets a correct label.
+  renderTrackList();
   renderTimeline();
   renderWaveform();
 }
@@ -2304,6 +2410,67 @@ async function setTrackSend(i, key, amount) {
   await refreshTrackAudio(track);
   renderTimeline();
   renderWaveform();
+}
+
+// Per-track reverse/stretch — directly on each uploaded/recorded audio
+// track's own row in the sidebar (see renderTrackList), not funneled
+// through the single-slot "Any Sound" pre-apply staging flow, which
+// only ever handles one pending upload at a time. No-op on a pattern
+// track (see refreshTrackAudio's comment).
+async function setTrackReversed(i, reversed) {
+  const track = engine.tracks[i];
+  if (!track || track.pattern) return;
+  track.reversed = reversed;
+  await refreshTrackAudio(track);
+  renderTrackList();
+  renderTimeline();
+  renderWaveform();
+}
+
+async function setTrackStretch(i, factor) {
+  const track = engine.tracks[i];
+  if (!track || track.pattern) return;
+  track.stretchFactor = Math.max(0.25, Math.min(4, factor));
+  await refreshTrackAudio(track);
+  renderTrackList();
+  renderTimeline();
+  renderWaveform();
+}
+
+// "Melody to MIDI (experimental)" — a real, honest middle ground
+// between "no MIDI at all" and the literal multi-instrument stem-to-
+// MIDI transcription that genuinely needs the desktop app's Demucs +
+// tempo/key/chord pipeline (see STATUS.md items 72-73: that boundary
+// isn't being papered over here). This reuses pitch.js's exact
+// monophonic autocorrelation pitch tracker — the same one already
+// shipped and verified for "sing into your mic" — against an uploaded
+// track's own decoded buffer instead of a live mic stream, then writes
+// the detected {note, startSec, durationSec} events out as a real
+// Standard MIDI File via midi-encoder.js. Single-pitch-at-a-time by
+// construction: a clean solo instrument or vocal line tracks well, a
+// full mixed song/chords/drums/noisy audio will not, and the on-click
+// failure message and the button's own title both say so plainly
+// rather than silently producing a bad file.
+function handleExportTrackMidi(i) {
+  const track = engine.tracks[i];
+  if (!track || track.pattern) return;
+  const notes = detectNotes(track.buffer);
+  if (!notes.length) {
+    document.getElementById("anysound-status").textContent =
+      `Couldn't find a clear single-note melody in "${track.name}" — Melody to MIDI only tracks one dominant pitch at a time, so it needs a clean solo instrument/vocal line, not a full mixed song, chords, or drums.`;
+    return;
+  }
+  const midiBytes = encodeMidiFile(notes, currentBpm);
+  const blob = new Blob([midiBytes], { type: "audio/midi" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${(track.name || "melody").replace(/[^a-z0-9_-]+/gi, "_")}.mid`;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+  document.getElementById("anysound-status").textContent = `Exported ${notes.length} detected note(s) from "${track.name}" as a .mid file.`;
 }
 
 document.getElementById("mixer-btn").onclick = () => {

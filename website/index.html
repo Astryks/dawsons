@@ -122,6 +122,25 @@
           </div>
         </div>
 
+        <p class="daw-note daw-note--upsell" id="upload-midi-boundary-note">
+          Uploads become playable, editable tracks you can drag, stretch, reverse and pitch-shift right
+          away — select more than one file and each becomes its own track instantly, no extra click. Each
+          track also has an experimental <strong>MIDI</strong> button that tracks its one dominant melody
+          line and exports a real .mid file — it works well on a clean solo instrument or vocal, but a
+          full mixed song, chords, drums, or noisy audio (like a gameplay video's soundtrack) won't
+          transcribe cleanly. Real multi-instrument note-level transcription needs the free desktop app's
+          local compute (Demucs stem separation plus real pitch/onset detection) — that boundary hasn't
+          changed, this is a genuinely different, smaller, single-melody feature.
+        </p>
+
+        <div class="daw-timeline">
+          <div class="timeline-toolbar">
+            <button type="button" class="is-primary" id="timeline-add-track-btn">+ Add track</button>
+            <span class="daw-note" style="margin: 0">Drums, Piano, Guitar and Bass are ready below by default — use this to add any other instrument lane.</span>
+          </div>
+          <div id="timeline"></div>
+        </div>
+
         <div class="daw-transport">
           <button class="is-primary" id="play-pause-btn"><svg class="icon-inline" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4.5v15l13-7.5z"/></svg> Play</button>
           <button id="stop-btn">Stop</button>
@@ -362,11 +381,6 @@
               </div>
             </div>
           </div>
-          <div class="timeline-toolbar">
-            <button type="button" class="is-primary" id="timeline-add-track-btn">+ Add track</button>
-            <span class="daw-note" style="margin: 0">Drums, Piano, Guitar and Bass are ready below by default — use this to add any other instrument lane.</span>
-          </div>
-          <div id="timeline"></div>
         </div>
 
         <p class="daw-note daw-note--upsell">
