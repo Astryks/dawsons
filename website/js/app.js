@@ -792,15 +792,9 @@ document.getElementById("stop-btn").onclick = () => {
 
 // --- "Download the free desktop app" banner ---
 // Honest placeholder: as of this writing there is no published desktop
-// release to link to (checked `api.github.com/repos/Astryks/dawsons/releases`
-// fresh — empty). Rather than a dead link or a fabricated URL, clicking
-// the button reveals an inline "not published yet" note. If a real
-// release exists by the time this runs, swap this handler for a plain
-// link to the actual release asset instead.
-document.getElementById("download-app-btn").onclick = () => {
-  const note = document.getElementById("download-app-note");
-  note.hidden = false;
-};
+// release exists now (v0.1.0, published 2026-10-03) — #download-app-btn
+// in index.html is a plain <a href> straight to the release asset, no
+// click handler needed.
 
 // --- Tempo: rescales pattern-editor.js's step duration and rebuilds
 // every pattern-backed track's audio at the new speed. ---
