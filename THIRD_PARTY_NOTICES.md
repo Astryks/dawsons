@@ -67,7 +67,7 @@ this list is checked before adding any new dependency.
 
 | Component / asset | License | Notes |
 |---|---|---|
-| smplr 1.1.0 | MIT | Vendored at `website/studio/vendor/`; web-audio sampler that streams the instruments below |
+| smplr 1.1.0 | MIT | Vendored at `website/studio/vendor/`; web-audio sampler that streams the instruments below. **(2026-10-03) Also now vendored, unmodified, at `website/js/vendor/` for the homepage DAW** (`website/js/sample-engine.js`'s "Real instrument sound" toggle in the instrument browser) — same version, same license, second usage site, not a new dependency. |
 | Splendid Grand Piano (AKAI) | Public domain | Streamed from smpldsnds.github.io |
 | Greg Sullivan Wurlitzer EP200 | CC-BY 3.0 | Attribution in `website/studio/SOUND_LIBRARY.md` and the app footer's credits link |
 | VCSL (Versilian Community Sample Library) | CC0 1.0 | TX81Z FM piano |
@@ -80,6 +80,7 @@ this list is checked before adding any new dependency.
 | @breezystack/lamejs 1.2.7 | LGPL-3.0 (confirmed directly against the package's own LICENSE file, not just package.json) | Vendored unmodified at `website/js/vendor/lamejs-1.2.7.js` (license text copied to `website/js/vendor/LAMEJS-LICENSE.txt`); MP3 export from the homepage DAW's "Export song" button. Weak/library copyleft, same category already accepted for symphonia above: using this unmodified file doesn't obligate open-sourcing Dawsons itself, only this one vendored file if it's ever modified — unlike the GPL/AGPL licenses rejected under "Explicitly excluded" below, which would have forced the whole program open. |
 | Sonic Pi sample pack | CC0 1.0 | Vendored one-shots + loop library (amen/breakbeat loops excluded) |
 | TR-808 (M. Fischer 1994) and LM-2 one-shots via smpldsnds/drum-machines | Public domain | Vendored |
+| Splendid Grand Piano, Greg Sullivan Wurlitzer EP200, VCSL TX81Z FM piano, FluidR3_GM renderings | Public domain / CC-BY 3.0 / CC0 1.0 / MIT+CC-BY 3.0 | Same sample set as Browser Studio above (streamed via smplr, not re-fetched/re-verified) — now also reachable from the homepage's instrument browser via its "Real instrument sound" toggle, for the families with a credible sampled match (keyboards, guitars, bowed/plucked strings, brass, winds, mallets). Wurlitzer attribution lives in `website/studio/SOUND_LIBRARY.md`, same as before. |
 
 Full per-set provenance and confidence notes: [`website/studio/SOUND_LIBRARY.md`](website/studio/SOUND_LIBRARY.md).
 

@@ -755,6 +755,39 @@ body {
   font-size: 0.9rem;
 }
 
+/* "Real instrument sound" toggle — switches the instrument browser's
+   row-click add action from the built-in oscillator synth to a real
+   sampled instrument (smplr, see sample-engine.js) for families that
+   have one. */
+.instrument-browser__real-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  margin: 0.4rem 0 0;
+  cursor: pointer;
+}
+
+.instrument-browser__real-toggle input {
+  accent-color: var(--purple-deep);
+}
+
+/* Small badge marking an instrument row that has a real sampled match
+   available, regardless of whether the toggle above is currently on —
+   a quick visual cue for which rows benefit from switching it on. */
+.instrument-browser__real-badge {
+  flex-shrink: 0;
+  font-size: 0.6rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--teal);
+  border: 1px solid var(--teal);
+  border-radius: 4px;
+  padding: 0.05rem 0.3rem;
+  opacity: 0.85;
+}
+
 /* Category filter chips — the Ableton-browser-panel pattern Sid asked
    for ("category chips + compact sortable list"), restyled in this
    site's own palette rather than Ableton's own colors/branding. */

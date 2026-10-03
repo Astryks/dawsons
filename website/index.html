@@ -93,6 +93,11 @@
 
         <div class="daw-sidebar__section-title">Add an instrument</div>
         <input type="text" id="sidebar-instrument-search" class="instrument-browser__search" placeholder="Search instruments…" />
+        <label class="instrument-browser__real-toggle" title="When available, streams an actual recorded instrument sample instead of the built-in synth. Rows marked REAL have one.">
+          <input type="checkbox" id="sidebar-real-instrument-toggle" />
+          Real instrument sound where available
+        </label>
+        <p class="daw-note" id="sidebar-instrument-status" style="margin: 0.2rem 0 0.4rem"></p>
         <div id="sidebar-instrument-chips" class="instrument-browser__chips"></div>
         <div id="sidebar-instrument-browser"></div>
 

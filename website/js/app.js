@@ -5,7 +5,7 @@ import { reverseBuffer, pitchShiftBuffer, stretchBuffer, trimBuffer, buildEffect
 import { detectNotes, snapNotesToScale, MAJOR_SCALE, MINOR_SCALE } from "./pitch.js";
 import { encodeMidiFile } from "./midi-encoder.js";
 import { STARTERS, PRESET_LIBRARY } from "./starter-patterns.js";
-import { paletteFor, soundLabel, createPattern, toggleStep, autoFillEveryBeats, setBpm, getStepSec, rebuildBuffer } from "./pattern-editor.js";
+import { paletteFor, soundLabel, createPattern, toggleStep, autoFillEveryBeats, setBpm, getStepSec, rebuildBuffer, DEFAULT_STEPS } from "./pattern-editor.js";
 import { instrumentIconSvg, uiIconSvg } from "./instrument-icons.js";
 import { audioBufferToBase64Wav, base64WavToAudioBuffer, encodeWav } from "./wav-encoder.js";
 // Vendored unmodified from @breezystack/lamejs 1.2.7 (LGPL-3.0, verified
@@ -16,6 +16,12 @@ import { audioBufferToBase64Wav, base64WavToAudioBuffer, encodeWav } from "./wav
 // open-sourcing Dawsons itself, only this one vendored file if it's ever
 // modified.
 import { Mp3Encoder } from "./vendor/lamejs-1.2.7.js";
+// Real sampled instruments (smplr, MIT) — see sample-engine.js's header
+// comment for the full reasoning/sourcing; this is the exact same
+// already-license-verified engine website/studio/ already uses in
+// production, brought to the homepage as an optional upgrade over the
+// built-in oscillator synth for families with a credible sample match.
+import { hasSample, renderSampledPattern } from "./sample-engine.js";
 
 const engine = new Engine();
 let currentSong = null;
@@ -34,6 +40,12 @@ let instrumentSearchQuery = "";
 // search box above, Ableton-browser-style (category filter + text
 // filter both narrow the same list).
 let instrumentCategoryFilter = "All";
+// When on, the instrument browser's row-click "add starter" action
+// renders through a real sampled instrument (see sample-engine.js)
+// instead of the built-in oscillator synth, for families that have one.
+// Off by default so the existing fast, synchronous add-a-track flow is
+// unchanged unless someone opts in.
+let useRealInstrumentSound = false;
 // Tempo, in beats per minute. Only genuinely retimes pattern-backed
 // tracks (drums/bass/keys/guitar/any custom pattern track), since their
 // audio is synthesized fresh from step data — see pattern-editor.js's
@@ -437,10 +449,14 @@ function renderInstrumentChipsHtml() {
 // empty grid to build from scratch, so the default list reads as a
 // clean compact list instead of a button-heavy one.
 function renderInstrumentRowHtml(f) {
+  const realBadge = hasSample(f)
+    ? `<span class="instrument-browser__real-badge" title="A real recorded sample is available for this sound — turn on &quot;Real instrument sound&quot; above to use it">REAL</span>`
+    : "";
   return `
     <div class="instrument-browser__row" data-add-family="${f}" title="Click to add with a ready-to-go starter riff">
       <div class="instrument-browser__icon instrument-icon--${f}">${instrumentIconSvg(f)}</div>
       <div class="instrument-browser__name">${FAMILY_DISPLAY_NAME[f]}</div>
+      ${realBadge}
       <button type="button" class="instrument-browser__blank-btn" data-add-blank-family="${f}" title="Add an empty grid to build from scratch instead">+</button>
     </div>`;
 }
@@ -890,6 +906,12 @@ document.getElementById("sidebar-instrument-search").addEventListener("input", (
   document.getElementById("sidebar-instrument-search").focus();
 });
 
+// "Real instrument sound" toggle — see sample-engine.js/
+// handleAddInstrumentTrackSampled for what this actually switches on.
+document.getElementById("sidebar-real-instrument-toggle").addEventListener("change", (e) => {
+  useRealInstrumentSound = e.target.checked;
+});
+
 // The instrument browser and preset library both live in the sidebar
 // now, outside #timeline, so they get their own click delegation.
 document.querySelector(".daw-sidebar").addEventListener("click", (e) => {
@@ -912,7 +934,12 @@ document.querySelector(".daw-sidebar").addEventListener("click", (e) => {
   }
   const addFamilyBtn = e.target.closest("[data-add-family]");
   if (addFamilyBtn) {
-    handleAddInstrumentTrack(addFamilyBtn.dataset.addFamily);
+    const family = addFamilyBtn.dataset.addFamily;
+    if (useRealInstrumentSound && hasSample(family)) {
+      handleAddInstrumentTrackSampled(family);
+    } else {
+      handleAddInstrumentTrack(family);
+    }
     return;
   }
   const addPresetBtn = e.target.closest("[data-add-preset]");
@@ -1078,6 +1105,46 @@ function handleAddInstrumentTrack(family) {
   renderTrackList();
   renderTimeline();
   renderSoundPicker();
+}
+
+// The "Real instrument sound" path (see sample-engine.js): renders the
+// exact same starter-riff hits through a real sampled instrument into
+// one AudioBuffer (via an OfflineAudioContext), instead of the
+// synthesized step-editable pattern handleAddInstrumentTrack builds.
+// The resulting track is a plain (non-pattern) audio track — real
+// sample playback isn't step-editable the way the oscillator synth's
+// mathematically-rendered-per-step buffer is, an honest trade-off for
+// realism — but it still gets this app's full existing non-pattern
+// track toolkit (drag, trim, reverse, pitch, loop, MIDI export, etc.).
+// Falls back to the ordinary synth track if the sample fails to load
+// (e.g. offline) rather than leaving the click looking like it did
+// nothing.
+async function handleAddInstrumentTrackSampled(family) {
+  const starter = STARTERS.find((s) => s.family === family);
+  const hits = starter?.hits || [];
+  const statusEl = document.getElementById("sidebar-instrument-status");
+  pushUndo();
+  if (statusEl) statusEl.textContent = `Loading a real ${FAMILY_DISPLAY_NAME[family] || family} sample…`;
+  try {
+    const buffer = await renderSampledPattern(family, hits, DEFAULT_STEPS, getStepSec(), engine.ctx.sampleRate);
+    if (!buffer) throw new Error(`no sample mapping for ${family}`);
+    engine.addTrack(`${FAMILY_DISPLAY_NAME[family] || family} (real instrument)`, buffer);
+    activeTrackIndex = engine.tracks.length - 1;
+    renderTrackList();
+    renderTimeline();
+    renderSoundPicker();
+    if (statusEl) statusEl.textContent = "";
+  } catch (e) {
+    console.warn("Real-instrument sample failed to load — added the synth version instead.", e);
+    const pattern = createPattern(engine.ctx, engine.ctx.sampleRate, family, hits);
+    engine.addTrack(FAMILY_DISPLAY_NAME[family] || family, pattern.buffer, pattern);
+    activeTrackIndex = engine.tracks.length - 1;
+    armedSound = paletteFor(family)[0]?.key || null;
+    renderTrackList();
+    renderTimeline();
+    renderSoundPicker();
+    if (statusEl) statusEl.textContent = `Couldn't load a real sample for ${FAMILY_DISPLAY_NAME[family] || family} — added the synth version instead.`;
+  }
 }
 
 // --- Upload + Any Sound row ---
