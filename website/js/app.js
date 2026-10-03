@@ -68,7 +68,6 @@ function snapshotTracks() {
   return engine.tracks.map((t) => ({
     name: t.name,
     buffer: t.buffer,
-    colorIndex: t.colorIndex,
     muted: t.muted,
     solo: t.solo,
     pan: t.pan,
@@ -80,6 +79,7 @@ function snapshotTracks() {
     originalBuffer: t.originalBuffer,
     reversed: t.reversed,
     stretchFactor: t.stretchFactor,
+    family: t.family || null,
     pattern: t.pattern
       ? { family: t.pattern.family, hits: t.pattern.hits.map((h) => ({ ...h })), totalSteps: t.pattern.totalSteps }
       : null,
@@ -218,7 +218,32 @@ const FAMILY_DISPLAY_NAME = {
 };
 
 function trackFamily(track, index) {
-  return track.pattern?.family || currentSong?.layers[index]?.family || null;
+  // `track.family` covers non-pattern tracks that still know their own
+  // instrument family (e.g. a "real instrument" sampled render — see
+  // handleAddInstrumentTrackSampled) — a plain AudioBuffer track has no
+  // pattern to read a family from otherwise, and would wrongly fall
+  // into the generic "Audio" color bucket despite genuinely being a
+  // named instrument.
+  return track.pattern?.family || track.family || currentSong?.layers[index]?.family || null;
+}
+
+// Timeline clip-bar colors are assigned per instrument *category*
+// (reusing the exact INSTRUMENT_CATEGORIES grouping the sidebar
+// browser's chips already use), not a new color per track instance —
+// a second Guitar track reads as the same color as the first, the way
+// Logic/Ableton color tracks by instrument type rather than by
+// creation order (direct feedback from a Logic Pro screenshot: "every
+// strings track is orange/red, every brass track is yellow" etc., not
+// an arbitrary distinct hue per track). Index 8 is a fallback "Audio"
+// bucket for tracks with no recognizable instrument family at all — an
+// uploaded clip, a voice recording, an unlabeled demo-song layer. See
+// .layer-color-0..8 in daw.css for the actual palette.
+const AUDIO_FALLBACK_COLOR_INDEX = INSTRUMENT_CATEGORIES.length;
+
+function categoryColorIndexForFamily(family) {
+  if (!family) return AUDIO_FALLBACK_COLOR_INDEX;
+  const idx = INSTRUMENT_CATEGORIES.findIndex((cat) => cat.families.includes(family));
+  return idx >= 0 ? idx : AUDIO_FALLBACK_COLOR_INDEX;
 }
 
 // The example-song picker UI was removed per direct feedback ("remove
@@ -403,9 +428,10 @@ function renderTimeline() {
       // reposition — pattern tracks render as a full-width step grid
       // that always starts at 0; giving those a real start-offset too
       // is a separate, bigger change to how that grid is laid out.
+      const colorIndex = categoryColorIndexForFamily(family);
       const body = track.pattern
         ? renderPatternGridHtml(track, i)
-        : `<div class="timeline-layer__bar layer-color-${track.colorIndex}" data-drag-track="${i}" style="width:${pct}%; left:${leftPct}%" title="Drag the middle to move this clip, or its right edge to trim its length">
+        : `<div class="timeline-layer__bar layer-color-${colorIndex}" data-drag-track="${i}" style="width:${pct}%; left:${leftPct}%" title="Drag the middle to move this clip, or its right edge to trim its length">
             ${renderClipWaveformHtml(track)}
             <div class="timeline-layer__resize-handle" data-resize-track="${i}"></div>
           </div>`;
@@ -1129,6 +1155,10 @@ async function handleAddInstrumentTrackSampled(family) {
     const buffer = await renderSampledPattern(family, hits, DEFAULT_STEPS, getStepSec(), engine.ctx.sampleRate);
     if (!buffer) throw new Error(`no sample mapping for ${family}`);
     engine.addTrack(`${FAMILY_DISPLAY_NAME[family] || family} (real instrument)`, buffer);
+    // Lets trackFamily()/categoryColorIndexForFamily() color this clip
+    // by its real instrument category instead of the generic "Audio"
+    // fallback — it has no `pattern` to read a family from otherwise.
+    engine.tracks[engine.tracks.length - 1].family = family;
     activeTrackIndex = engine.tracks.length - 1;
     renderTrackList();
     renderTimeline();
@@ -2292,7 +2322,6 @@ function serializeTrackForSave(track) {
     return {
       kind: "pattern",
       name: track.name,
-      colorIndex: track.colorIndex,
       family: track.pattern.family,
       hits: track.pattern.hits,
       totalSteps: track.pattern.totalSteps,
@@ -2309,7 +2338,7 @@ function serializeTrackForSave(track) {
   return {
     kind: "audio",
     name: track.name,
-    colorIndex: track.colorIndex,
+    family: track.family || null,
     muted: track.muted,
     solo: track.solo,
     pan: track.pan,
@@ -2327,18 +2356,18 @@ function serializeTrackForSave(track) {
 }
 
 async function deserializeTrackFromSave(data) {
-  const colorIndex = data.colorIndex ?? null;
   if (data.kind === "pattern") {
     const pattern = createPattern(engine.ctx, engine.ctx.sampleRate, data.family, data.hits, data.totalSteps);
-    engine.addTrack(data.name, pattern.buffer, pattern, colorIndex);
+    engine.addTrack(data.name, pattern.buffer, pattern);
   } else {
     const buffer = await base64WavToAudioBuffer(engine.ctx, data.audioBase64);
-    engine.addTrack(data.name, buffer, null, colorIndex);
+    engine.addTrack(data.name, buffer);
   }
   const track = engine.tracks[engine.tracks.length - 1];
   track.muted = data.muted;
   track.solo = data.solo;
   track.pan = data.pan;
+  track.family = data.family || null;
   track.pitchSemitones = data.pitchSemitones || 0;
   track.reverbWet = data.reverbWet || 0;
   track.delayWet = data.delayWet || 0;

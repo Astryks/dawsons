@@ -432,7 +432,7 @@ body {
    Logic-Pro-timeline pattern Sid pointed at ("frequency-like" look
    inside each clip), restyled in this app's own palette rather than
    Logic's. Sits inside the colored clip bar, semi-transparent so the
-   track's own color (see .layer-color-0..5 below) still reads through. */
+   track's own color (see .layer-color-0..8 below) still reads through. */
 .timeline-layer__bar-waveform {
   position: absolute;
   inset: 0;
@@ -475,23 +475,51 @@ body {
   box-shadow: 0 0 6px 1px rgba(255, 255, 255, 0.8);
 }
 
+/* One color per instrument *category* (same order as app.js's
+   INSTRUMENT_CATEGORIES, plus a 9th "Audio/Other" fallback for tracks
+   with no recognizable family) — not a new color per track instance,
+   so every Guitar track reads as the same hue, the same way a real
+   DAW's track-color-by-type convention works. Anchored on this site's
+   own existing accent variables (the same purple/rose/ochre/teal set
+   the logo gradient and rest of the UI already use) rather than an
+   unrelated palette, picked to read as one cohesive warm set next to
+   each other rather than a clashing rainbow. */
 .layer-color-0 {
-  background: linear-gradient(135deg, var(--purple), var(--purple-deep));
-}
-.layer-color-1 {
-  background: linear-gradient(135deg, var(--olive), var(--olive-deep));
-}
-.layer-color-2 {
-  background: linear-gradient(135deg, var(--blue), #3d5654);
-}
-.layer-color-3 {
+  /* Drums & Percussion */
   background: linear-gradient(135deg, var(--rose), #8a2f28);
 }
-.layer-color-4 {
+.layer-color-1 {
+  /* Bass */
+  background: linear-gradient(135deg, var(--purple), var(--purple-deep));
+}
+.layer-color-2 {
+  /* Keyboards */
   background: linear-gradient(135deg, var(--ochre), #a87c3a);
 }
+.layer-color-3 {
+  /* Guitars */
+  background: linear-gradient(135deg, var(--olive), var(--olive-deep));
+}
+.layer-color-4 {
+  /* Strings & Choir */
+  background: linear-gradient(135deg, var(--pastel-lilac), var(--pastel-pink));
+}
 .layer-color-5 {
-  background: linear-gradient(135deg, var(--teal), #4a6058);
+  /* Winds & Brass */
+  background: linear-gradient(135deg, var(--pastel-peach), #c9793f);
+}
+.layer-color-6 {
+  /* Synth Leads & Pads */
+  background: linear-gradient(135deg, var(--teal), var(--blue));
+}
+.layer-color-7 {
+  /* Mallets & Bells */
+  background: linear-gradient(135deg, var(--pastel-sky), var(--pastel-mint));
+}
+.layer-color-8 {
+  /* Audio/Other fallback — uploaded clips, voice recordings, any track
+     with no recognizable instrument family */
+  background: linear-gradient(135deg, #a97154, #7a4a36);
 }
 
 .daw-effects {

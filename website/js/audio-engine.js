@@ -6,23 +6,10 @@ import { renderVoice, renderDrumHit } from "./synth.js";
 import { BAR_SEC } from "./demo-songs.js";
 import { createPattern } from "./pattern-editor.js";
 
-// Each track gets a color assigned once, at creation, from a fixed
-// 6-color palette (see .layer-color-0..5 in daw.css) — stored on the
-// Track instance itself (`colorIndex`) rather than computed from the
-// track's current position in the array, so reordering a track (the
-// existing move-up/move-down buttons) or re-rendering the timeline
-// never changes which color it reads as. A module-level counter just
-// hands out the next slot in rotation as tracks are created; undo/redo
-// and project load/save restore the same `colorIndex` instead of
-// drawing a fresh one, so a track's color survives those round-trips.
-export const TRACK_COLOR_COUNT = 6;
-let _nextColorIndex = 0;
-
 class Track {
-  constructor(name, buffer, pattern = null, colorIndex = null) {
+  constructor(name, buffer, pattern = null) {
     this.name = name;
     this.buffer = buffer;
-    this.colorIndex = colorIndex !== null && colorIndex !== undefined ? colorIndex : _nextColorIndex++ % TRACK_COLOR_COUNT;
     this.muted = false;
     this.solo = false;
     this.pan = 0; // -1 (left) .. 0 (center) .. 1 (right)
@@ -147,7 +134,7 @@ class Engine {
   // `{name, buffer, muted, solo, pan, pattern}` records.
   restoreTracks(snapshot) {
     this.tracks = snapshot.map((s) => {
-      const track = new Track(s.name, s.buffer, s.pattern ? { ...s.pattern, buffer: s.buffer } : null, s.colorIndex ?? null);
+      const track = new Track(s.name, s.buffer, s.pattern ? { ...s.pattern, buffer: s.buffer } : null);
       track.muted = s.muted;
       track.solo = s.solo;
       track.pan = s.pan;
@@ -159,12 +146,13 @@ class Engine {
       track.originalBuffer = s.originalBuffer || s.buffer;
       track.reversed = s.reversed || false;
       track.stretchFactor = s.stretchFactor || 1;
+      track.family = s.family || null;
       return track;
     });
   }
 
-  addTrack(name, buffer, pattern = null, colorIndex = null) {
-    this.tracks.push(new Track(name, buffer, pattern, colorIndex));
+  addTrack(name, buffer, pattern = null) {
+    this.tracks.push(new Track(name, buffer, pattern));
   }
 
   removeTrack(index) {
