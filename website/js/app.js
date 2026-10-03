@@ -5,6 +5,7 @@ import { reverseBuffer, pitchShiftBuffer, stretchBuffer, trimBuffer, buildEffect
 import { detectNotes, snapNotesToScale, MAJOR_SCALE, MINOR_SCALE } from "./pitch.js";
 import { encodeMidiFile } from "./midi-encoder.js";
 import { STARTERS, PRESET_LIBRARY } from "./starter-patterns.js";
+import { GENRE_PATTERNS } from "./genre-patterns.js";
 import { paletteFor, soundLabel, createPattern, toggleStep, autoFillEveryBeats, setBpm, getStepSec, rebuildBuffer, DEFAULT_STEPS } from "./pattern-editor.js";
 import { instrumentIconSvg, uiIconSvg } from "./instrument-icons.js";
 import { audioBufferToBase64Wav, base64WavToAudioBuffer, encodeWav } from "./wav-encoder.js";
@@ -573,6 +574,41 @@ function handleAddPreset(presetKey) {
   renderSoundPicker();
 }
 
+// The genre/decade starter library (genre-patterns.js) — a bigger,
+// original pattern collection tagged by genre/era, same one-click flow
+// as the single-instrument preset library above, except each entry is
+// a small multi-track "song starter": one click adds every one of its
+// tracks (drums + bass + a melodic instrument) at once, each a real,
+// independently editable pattern track.
+function renderGenrePresetLibrary() {
+  const el = document.getElementById("genre-preset-library");
+  if (!el) return;
+  el.innerHTML = GENRE_PATTERNS.map(
+    (preset) => `
+      <div class="instrument-browser__row" style="align-items: flex-start">
+        <div class="instrument-browser__name">
+          <strong>${preset.label}</strong>
+          <div class="daw-note" style="margin: 0.15rem 0 0">${preset.description}</div>
+        </div>
+        <button type="button" class="instrument-browser__action" data-add-genre-preset="${preset.key}" title="Add drums + bass + melody to the timeline, all at once">Add</button>
+      </div>`,
+  ).join("");
+}
+
+function handleAddGenrePreset(presetKey) {
+  const preset = GENRE_PATTERNS.find((p) => p.key === presetKey);
+  if (!preset) return;
+  pushUndo();
+  for (const trackSpec of preset.tracks) {
+    const pattern = createPattern(engine.ctx, engine.ctx.sampleRate, trackSpec.family, trackSpec.hits);
+    engine.addTrack(`${preset.label}: ${FAMILY_DISPLAY_NAME[trackSpec.family] || trackSpec.family}`, pattern.buffer, pattern);
+  }
+  activeTrackIndex = engine.tracks.length - 1;
+  renderTrackList();
+  renderTimeline();
+  renderSoundPicker();
+}
+
 // Renders one pattern-backed track's row as a grid of clickable steps —
 // tapping an empty step places the currently armed sound, tapping a
 // filled step removes it (see the #timeline click-delegation below).
@@ -971,6 +1007,11 @@ document.querySelector(".daw-sidebar").addEventListener("click", (e) => {
   const addPresetBtn = e.target.closest("[data-add-preset]");
   if (addPresetBtn) {
     handleAddPreset(addPresetBtn.dataset.addPreset);
+    return;
+  }
+  const addGenrePresetBtn = e.target.closest("[data-add-genre-preset]");
+  if (addGenrePresetBtn) {
+    handleAddGenrePreset(addGenrePresetBtn.dataset.addGenrePreset);
   }
 });
 
@@ -3066,6 +3107,7 @@ renderLyricNoteOptions();
 initializeDefaultTracks();
 renderSidebarInstrumentBrowser();
 renderPresetLibrary();
+renderGenrePresetLibrary();
 updateScrubber();
 updateUndoRedoButtons();
 
