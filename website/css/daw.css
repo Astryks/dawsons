@@ -1645,3 +1645,233 @@ body {
 .context-menu button:hover {
   background: var(--panel-alt);
 }
+
+/* --- DJ Mixer: a playful, chunky hardware-console look (Pioneer/Numark
+   in spirit, this site's own warm palette in practice) — tactile
+   backlit-feeling buttons and knobs, not a clinical form. --- */
+.dj-mixer {
+  margin-top: 1.2rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 1rem 1.2rem 1.3rem;
+}
+
+.dj-mixer__decks {
+  display: flex;
+  align-items: stretch;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+
+.dj-mixer__deck {
+  flex: 1 1 260px;
+  min-width: 230px;
+  background: var(--panel-alt);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.8rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  align-items: center;
+}
+
+.dj-mixer__track-select {
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+  font-size: 0.82rem;
+}
+
+/* The jog wheel/platter — a chunky backlit-feeling disc you drag to
+   scratch/scrub. Spins continuously while that deck plays (paused
+   instantly when playback stops), a real, not-decorative cue of
+   playback state, same spirit as the main timeline's playhead. */
+.dj-mixer__platter {
+  width: 120px;
+  height: 120px;
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, var(--panel), #140a0c 75%);
+  border: 3px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  touch-action: none;
+  box-shadow: inset 0 0 18px rgba(0, 0, 0, 0.6), 0 2px 6px rgba(0, 0, 0, 0.4);
+}
+
+.dj-mixer__platter:active {
+  cursor: grabbing;
+}
+
+.dj-mixer__platter-disc {
+  width: 92px;
+  height: 92px;
+  border-radius: 50%;
+  background: conic-gradient(var(--purple-deep), var(--rose), var(--ochre), var(--teal), var(--purple-deep));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: inset 0 0 10px rgba(0, 0, 0, 0.5);
+}
+
+.dj-mixer__platter-disc.is-spinning {
+  animation: dj-spin 2.2s linear infinite;
+}
+
+@keyframes dj-spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.dj-mixer__platter-dot {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: var(--bg);
+  border: 2px solid rgba(255, 255, 255, 0.4);
+}
+
+.dj-mixer__transport {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.dj-mixer__transport button {
+  padding: 0.4rem 0.7rem;
+  border-radius: 8px;
+  border: 1px solid var(--purple-deep);
+  background: var(--purple-deep);
+  color: #fff;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.dj-mixer__transport button:hover {
+  filter: brightness(1.15);
+}
+
+.dj-mixer__bpm {
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.dj-mixer__bpm input {
+  width: 4.5em;
+  padding: 0.25rem 0.4rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text);
+}
+
+.dj-mixer__eq {
+  display: flex;
+  gap: 0.6rem;
+  width: 100%;
+  justify-content: center;
+}
+
+.dj-mixer__eq label {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.72rem;
+  color: var(--text-dim);
+}
+
+.dj-mixer__eq input[type="range"] {
+  writing-mode: vertical-lr;
+  direction: rtl;
+  width: 1.4rem;
+  height: 70px;
+  accent-color: var(--ochre);
+}
+
+.dj-mixer__volume {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  width: 100%;
+}
+
+.dj-mixer__volume input {
+  flex: 1;
+  accent-color: var(--purple);
+}
+
+.dj-mixer__cues {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.dj-mixer__cuepad {
+  width: 2.2rem;
+  height: 2.2rem;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--panel);
+  color: var(--text-dim);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.dj-mixer__cuepad:hover {
+  border-color: var(--ochre);
+  color: var(--text);
+}
+
+/* A hot cue that's been set glows — a backlit-pad feel, and a genuine
+   functional cue (set vs. unset) rather than decoration. */
+.dj-mixer__cuepad.is-set {
+  background: var(--ochre);
+  border-color: var(--ochre);
+  color: #241207;
+  box-shadow: 0 0 10px 1px rgba(212, 162, 76, 0.6);
+}
+
+.dj-mixer__crossfader-col {
+  flex: 0 0 140px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  padding: 0 0.5rem;
+}
+
+.dj-mixer__master-label {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-dim);
+}
+
+#dj-crossfader {
+  width: 120px;
+  accent-color: var(--rose);
+}
+
+.dj-mixer__crossfader-labels {
+  display: flex;
+  justify-content: space-between;
+  width: 120px;
+  font-size: 0.78rem;
+  color: var(--text-dim);
+  font-weight: 600;
+}

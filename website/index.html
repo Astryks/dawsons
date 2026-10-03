@@ -380,6 +380,10 @@
                   <input type="range" id="voice-delay" min="0" max="100" value="30" style="display: none" title="Wet %" />
                   <label class="effect-stack__toggle"><input type="checkbox" id="voice-fx-compress" /> Compression</label>
                   <label class="effect-stack__toggle" title="A stock presence-boost EQ, the same reference vocal chain that motivated Robotic/Muffled/Distortion/Reverb/Compression"><input type="checkbox" id="voice-fx-eq" /> EQ</label>
+                  <label class="effect-stack__toggle" title="Daft Punk/house-style rhythmic volume pumping, synced to the current BPM"><input type="checkbox" id="voice-fx-sidechain" /> Sidechain Pump</label>
+                  <input type="range" id="voice-sidechain" min="0" max="100" value="60" style="display: none" title="Pump amount" />
+                  <label class="effect-stack__toggle" title="A slow-moving resonant filter sweep — the 'One More Time'/'Da Funk' evolving-tone technique"><input type="checkbox" id="voice-fx-filtersweep" /> Filter Sweep</label>
+                  <input type="range" id="voice-filtersweep" min="0" max="100" value="60" style="display: none" title="Sweep range" />
                 </span>
                 <button id="voice-preview-btn" disabled title="Hear it through the chosen instrument before adding it">Preview</button>
                 <button class="is-primary" id="voice-render-btn" disabled>Add to timeline</button>
@@ -440,8 +444,82 @@
                   <input type="range" id="fx-delay" min="0" max="100" value="30" style="display: none" title="Wet %" />
                   <label class="effect-stack__toggle"><input type="checkbox" id="fx-fx-compress" /> Compression</label>
                   <label class="effect-stack__toggle" title="A stock presence-boost EQ"><input type="checkbox" id="fx-fx-eq" /> EQ</label>
+                  <label class="effect-stack__toggle" title="Daft Punk/house-style rhythmic volume pumping, synced to the current BPM"><input type="checkbox" id="fx-fx-sidechain" /> Sidechain Pump</label>
+                  <input type="range" id="fx-sidechain" min="0" max="100" value="60" style="display: none" title="Pump amount" />
+                  <label class="effect-stack__toggle" title="A slow-moving resonant filter sweep — the 'One More Time'/'Da Funk' evolving-tone technique"><input type="checkbox" id="fx-fx-filtersweep" /> Filter Sweep</label>
+                  <input type="range" id="fx-filtersweep" min="0" max="100" value="60" style="display: none" title="Sweep range" />
                 </span>
                 <button class="is-primary" id="fx-apply-btn" disabled>Apply &amp; add to timeline</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dj-mixer" id="dj-mixer">
+          <div class="daw-sidebar__section-title" style="margin-top: 0">DJ Mixer</div>
+          <p class="daw-note" style="margin: 0 0 0.7rem">
+            Load any two of your own tracks from "Your Layers" into Deck A/B, then play, scratch the
+            jog wheels, drop hot cues, and crossfade between them live — a just-for-fun virtual console,
+            reusing the exact same track audio already in your project.
+          </p>
+          <div class="dj-mixer__decks">
+            <div class="dj-mixer__deck" data-deck="a">
+              <select class="dj-mixer__track-select" data-deck-select="a"><option value="">No track loaded</option></select>
+              <div class="dj-mixer__platter" data-deck-platter="a" title="Drag to scratch/scrub playback position">
+                <div class="dj-mixer__platter-disc"><div class="dj-mixer__platter-dot"></div></div>
+              </div>
+              <div class="dj-mixer__transport">
+                <button type="button" data-deck-play="a">Play</button>
+                <button type="button" data-deck-cue="a" title="Jump to the start">Cue</button>
+                <button type="button" data-deck-sync="a" title="Match this deck's speed to the other deck's BPM">Sync</button>
+              </div>
+              <label class="dj-mixer__bpm" title="Enter this track's BPM manually — Sync matches playback speed using these two numbers, not real tempo detection">
+                BPM <input type="number" data-deck-bpm="a" min="40" max="240" placeholder="120" />
+              </label>
+              <div class="dj-mixer__eq">
+                <label>Hi<input type="range" data-deck-eq="a-high" min="-24" max="12" value="0" /></label>
+                <label>Mid<input type="range" data-deck-eq="a-mid" min="-24" max="12" value="0" /></label>
+                <label>Low<input type="range" data-deck-eq="a-low" min="-24" max="12" value="0" /></label>
+              </div>
+              <label class="dj-mixer__volume">Vol <input type="range" data-deck-volume="a" min="0" max="100" value="100" /></label>
+              <div class="dj-mixer__cues">
+                <button type="button" class="dj-mixer__cuepad" data-deck-cuepad="a-0">1</button>
+                <button type="button" class="dj-mixer__cuepad" data-deck-cuepad="a-1">2</button>
+                <button type="button" class="dj-mixer__cuepad" data-deck-cuepad="a-2">3</button>
+                <button type="button" class="dj-mixer__cuepad" data-deck-cuepad="a-3">4</button>
+              </div>
+            </div>
+
+            <div class="dj-mixer__crossfader-col">
+              <div class="dj-mixer__master-label">Crossfader</div>
+              <input type="range" id="dj-crossfader" min="0" max="100" value="50" />
+              <div class="dj-mixer__crossfader-labels"><span>A</span><span>B</span></div>
+            </div>
+
+            <div class="dj-mixer__deck" data-deck="b">
+              <select class="dj-mixer__track-select" data-deck-select="b"><option value="">No track loaded</option></select>
+              <div class="dj-mixer__platter" data-deck-platter="b" title="Drag to scratch/scrub playback position">
+                <div class="dj-mixer__platter-disc"><div class="dj-mixer__platter-dot"></div></div>
+              </div>
+              <div class="dj-mixer__transport">
+                <button type="button" data-deck-play="b">Play</button>
+                <button type="button" data-deck-cue="b" title="Jump to the start">Cue</button>
+                <button type="button" data-deck-sync="b" title="Match this deck's speed to the other deck's BPM">Sync</button>
+              </div>
+              <label class="dj-mixer__bpm" title="Enter this track's BPM manually — Sync matches playback speed using these two numbers, not real tempo detection">
+                BPM <input type="number" data-deck-bpm="b" min="40" max="240" placeholder="120" />
+              </label>
+              <div class="dj-mixer__eq">
+                <label>Hi<input type="range" data-deck-eq="b-high" min="-24" max="12" value="0" /></label>
+                <label>Mid<input type="range" data-deck-eq="b-mid" min="-24" max="12" value="0" /></label>
+                <label>Low<input type="range" data-deck-eq="b-low" min="-24" max="12" value="0" /></label>
+              </div>
+              <label class="dj-mixer__volume">Vol <input type="range" data-deck-volume="b" min="0" max="100" value="100" /></label>
+              <div class="dj-mixer__cues">
+                <button type="button" class="dj-mixer__cuepad" data-deck-cuepad="b-0">1</button>
+                <button type="button" class="dj-mixer__cuepad" data-deck-cuepad="b-1">2</button>
+                <button type="button" class="dj-mixer__cuepad" data-deck-cuepad="b-2">3</button>
+                <button type="button" class="dj-mixer__cuepad" data-deck-cuepad="b-3">4</button>
               </div>
             </div>
           </div>

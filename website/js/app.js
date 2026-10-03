@@ -23,6 +23,7 @@ import { Mp3Encoder } from "./vendor/lamejs-1.2.7.js";
 // production, brought to the homepage as an optional upgrade over the
 // built-in oscillator synth for families with a credible sample match.
 import { hasSample, renderSampledPattern } from "./sample-engine.js";
+import { initDjMixer } from "./dj-mixer.js";
 
 const engine = new Engine();
 let currentSong = null;
@@ -1463,6 +1464,13 @@ const EFFECT_STACK_DEFS = [
   // per-take — so a plain toggle matches the actual reference better
   // than a multi-slider frequency/gain/Q control nobody asked to tune.
   { key: "eq", param: "eqGainDb", slider: null, toggleValue: 3 },
+  // "Daft Punk"-style production techniques (researched: house-music
+  // sidechain pumping and slow filter-sweep automation — see
+  // effects.js's buildSidechainPumpNode/buildFilterSweepNode for the
+  // honest explanation of how each is actually built on top of what
+  // Web Audio exposes).
+  { key: "sidechain", param: "sidechainAmount", slider: "sidechain", scale: 0.01 },
+  { key: "filtersweep", param: "filterSweepAmount", slider: "filtersweep", scale: 0.01 },
 ];
 
 function wireEffectStack(prefix) {
@@ -1492,6 +1500,9 @@ function effectStackOptsFrom(prefix) {
     eqGainDb: 0,
     eqFreqHz: 3000, // presence range — the "stock EQ" bump this preset approximates
     eqQ: 1,
+    sidechainAmount: 0,
+    filterSweepAmount: 0,
+    bpm: currentBpm,
   };
   for (const def of EFFECT_STACK_DEFS) {
     const checked = document.getElementById(`${prefix}-fx-${def.key}`).checked;
@@ -1514,7 +1525,9 @@ function effectStackHasAny(opts) {
     opts.reverbWet > 0 ||
     opts.delayWet > 0 ||
     opts.compressEnabled ||
-    opts.eqGainDb !== 0
+    opts.eqGainDb !== 0 ||
+    opts.sidechainAmount > 0 ||
+    opts.filterSweepAmount > 0
   );
 }
 
@@ -3108,6 +3121,7 @@ initializeDefaultTracks();
 renderSidebarInstrumentBrowser();
 renderPresetLibrary();
 renderGenrePresetLibrary();
+initDjMixer(engine);
 updateScrubber();
 updateUndoRedoButtons();
 
