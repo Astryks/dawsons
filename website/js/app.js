@@ -932,9 +932,20 @@ async function handleUploadedFile(file) {
 
 document.getElementById("upload-track").onclick = () => document.getElementById("upload-input").click();
 document.getElementById("anysound-upload-btn").onclick = () => document.getElementById("upload-input").click();
+// Real bug found testing a 63MB .mp4 upload from the hero button (Sid,
+// 2026-10-03): the upload actually decodes fine (decodeAudioData handles
+// an audio track inside a video container), but gave zero visible
+// feedback — the "Loaded ... — trim, reverse/pitch, then Apply" status and
+// the Apply button only live in the "Any Sound" row, far down the page,
+// so a hero-triggered upload looked like it silently did nothing. Scroll
+// that row into view on every upload now (not just hero-triggered ones;
+// no real downside to always doing it), same fix already applied to the
+// hero Record button.
 document.getElementById("upload-input").onchange = async (e) => {
   const file = e.target.files[0];
-  if (file) await handleUploadedFile(file);
+  if (!file) return;
+  document.getElementById("anysound-upload-btn").closest(".timeline-layer--special").scrollIntoView({ behavior: "smooth", block: "center" });
+  await handleUploadedFile(file);
 };
 
 // A direct URL to an audio file the user already controls/has rights to
