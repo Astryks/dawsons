@@ -290,4 +290,61 @@ mod tests {
         let conn = test_db();
         assert!(delete_voice_note(&conn, "nonexistent").is_err());
     }
+
+    /// Closes a real gap: item 76's "Add audio track (no separation)"
+    /// button (`handleAddRawAudioTrack` in App.tsx) builds this exact
+    /// Scene-Graph shape by hand (not a sidecar analysis result) and
+    /// saves it so the track survives a project switch — that save/get
+    /// round trip itself had no test at all until now. Confirms what Sid
+    /// asked to "check in the app" for real: a fortnite.mp4 track added
+    /// via the no-separation path, persisted, and reloaded, ends up in
+    /// exactly the shape `load_stems_from_result` (analysis.rs) needs
+    /// (it only ever reads `name` + `audioFilePath` off each entry) —
+    /// the fields that only exist for a real analysis result (`tempo`,
+    /// `key`, etc.) are absent here, by design, and that's fine.
+    #[test]
+    fn fortnite_track_added_without_separation_survives_a_save_and_reload() {
+        let conn = test_db();
+        let project = create_project(&conn, "Fortnite test", None).unwrap();
+
+        // Exactly what handleAddRawAudioTrack constructs client-side.
+        let graph = serde_json::json!({
+            "schemaVersion": "1.0.0",
+            "song": {
+                "tracks": [{
+                    "id": "11111111-1111-1111-1111-111111111111",
+                    "name": "fortnite",
+                    "type": "audio",
+                    "instrument": "other",
+                    "audioFilePath": "/Users/sidmehta/Downloads/fortnite.mp4",
+                    "source": "user",
+                }]
+            }
+        });
+        save_scene_graph(
+            &conn,
+            &project.id,
+            graph["schemaVersion"].as_str().unwrap(),
+            &graph.to_string(),
+        )
+        .unwrap();
+
+        // Simulate switching away and back to the project (the M6b
+        // restore effect) — reload from scratch, parse it back.
+        let reloaded = get_scene_graph(&conn, &project.id)
+            .unwrap()
+            .expect("scene graph must still be there after reload");
+        let parsed: serde_json::Value = serde_json::from_str(&reloaded).unwrap();
+        let tracks = parsed["song"]["tracks"].as_array().unwrap();
+        assert_eq!(tracks.len(), 1);
+
+        // Exactly load_stems_from_result's own extraction — if this
+        // passes, the real Tauri command will restore this track.
+        let name = tracks[0]["name"].as_str().expect("track missing name");
+        let path = tracks[0]["audioFilePath"]
+            .as_str()
+            .expect("track missing audioFilePath");
+        assert_eq!(name, "fortnite");
+        assert_eq!(path, "/Users/sidmehta/Downloads/fortnite.mp4");
+    }
 }
