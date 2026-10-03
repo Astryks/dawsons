@@ -55,6 +55,15 @@ const FAMILY_PALETTES = {
     { key: "crash", label: "Crash" },
     { key: "cowbell", label: "Cowbell" },
     { key: "shaker", label: "Shaker" },
+    // Added for the 18-pad grid redesign — see synth.js for each
+    // voice's actual DSP.
+    { key: "snap", label: "Snap" },
+    { key: "ride", label: "Ride" },
+    { key: "tomhi", label: "Hi Tom" },
+    { key: "tomlo", label: "Low Tom" },
+    { key: "tambourine", label: "Tambourine" },
+    { key: "clave", label: "Clave" },
+    { key: "conga", label: "Conga" },
   ],
   keys: notePalette(60, "C"),
   guitar: notePalette(60, "C"),

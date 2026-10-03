@@ -256,15 +256,42 @@
                   <button class="is-primary" id="keyboard-add-btn" disabled>Add to timeline</button>
                   <button id="keyboard-discard-btn" disabled>Discard</button>
                 </div>
+                <!-- 18 pads (3x6), redesigned per direct feedback: F1-F8
+                     were awkward function-row keys; the piano's live
+                     computer-key range below was trimmed to one
+                     diatonic octave (sharps/flats still clickable with
+                     the mouse) specifically to free the number row,
+                     QWERTY row, and home row — three full, mutually
+                     adjacent rows — for this grid with zero key
+                     overlap. See STATUS.md for the exact before/after
+                     key map. -->
                 <div class="mpc-pad-grid" id="mpc-pad-grid">
-                  <div class="mpc-pad" data-drum="kick"><span>Kick</span><span class="mpc-pad__key">F1</span></div>
-                  <div class="mpc-pad" data-drum="snare"><span>Snare</span><span class="mpc-pad__key">F2</span></div>
-                  <div class="mpc-pad" data-drum="clap"><span>Clap</span><span class="mpc-pad__key">F3</span></div>
-                  <div class="mpc-pad" data-drum="hihat"><span>Hat</span><span class="mpc-pad__key">F4</span></div>
-                  <div class="mpc-pad" data-drum="kick2"><span>Deep Kick</span><span class="mpc-pad__key">F5</span></div>
-                  <div class="mpc-pad" data-drum="rimshot"><span>Rimshot</span><span class="mpc-pad__key">F6</span></div>
-                  <div class="mpc-pad" data-drum="openhat"><span>Open Hat</span><span class="mpc-pad__key">F7</span></div>
-                  <div class="mpc-pad" data-drum="crash"><span>Crash</span><span class="mpc-pad__key">F8</span></div>
+                  <div class="mpc-pad" data-drum="kick"><span>Kick</span><span class="mpc-pad__key">1</span></div>
+                  <div class="mpc-pad" data-drum="kick2"><span>Deep Kick</span><span class="mpc-pad__key">2</span></div>
+                  <div class="mpc-pad" data-drum="snare"><span>Snare</span><span class="mpc-pad__key">3</span></div>
+                  <div class="mpc-pad" data-drum="rimshot"><span>Rimshot</span><span class="mpc-pad__key">4</span></div>
+                  <div class="mpc-pad" data-drum="clap"><span>Clap</span><span class="mpc-pad__key">5</span></div>
+                  <div class="mpc-pad" data-drum="snap"><span>Snap</span><span class="mpc-pad__key">6</span></div>
+                  <div class="mpc-pad" data-drum="hihat"><span>Hat</span><span class="mpc-pad__key">Q</span></div>
+                  <div class="mpc-pad" data-drum="openhat"><span>Open Hat</span><span class="mpc-pad__key">W</span></div>
+                  <div class="mpc-pad" data-drum="crash"><span>Crash</span><span class="mpc-pad__key">E</span></div>
+                  <div class="mpc-pad" data-drum="ride"><span>Ride</span><span class="mpc-pad__key">R</span></div>
+                  <div class="mpc-pad" data-drum="tom"><span>Tom</span><span class="mpc-pad__key">T</span></div>
+                  <div class="mpc-pad" data-drum="tomhi"><span>Hi Tom</span><span class="mpc-pad__key">Y</span></div>
+                  <div class="mpc-pad" data-drum="cowbell"><span>Cowbell</span><span class="mpc-pad__key">A</span></div>
+                  <div class="mpc-pad" data-drum="shaker"><span>Shaker</span><span class="mpc-pad__key">S</span></div>
+                  <div class="mpc-pad" data-drum="tambourine"><span>Tambourine</span><span class="mpc-pad__key">D</span></div>
+                  <div class="mpc-pad" data-drum="clave"><span>Clave</span><span class="mpc-pad__key">F</span></div>
+                  <div class="mpc-pad" data-drum="conga"><span>Conga</span><span class="mpc-pad__key">G</span></div>
+                  <div class="mpc-pad" data-drum="tomlo"><span>Low Tom</span><span class="mpc-pad__key">H</span></div>
+                </div>
+                <div class="midi-keyboard-controls" style="margin-top: 0.5rem">
+                  <label class="timeline-layer__inline-range" title="The piano's computer-key range is one octave at a time — these shift it up/down without changing what's on screen. Clicking an on-screen key with the mouse always plays the pictured octave regardless of this setting.">
+                    <button type="button" id="oct-down">Octave −</button>
+                    <span id="keyboard-octave-label">Octave shift: 0</span>
+                    <button type="button" id="oct-up">Octave +</button>
+                  </label>
+                  <span class="daw-note" style="margin: 0">Computer keys Z-M play one white-key octave; sharps/flats are mouse/tap-only on the keys below.</span>
                 </div>
                 <div class="midi-keyboard" id="midi-keyboard">
                   <div class="midi-keyboard__white" data-note="60"><span class="midi-keyboard__label">Z</span></div>
@@ -274,23 +301,11 @@
                   <div class="midi-keyboard__white" data-note="67"><span class="midi-keyboard__label">B</span></div>
                   <div class="midi-keyboard__white" data-note="69"><span class="midi-keyboard__label">N</span></div>
                   <div class="midi-keyboard__white" data-note="71"><span class="midi-keyboard__label">M</span></div>
-                  <div class="midi-keyboard__white" data-note="72"><span class="midi-keyboard__label">Q</span></div>
-                  <div class="midi-keyboard__white" data-note="74"><span class="midi-keyboard__label">W</span></div>
-                  <div class="midi-keyboard__white" data-note="76"><span class="midi-keyboard__label">E</span></div>
-                  <div class="midi-keyboard__white" data-note="77"><span class="midi-keyboard__label">R</span></div>
-                  <div class="midi-keyboard__white" data-note="79"><span class="midi-keyboard__label">T</span></div>
-                  <div class="midi-keyboard__white" data-note="81"><span class="midi-keyboard__label">Y</span></div>
-                  <div class="midi-keyboard__white" data-note="83"><span class="midi-keyboard__label">U</span></div>
-                  <div class="midi-keyboard__black" data-note="61" style="left: 4.14%"><span class="midi-keyboard__label">S</span></div>
-                  <div class="midi-keyboard__black" data-note="63" style="left: 11.29%"><span class="midi-keyboard__label">D</span></div>
-                  <div class="midi-keyboard__black" data-note="66" style="left: 25.57%"><span class="midi-keyboard__label">G</span></div>
-                  <div class="midi-keyboard__black" data-note="68" style="left: 32.71%"><span class="midi-keyboard__label">H</span></div>
-                  <div class="midi-keyboard__black" data-note="70" style="left: 39.86%"><span class="midi-keyboard__label">J</span></div>
-                  <div class="midi-keyboard__black" data-note="73" style="left: 54.14%"><span class="midi-keyboard__label">2</span></div>
-                  <div class="midi-keyboard__black" data-note="75" style="left: 61.29%"><span class="midi-keyboard__label">3</span></div>
-                  <div class="midi-keyboard__black" data-note="78" style="left: 75.57%"><span class="midi-keyboard__label">5</span></div>
-                  <div class="midi-keyboard__black" data-note="80" style="left: 82.71%"><span class="midi-keyboard__label">6</span></div>
-                  <div class="midi-keyboard__black" data-note="82" style="left: 89.86%"><span class="midi-keyboard__label">7</span></div>
+                  <div class="midi-keyboard__black" data-note="61" style="left: 9.79%"></div>
+                  <div class="midi-keyboard__black" data-note="63" style="left: 24.07%"></div>
+                  <div class="midi-keyboard__black" data-note="66" style="left: 52.64%"></div>
+                  <div class="midi-keyboard__black" data-note="68" style="left: 66.93%"></div>
+                  <div class="midi-keyboard__black" data-note="70" style="left: 81.21%"></div>
                 </div>
               </div>
             </div>

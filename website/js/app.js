@@ -2088,43 +2088,64 @@ voiceRenderBtn.onclick = async () => {
 // A S D F G H J K / W E T Y U, GarageBand's "Musical Typing" layout)
 // — both feed the same Record/Preview/Discard/Add-to-timeline take,
 // so a beat and a melody can be finger-drummed into the same take. ---
-// Two octaves via the classic "Musical Typing"-style layout: the
-// bottom row (Z...M) plays one octave of white keys with S/D/G/H/J as
-// the black keys above them, and the row above (Q...U) continues into
-// the next octave with 2/3/5/6/7 as its black keys — a long-standing,
-// generic computer-keyboard-as-MIDI-keyboard convention (not specific
-// to any one product), chosen because it actually uses most of the
-// keyboard instead of one cramped octave.
+// (2026-10-03) Redesigned per direct feedback: the drum pads used to
+// live on F1-F8 ("awkward to reach") and the piano used to cover two
+// full octaves spread across all four keyboard rows (Z...M + S/D/G/H/J
+// for octave one, Q...U + 2/3/5/6/7 for octave two) — between the two,
+// every alphanumeric key on the keyboard was already claimed, leaving
+// no free contiguous block anywhere for a real 18-pad grid. Trimmed the
+// piano's *computer-key* range down to one diatonic (white-key) octave,
+// freeing the number row, the QWERTY row, and the home row — three
+// full rows, all directly adjacent to each other — for the pad grid
+// below with zero overlap. Sharps/flats are still right there on the
+// on-screen keyboard, just mouse/tap-only now; the new Octave +/−
+// buttons (see keyboardOctaveShift below) shift the computer-key
+// octave up/down to compensate for losing the second live octave.
+//   Final key map — Piano (one octave, computer keys only):
+//     Z=C  X=D  C=E  V=F  B=G  N=A  M=B   (black keys: mouse/tap only)
+//   Pads (18, 3 rows x 6 columns, see index.html for exactly which pad
+//   label is where):
+//     Row 1 (number row):  1 2 3 4 5 6
+//     Row 2 (QWERTY row):  Q W E R T Y
+//     Row 3 (home row):    A S D F G H
 const KEYBOARD_KEY_MAP = {
   z: 60,
-  s: 61,
   x: 62,
-  d: 63,
   c: 64,
   v: 65,
-  g: 66,
   b: 67,
-  h: 68,
   n: 69,
-  j: 70,
   m: 71,
-  q: 72,
-  2: 73,
-  w: 74,
-  3: 75,
-  e: 76,
-  r: 77,
-  5: 78,
-  t: 79,
-  6: 80,
-  y: 81,
-  7: 82,
-  u: 83,
 };
-// F1-F8, not letters/digits — the two-octave keyboard above now uses
-// nearly the entire alphanumeric block, so the pads get their own
-// unclaimed row instead of colliding with it.
-const PAD_KEY_MAP = { f1: "kick", f2: "snare", f3: "clap", f4: "hihat", f5: "kick2", f6: "rimshot", f7: "openhat", f8: "crash" };
+// Shifts every KEYBOARD_KEY_MAP note by this many octaves (±12
+// semitones each) — only affects computer-key play; clicking an
+// on-screen piano key always plays the pictured note regardless, since
+// the visual keyboard doesn't change when this shifts (a deliberate
+// scope-limited choice, not re-rendering the whole keyboard per press).
+let keyboardOctaveShift = 0;
+const KEYBOARD_OCTAVE_MIN = -2;
+const KEYBOARD_OCTAVE_MAX = 2;
+
+const PAD_KEY_MAP = {
+  1: "kick",
+  2: "kick2",
+  3: "snare",
+  4: "rimshot",
+  5: "clap",
+  6: "snap",
+  q: "hihat",
+  w: "openhat",
+  e: "crash",
+  r: "ride",
+  t: "tom",
+  y: "tomhi",
+  a: "cowbell",
+  s: "shaker",
+  d: "tambourine",
+  f: "clave",
+  g: "conga",
+  h: "tomlo",
+};
 const KEYBOARD_PREVIEW_DURATION_SEC = 0.9;
 const heldPads = new Map(); // id ("note:60" or "drum:kick") -> { startedAtMs }
 let keyboardRecording = false;
@@ -2219,23 +2240,47 @@ wirePadSurface(document.getElementById("midi-keyboard"), "note");
 wirePadSurface(document.getElementById("mpc-pad-grid"), "drum");
 
 window.addEventListener("keydown", async (e) => {
-  if (isTypingIntoField() || e.repeat) return;
+  // Skip entirely (don't even preventDefault) when a modifier is held —
+  // several of these keys (c/v especially) are also Cmd/Ctrl+C/V copy-
+  // paste; this guard is what keeps that working while this page has
+  // focus, a real collision risk the plain letter keys already had
+  // before this pad redesign added more of them.
+  if (isTypingIntoField() || e.repeat || e.ctrlKey || e.metaKey || e.altKey) return;
   const key = e.key.toLowerCase();
-  const note = KEYBOARD_KEY_MAP[key];
+  const baseNote = KEYBOARD_KEY_MAP[key];
   const drum = PAD_KEY_MAP[key];
-  if (note === undefined && drum === undefined) return;
-  if (drum !== undefined) e.preventDefault(); // F1-F8 otherwise trigger browser/OS shortcuts on some machines
+  if (baseNote === undefined && drum === undefined) return;
+  // Numbers/letters can otherwise type into a focused field or trigger
+  // a browser shortcut on some machines — same reasoning the old F-key
+  // pads needed this for.
+  e.preventDefault();
   await engine.resume();
-  if (note !== undefined) padOn(`note:${note}`);
+  if (baseNote !== undefined) padOn(`note:${baseNote + keyboardOctaveShift * 12}`);
   if (drum !== undefined) padOn(`drum:${drum}`);
 });
 window.addEventListener("keyup", (e) => {
   const key = e.key.toLowerCase();
-  const note = KEYBOARD_KEY_MAP[key];
+  const baseNote = KEYBOARD_KEY_MAP[key];
   const drum = PAD_KEY_MAP[key];
-  if (note !== undefined) padOff(`note:${note}`);
+  if (baseNote !== undefined) padOff(`note:${baseNote + keyboardOctaveShift * 12}`);
   if (drum !== undefined) padOff(`drum:${drum}`);
 });
+
+// Octave +/- — shifts the computer-key piano range only (see
+// keyboardOctaveShift's own comment above); the on-screen keyboard
+// always shows/plays the same pictured octave when clicked directly.
+function updateKeyboardOctaveLabel() {
+  const label = document.getElementById("keyboard-octave-label");
+  if (label) label.textContent = `Octave shift: ${keyboardOctaveShift > 0 ? "+" : ""}${keyboardOctaveShift}`;
+}
+document.getElementById("oct-down").onclick = () => {
+  keyboardOctaveShift = Math.max(KEYBOARD_OCTAVE_MIN, keyboardOctaveShift - 1);
+  updateKeyboardOctaveLabel();
+};
+document.getElementById("oct-up").onclick = () => {
+  keyboardOctaveShift = Math.min(KEYBOARD_OCTAVE_MAX, keyboardOctaveShift + 1);
+  updateKeyboardOctaveLabel();
+};
 
 const keyboardStatus = document.getElementById("keyboard-status");
 const keyboardRecordBtn = document.getElementById("keyboard-record-btn");

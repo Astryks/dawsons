@@ -620,6 +620,37 @@ const DRUM_VOICES = {
   // shaker read as granular grains sliding past each other rather than
   // a single noise burst like the hats.
   shaker: (t) => (Math.random() * 2 - 1) * Math.exp(-t * 45) * (0.7 + 0.3 * Math.sin(2 * Math.PI * 30 * t)) * 0.15,
+  // --- Added for the 18-pad grid redesign (3x6, per direct feedback —
+  // see STATUS.md) — 7 new voices, same from-scratch synthesis approach
+  // as every drum voice above (pitch-dropping sines for tonal hits,
+  // shaped noise for percussive ones), no samples. ---
+  // A sharper, single fast burst — distinct from clap's three-burst
+  // layering above (a finger snap is one crisp transient, not several).
+  snap: (t) => (Math.random() * 2 - 1) * Math.exp(-t * 90) * 0.3,
+  // A ride cymbal: a few inharmonic sine partials (the metallic "ping")
+  // layered under noise, decaying much slower than the crash above but
+  // with a more defined pitch center — the real audible difference
+  // between the two cymbals.
+  ride: (t) => (Math.sin(2 * Math.PI * 800 * t) * 0.15 + Math.sin(2 * Math.PI * 1200 * t) * 0.1 + (Math.random() * 2 - 1) * 0.15) * Math.exp(-t * 3),
+  // Two more toms alongside the existing mid `tom` above — a real
+  // 3-tom kit (high/mid/low), each just a different base frequency and
+  // decay rate of the same pitch-dropping-sine technique.
+  tomhi: (t) => Math.sin(2 * Math.PI * (260 * Math.exp(-t * 7)) * t) * Math.exp(-t * 9) * 0.5,
+  tomlo: (t) => Math.sin(2 * Math.PI * (110 * Math.exp(-t * 5)) * t) * Math.exp(-t * 5.5) * 0.55,
+  // A tambourine: noise plus a couple of high metallic partials, with a
+  // faster amplitude flutter than the shaker above (the many small
+  // jingles move faster/brighter than shaker beads).
+  tambourine: (t) =>
+    ((Math.random() * 2 - 1) * 0.5 + Math.sin(2 * Math.PI * 6500 * t) * 0.1 + Math.sin(2 * Math.PI * 9000 * t) * 0.08) *
+    Math.exp(-t * 30) *
+    (0.6 + 0.4 * Math.sin(2 * Math.PI * 60 * t)),
+  // A wood block/clave: a pure short pitched click, the opposite
+  // envelope from every noise-based percussion voice above.
+  clave: (t) => Math.sin(2 * Math.PI * 2500 * t) * Math.exp(-t * 90) * 0.4,
+  // A conga: the same pitch-dropping-sine tom technique, tuned higher
+  // and shorter than tomhi, plus a touch of noise click at the strike
+  // for the hand-drum "slap" transient a stick-struck tom doesn't have.
+  conga: (t) => Math.sin(2 * Math.PI * (320 * Math.exp(-t * 10)) * t) * Math.exp(-t * 10) * 0.45 + (Math.random() * 2 - 1) * Math.exp(-t * 120) * 0.1,
 };
 
 const DRUM_DURATIONS = {
@@ -634,6 +665,13 @@ const DRUM_DURATIONS = {
   cowbell: 0.3,
   shaker: 0.08,
   clap: 0.09,
+  snap: 0.05,
+  ride: 1.0,
+  tomhi: 0.2,
+  tomlo: 0.35,
+  tambourine: 0.15,
+  clave: 0.04,
+  conga: 0.18,
 };
 
 function renderDrumHit(buffer, kind, startSec, sampleRate) {
