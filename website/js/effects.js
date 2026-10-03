@@ -271,6 +271,43 @@ function buildEffectChain(ctx, sourceNode, opts) {
     node = merge;
   }
 
+  // A real stereo-capable chorus — styled on the Roland Juno-60's
+  // built-in analog chorus circuit (researched: the consistently
+  // documented instrument behind "Last Christmas"'s lush, shimmering
+  // intro sound — see STATUS.md and synth.js's chorus80s preset, which
+  // uses the equivalent technique in the sample domain for pattern
+  // tracks; this is the AudioNode version for the Voice/Any Sound
+  // effect stacks). Two short delay lines, each LFO-swept at a
+  // different rate, mixed with dry — the standard, well-documented
+  // "modulated delay" chorus technique, not derived from any specific
+  // plugin or hardware's circuit design.
+  if (opts.chorusWet && opts.chorusWet > 0) {
+    const dry = ctx.createGain();
+    dry.gain.value = 1 - opts.chorusWet;
+    const wet = ctx.createGain();
+    wet.gain.value = opts.chorusWet;
+    const merge = ctx.createGain();
+    node.connect(dry).connect(merge);
+    [
+      { baseSec: 0.015, rateHz: 0.6, depthSec: 0.004 },
+      { baseSec: 0.022, rateHz: 0.9, depthSec: 0.005 },
+    ].forEach(({ baseSec, rateHz, depthSec }) => {
+      const delay = ctx.createDelay(0.05);
+      delay.delayTime.value = baseSec;
+      const lfo = ctx.createOscillator();
+      lfo.type = "sine";
+      lfo.frequency.value = rateHz;
+      const lfoGain = ctx.createGain();
+      lfoGain.gain.value = depthSec;
+      lfo.connect(lfoGain).connect(delay.delayTime);
+      lfo.start();
+      const voiceGain = ctx.createGain();
+      voiceGain.gain.value = 0.5;
+      node.connect(delay).connect(voiceGain).connect(wet).connect(merge);
+    });
+    node = merge;
+  }
+
   if (opts.reverbWet && opts.reverbWet > 0) {
     const convolver = ctx.createConvolver();
     convolver.buffer = makeImpulseResponse(ctx, opts.reverbRoom ?? 0.5);

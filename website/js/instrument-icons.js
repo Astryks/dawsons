@@ -36,6 +36,9 @@ const ICON_PATHS = {
   trombone: `<path d="M3 10.2h4l3-2.2v6.4l-3-2.2H3z"/><path d="M10 9.4h6M10 12.6h6"/><path d="M16 9.4v3.2"/><path d="M18 8.6v4.8M20 9v4"/><circle cx="20.5" cy="14.5" r="2" />`,
   oboe: `<path d="M8 2h5v3H8z"/><path d="M9.5 5v15.5a1.5 1.5 0 0 0 3 0V5"/><path d="M9.5 8h3M9.5 11h3M9.5 14h3M9.5 17h3"/>`,
   pluck: `<path d="M12 3a5 5 0 0 0-5 5c0 5-2 6-2 7h14c0-1-2-2-2-7a5 5 0 0 0-5-5z"/><path d="M10 18a2 2 0 0 0 4 0"/>`,
+  // Reuses the existing bell path — fitting for a lush, chiming pad
+  // tone rather than designing a new icon for it.
+  chorus80s: `<path d="M12 3a5 5 0 0 0-5 5c0 5-2 6-2 7h14c0-1-2-2-2-7a5 5 0 0 0-5-5z"/><path d="M10 18a2 2 0 0 0 4 0"/>`,
 };
 
 function instrumentIconSvg(family, extraClass = "") {

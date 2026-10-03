@@ -172,6 +172,9 @@ const EXTRA_FAMILIES = [
   "trombone",
   "oboe",
   "pluck",
+  // Juno-60-style chorused pad/bell — see synth.js's shape entry and
+  // STATUS.md for the "Last Christmas" research this is based on.
+  "chorus80s",
 ];
 const ALL_FAMILIES = [...DEFAULT_FAMILIES, ...EXTRA_FAMILIES];
 
@@ -186,7 +189,7 @@ const INSTRUMENT_CATEGORIES = [
   { name: "Guitars", families: ["guitar", "guitar_clean", "guitar_distorted"] },
   { name: "Strings & Choir", families: ["strings", "choir", "violin", "cello", "harp"] },
   { name: "Winds & Brass", families: ["saxophone", "clarinet", "flute", "trumpet", "brass", "trombone", "oboe"] },
-  { name: "Synth Leads & Pads", families: ["lead", "pad", "pluck"] },
+  { name: "Synth Leads & Pads", families: ["lead", "pad", "pluck", "chorus80s"] },
   { name: "Mallets & Bells", families: ["bell", "marimba"] },
 ];
 const FAMILY_DISPLAY_NAME = {
@@ -217,6 +220,7 @@ const FAMILY_DISPLAY_NAME = {
   trombone: "Trombone",
   oboe: "Oboe",
   pluck: "Pluck",
+  chorus80s: "80s Chorus Synth (Juno-60)",
 };
 
 function trackFamily(track, index) {
@@ -1471,6 +1475,9 @@ const EFFECT_STACK_DEFS = [
   // Web Audio exposes).
   { key: "sidechain", param: "sidechainAmount", slider: "sidechain", scale: 0.01 },
   { key: "filtersweep", param: "filterSweepAmount", slider: "filtersweep", scale: 0.01 },
+  // A real chorus — Juno-60-style, see effects.js's buildEffectChain
+  // chorus block / STATUS.md for the "Last Christmas" research.
+  { key: "chorus", param: "chorusWet", slider: "chorus", scale: 0.01 },
 ];
 
 function wireEffectStack(prefix) {
@@ -1502,6 +1509,7 @@ function effectStackOptsFrom(prefix) {
     eqQ: 1,
     sidechainAmount: 0,
     filterSweepAmount: 0,
+    chorusWet: 0,
     bpm: currentBpm,
   };
   for (const def of EFFECT_STACK_DEFS) {
@@ -1527,7 +1535,8 @@ function effectStackHasAny(opts) {
     opts.compressEnabled ||
     opts.eqGainDb !== 0 ||
     opts.sidechainAmount > 0 ||
-    opts.filterSweepAmount > 0
+    opts.filterSweepAmount > 0 ||
+    opts.chorusWet > 0
   );
 }
 

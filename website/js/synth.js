@@ -376,6 +376,31 @@ function renderVoice(ctx, buffer, family, pitches, startSec, durationSec, sample
       gain: 0.22,
       bright: { attackHz: 6000, sustainHz: 900, tau: 0.08 },
     },
+    // "80s Chorus Synth" — styled on the Roland Juno-60, the
+    // consistently-documented synth behind "Last Christmas" (George
+    // Michael reportedly wrote/demoed almost the whole track on one
+    // quickly, per Sound on Sound and other retrospectives — the exact
+    // drum machine used is less certain, so only the synth is claimed
+    // here). The Juno-60's signature feature is its built-in analog
+    // chorus circuit — a lush, shimmering, slightly detuned sound, not
+    // a plain sawtooth/pulse pad. `chorus: true` below is a genuinely
+    // different, time-varying modulated-delay chorus (see the
+    // CHORUS_RATE_HZ/CHORUS_DEPTH_SEC block further down), not the same
+    // static +7-cent detune blend every other `detune: true` instrument
+    // above already uses — a real BBD-style analog chorus sweeps its
+    // delay time continuously, which is what actually produces that
+    // "shimmering" quality rather than just a fixed doubling.
+    chorus80s: {
+      wave: "sawtooth",
+      attack: 0.12,
+      decay: 0.2,
+      sustain: 0.85,
+      release: 0.6,
+      gain: 0.17,
+      chorus: true,
+      vibrato: true,
+      bright: { attackHz: 4200, sustainHz: 2000, tau: 0.4 },
+    },
   };
   const shape = shapes[family] || shapes.keys;
   // +7 cents: a classic, subtle chorus-style detune amount — enough to
@@ -386,6 +411,16 @@ function renderVoice(ctx, buffer, family, pitches, startSec, durationSec, sample
   const VIBRATO_DEPTH_RATIO = Math.pow(2, 0.3 / 12) - 1; // ~0.3 semitone
   const VIBRATO_ONSET_SEC = 0.15; // real players don't add vibrato instantly on note-on
   const VIBRATO_RAMP_SEC = 0.3;
+  // Juno-60-style analog chorus: an LFO continuously sweeps the delay
+  // time of a short feedback-free delay line mixed with the dry
+  // oscillator — the real BBD (bucket-brigade-device) technique analog
+  // chorus circuits use, reimplemented here in the sample domain (this
+  // file renders directly into Float32Array, not a live Web Audio graph
+  // — see effects.js's buildChorusNode for the equivalent as a real
+  // AudioNode graph, used by the Voice/Any Sound effect stacks instead).
+  const CHORUS_RATE_HZ = 0.8;
+  const CHORUS_DEPTH_SEC = 0.0025;
+  const CHORUS_BASE_SEC = 0.012;
 
   for (const pitch of pitches) {
     // Two small "humanizations": every note is a few cents off true
@@ -447,6 +482,12 @@ function renderVoice(ctx, buffer, family, pitches, startSec, durationSec, sample
     let lpState1 = 0;
     let lpState2 = 0;
     let noiseLpState = 0;
+    let chorusHistory = null;
+    let chorusWriteIdx = 0;
+    if (shape.chorus) {
+      const histLen = Math.ceil((CHORUS_BASE_SEC + CHORUS_DEPTH_SEC) * sampleRate) + 4;
+      chorusHistory = new Float32Array(histLen);
+    }
 
     for (let i = 0; i < totalSamples; i++) {
       const t = i / sampleRate;
@@ -477,6 +518,27 @@ function renderVoice(ctx, buffer, family, pitches, startSec, durationSec, sample
         // oscillator reads as "digital" while two reads as an ensemble
         // (the other is the brightness envelope right below).
         osc = (osc + waveformSample(shape.wave, freqAtT * DETUNE_RATIO, t)) * 0.5;
+      }
+
+      if (shape.chorus) {
+        // Write the dry oscillator into a short rolling history, then
+        // read it back at a continuously-swept delay (linear
+        // interpolation between the two nearest history samples for a
+        // smooth, click-free sweep) and mix with dry — the actual
+        // modulated-delay mechanism behind a real analog chorus pedal/
+        // circuit, not a fixed doubling.
+        const len = chorusHistory.length;
+        chorusHistory[chorusWriteIdx % len] = osc;
+        const lfo = Math.sin(2 * Math.PI * CHORUS_RATE_HZ * t);
+        const delaySamples = (CHORUS_BASE_SEC + lfo * CHORUS_DEPTH_SEC) * sampleRate;
+        const readPos = chorusWriteIdx - delaySamples;
+        const idx0 = Math.floor(readPos);
+        const frac = readPos - idx0;
+        const s0 = chorusHistory[((idx0 % len) + len) % len];
+        const s1 = chorusHistory[(((idx0 + 1) % len) + len) % len];
+        const chorusVoice = s0 + (s1 - s0) * frac;
+        osc = (osc + chorusVoice) * 0.5;
+        chorusWriteIdx++;
       }
 
       // The brightness (lowpass) envelope: see brightnessCutoffHz above

@@ -82,6 +82,7 @@ const FAMILY_PALETTES = {
   trombone: notePalette(48, "C"),
   oboe: notePalette(65, "C"),
   pluck: notePalette(60, "C"),
+  chorus80s: notePalette(60, "C"),
 };
 
 function paletteFor(family) {
