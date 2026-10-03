@@ -229,6 +229,37 @@ mod tests {
     }
 
     #[test]
+    fn decode_file_pulls_the_audio_track_directly_out_of_an_mp4_video_container() {
+        // Confirms the raw-audio-track fallback (item 76) needs no ffmpeg
+        // and no sidecar round-trip for video files: symphonia's bundled
+        // isomp4 demuxer + AAC decoder (both already project dependencies,
+        // see Cargo.lock symphonia-format-isomp4/symphonia-codec-aac) pick
+        // the AAC audio track and skip the H264 video track on their own,
+        // via decode_file's existing "first non-null codec" selection.
+        // Runs against the real fortnite.mp4 from item 75's test if it's
+        // present on this machine; skips cleanly otherwise rather than
+        // failing CI on other machines that don't have that local file.
+        let path = std::path::Path::new("/Users/sidmehta/Downloads/fortnite.mp4");
+        if !path.exists() {
+            eprintln!("skipping: fortnite.mp4 not present on this machine");
+            return;
+        }
+        let decoded = decode_file(path)
+            .expect("should decode the AAC audio track directly, ignoring the H264 video track");
+        let duration_sec =
+            decoded.samples.len() as f64 / decoded.sample_rate as f64 / decoded.channels as f64;
+        assert_eq!(decoded.sample_rate, 44100);
+        assert_eq!(decoded.channels, 2);
+        // The real file is ~4:09 (249.4s per item 75's ffmpeg-based
+        // extraction) — a wide tolerance since the point is "the whole
+        // audio track decoded", not an exact frame count.
+        assert!(
+            (240.0..260.0).contains(&duration_sec),
+            "unexpected duration: {duration_sec}"
+        );
+    }
+
+    #[test]
     fn decode_file_of_a_valid_wav_with_a_misleading_extension_still_decodes() {
         // symphonia probes actual file content, not just the extension —
         // confirm a real WAV still decodes correctly even with a `.mp3`

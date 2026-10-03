@@ -756,6 +756,76 @@ export default function App() {
     }
   }
 
+  // The honest-audio fallback to handleUploadSong, added after testing the
+  // real Demucs pipeline against actual gameplay footage (fortnite.mp4):
+  // separation genuinely worked but was mediocre on non-studio source
+  // audio (mixed game SFX/voice/music), not a clean song. Direct feedback
+  // was "I don't want fake gameplay instruments... I'd rather have the
+  // real thing than an imperfect guess, strip just audio if you can't do
+  // [clean separation]" — a reasonable ask once a real, industry-wide
+  // limitation (no tool, free or paid, achieves perfect source
+  // separation) was explained and accepted. This skips Demucs/tempo/
+  // key/chord detection entirely and loads the uploaded file as one
+  // clean, unmodified audio track.
+  //
+  // Reuses the same file-picker filters as handleUploadSong (including
+  // the mp4/mov/m4v video support from that same test), and the existing
+  // `load_clip_into_layer` command — the same single-file,
+  // no-sidecar-involved loading path Smart Upload already uses to drop a
+  // clip into the mixer as its own track (`transport::add_track`, which
+  // just calls `decode::decode_file` and pushes one `TrackBuffer`, no
+  // HTTP client or job id in sight). That decode step already handles
+  // video containers on its own: symphonia's bundled isomp4 demuxer +
+  // AAC decoder (both pre-existing project dependencies) pick the AAC
+  // audio track and skip the H264 video track without any ffmpeg
+  // involvement — confirmed directly against the real fortnite.mp4 (see
+  // apps/desktop/src-tauri/src/audio_engine/decode.rs's
+  // decode_file_pulls_the_audio_track_directly_out_of_an_mp4_video_container
+  // test), so the sidecar's ffmpeg-based extract_audio path from the
+  // video-upload fix isn't needed here at all.
+  async function handleAddRawAudioTrack() {
+    const path = await open({
+      filters: [
+        { name: "Audio", extensions: ["mp3", "wav", "flac", "m4a", "ogg"] },
+        { name: "Video", extensions: ["mp4", "mov", "m4v"] },
+      ],
+    });
+    if (!path || Array.isArray(path)) return;
+
+    const name = path.split(/[\\/]/).pop()?.replace(/\.[^.]+$/, "") || "New track";
+    setAnalysisError(null);
+    try {
+      await invoke("load_clip_into_layer", { filePath: path, layerName: name });
+
+      // Persist into the project's Scene Graph too, same as promoting a
+      // voice note (handlePromoteVoiceNoteToProject) — otherwise the
+      // track would vanish again on the next project switch/reload,
+      // since load_clip_into_layer only touches the live in-memory mixer.
+      if (currentProjectId) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const existing = await invoke<Record<string, any> | null>("get_scene_graph", {
+          projectId: currentProjectId,
+        });
+        const graph = existing ?? { schemaVersion: "1.0.0", song: {} };
+        graph.song ??= {};
+        graph.song.tracks ??= [];
+        graph.song.tracks.push({
+          id: crypto.randomUUID(),
+          name,
+          type: "audio",
+          instrument: "other",
+          audioFilePath: path,
+          source: "user",
+        });
+        await invoke("save_scene_graph", { projectId: currentProjectId, data: graph });
+      }
+
+      await refreshTracks();
+    } catch (err) {
+      setAnalysisError(String(err));
+    }
+  }
+
   function pollAnalysis(jobId: string) {
     const interval = setInterval(async () => {
       try {
@@ -1106,6 +1176,12 @@ export default function App() {
           </p>
           <div className="debug-panel__buttons">
             <button onClick={handleUploadSong}>Upload song…</button>
+            <button
+              onClick={handleAddRawAudioTrack}
+              title="Skips Demucs stem separation entirely and loads the file as one clean, unmodified audio track — no tempo/key/chord detection either. Use this when separation quality can't be trusted (e.g. gameplay/video audio with mixed SFX, voice and music) and you'd rather have the honest original."
+            >
+              Add audio track (no separation)…
+            </button>
             {tracks.length > 0 && (
               <button onClick={handleKaraokeMode} title="Mutes the vocals layer so you can sing along">
                 🎤 Karaoke mode

@@ -178,6 +178,82 @@ pub fn seek(mixer: &SharedMixer, position_sec: f64, config: &EngineConfig) -> Re
 }
 
 #[cfg(test)]
+mod add_track_tests {
+    use super::*;
+    use crate::audio_engine::mixer::MixerState;
+    use std::sync::Mutex;
+
+    fn empty_mixer() -> SharedMixer {
+        Arc::new(Mutex::new(MixerState {
+            tracks: vec![],
+            position: 0,
+            playing: false,
+        }))
+    }
+
+    fn stereo_config() -> EngineConfig {
+        EngineConfig {
+            sample_rate: 44100,
+            channels: 2,
+        }
+    }
+
+    /// The "add audio track (no separation)" fallback (item 76) is this
+    /// exact function called directly from the `load_clip_into_layer`
+    /// Tauri command — confirms it loads a plain audio file as one clean
+    /// track with no sidecar/Demucs involvement (there's nothing here to
+    /// call it with: no HTTP client, no job id, just decode + push).
+    #[test]
+    fn add_track_loads_a_plain_wav_as_a_single_named_track() {
+        let sample_rate = 44100u32;
+        let mut samples = Vec::new();
+        for i in 0..sample_rate {
+            let t = i as f32 / sample_rate as f32;
+            samples.push((2.0 * std::f32::consts::PI * 440.0 * t).sin() * 0.4);
+        }
+        let dir = std::env::temp_dir();
+        let path = dir.join("dawsons-test-add-track-tone.wav");
+        crate::audio_engine::wav_writer::write_wav(&path, &samples, sample_rate, 1).unwrap();
+
+        let mixer = empty_mixer();
+        let result = add_track(&mixer, &stereo_config(), &path, "my-tone".to_string());
+        let _ = std::fs::remove_file(&path);
+
+        result.expect("plain audio file should load with no sidecar/analysis involved");
+        let state = mixer.lock().unwrap();
+        assert_eq!(state.tracks.len(), 1);
+        assert_eq!(state.tracks[0].name, "my-tone");
+        assert!(!state.tracks[0].samples.is_empty());
+    }
+
+    /// Same path, but for a video container — confirms the raw-track
+    /// fallback also works for a video upload (per item 75's video-upload
+    /// fix, now reused here) by decoding just the audio track directly,
+    /// alongside whatever track(s) are already loaded (doesn't replace
+    /// them, unlike `load_stems`/full-analysis loading).
+    #[test]
+    fn add_track_loads_an_mp4s_audio_track_alongside_an_existing_track() {
+        let path = std::path::Path::new("/Users/sidmehta/Downloads/fortnite.mp4");
+        if !path.exists() {
+            eprintln!("skipping: fortnite.mp4 not present on this machine");
+            return;
+        }
+        let mixer = empty_mixer();
+        add_track(&mixer, &stereo_config(), path, "existing".to_string()).unwrap();
+        add_track(&mixer, &stereo_config(), path, "fortnite".to_string()).unwrap();
+
+        let state = mixer.lock().unwrap();
+        assert_eq!(
+            state.tracks.len(),
+            2,
+            "add_track must not replace existing tracks"
+        );
+        assert_eq!(state.tracks[1].name, "fortnite");
+        assert!(!state.tracks[1].samples.is_empty());
+    }
+}
+
+#[cfg(test)]
 mod seek_tests {
     use super::*;
     use crate::audio_engine::mixer::{MixerState, TrackBuffer};
