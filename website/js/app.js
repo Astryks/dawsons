@@ -42,12 +42,16 @@ let instrumentSearchQuery = "";
 // search box above, Ableton-browser-style (category filter + text
 // filter both narrow the same list).
 let instrumentCategoryFilter = "All";
-// When on, the instrument browser's row-click "add starter" action
-// renders through a real sampled instrument (see sample-engine.js)
-// instead of the built-in oscillator synth, for families that have one.
-// Off by default so the existing fast, synchronous add-a-track flow is
-// unchanged unless someone opts in.
-let useRealInstrumentSound = false;
+// (2026-10-04) Default flipped to true per direct feedback: "make sure
+// instruments dont sound computer like and sound like real instruments."
+// When on, the instrument browser's row-click "add starter" action (and
+// the genre/era preset library — see handleAddGenrePreset) renders
+// through a real sampled instrument (see sample-engine.js) instead of
+// the built-in oscillator synth, for every family that has one — which
+// is now the common case, not an opt-in. The control stays available
+// (unchecked = synth) for anyone who wants the faster, instantly
+// step-editable synth path instead, or a family with no sample match.
+let useRealInstrumentSound = true;
 // Tempo, in beats per minute. Only genuinely retimes pattern-backed
 // tracks (drums/bass/keys/guitar/any custom pattern track), since their
 // audio is synthesized fresh from step data — see pattern-editor.js's
@@ -600,13 +604,30 @@ function renderGenrePresetLibrary() {
   ).join("");
 }
 
-function handleAddGenrePreset(presetKey) {
+// (2026-10-04) Each track now tries the real-sample path first (same
+// `useRealInstrumentSound` default-on toggle as the instrument browser)
+// before falling back to the synth — so the genre/era pattern library
+// benefits from sounding like real instruments too, not just newly
+// freshly-added single tracks.
+async function handleAddGenrePreset(presetKey) {
   const preset = GENRE_PATTERNS.find((p) => p.key === presetKey);
   if (!preset) return;
   pushUndo();
   for (const trackSpec of preset.tracks) {
+    const label = `${preset.label}: ${FAMILY_DISPLAY_NAME[trackSpec.family] || trackSpec.family}`;
+    if (useRealInstrumentSound && hasSample(trackSpec.family)) {
+      try {
+        const buffer = await renderSampledPattern(trackSpec.family, trackSpec.hits, DEFAULT_STEPS, getStepSec(), engine.ctx.sampleRate);
+        if (!buffer) throw new Error(`no sample mapping for ${trackSpec.family}`);
+        engine.addTrack(`${label} (real instrument)`, buffer);
+        engine.tracks[engine.tracks.length - 1].family = trackSpec.family;
+        continue;
+      } catch (e) {
+        console.warn(`Real-instrument sample failed for ${trackSpec.family} in genre preset — used the synth instead.`, e);
+      }
+    }
     const pattern = createPattern(engine.ctx, engine.ctx.sampleRate, trackSpec.family, trackSpec.hits);
-    engine.addTrack(`${preset.label}: ${FAMILY_DISPLAY_NAME[trackSpec.family] || trackSpec.family}`, pattern.buffer, pattern);
+    engine.addTrack(label, pattern.buffer, pattern);
   }
   activeTrackIndex = engine.tracks.length - 1;
   renderTrackList();

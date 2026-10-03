@@ -25,16 +25,42 @@
 // into the existing Track/buffer model with zero changes needed
 // anywhere else (timeline, waveform, export, mixer all just see a
 // buffer, same as any other track).
-import { SplendidGrandPiano, ElectricPiano, Soundfont, renderOffline } from "./vendor/smplr-1.1.0.mjs";
+import { SplendidGrandPiano, ElectricPiano, Soundfont, Versilian, renderOffline } from "./vendor/smplr-1.1.0.mjs";
 import { paletteFor } from "./pattern-editor.js";
 
 // Only families with a real, credible sampled match are listed here —
-// drums/lead/pad/pluck/synthbass-style "synth bass" etc. are
-// deliberately synthetic sounds with no one "real" acoustic instrument
-// to sample, so they're left out on purpose and keep using the
-// existing oscillator synth with zero behavior change. GM instrument
-// names match the exact ids already used (and already license-verified)
-// in website/studio/js/instruments.js's FluidR3_GM soundfont mapping.
+// drums/lead/pad/pluck are deliberately synthetic sounds with no one
+// "real" acoustic instrument to sample, so they're left out on purpose
+// and keep using the existing oscillator synth with zero behavior
+// change. GM instrument names match the exact ids already used (and
+// already license-verified) in website/studio/js/instruments.js's
+// FluidR3_GM soundfont mapping.
+//
+// (2026-10-04) Grown per direct feedback ("make sure instruments dont
+// sound computer like... have a large library of real music sounds") —
+// two kinds of additions, both using sources already verified in
+// THIRD_PARTY_NOTICES.md, no new license research:
+//   1. `synthbass` added (soundfont synth_bass_1) — Studio's own
+//      INSTRUMENTS list already uses this exact id from the same
+//      FluidR3_GM source for its own "Synth Bass" entry; extending
+//      coverage to an already-verified source's existing catalogue,
+//      not a new dependency.
+//   2. harp/marimba/bell/saxophone upgraded from a FluidR3_GM
+//      soundfont rendering to a real multi-sampled recording from VCSL
+//      (Versilian Community Sample Library, CC0 1.0 — the exact same
+//      repo (`sgossner/VCSL` via smpldsnds.github.io/sgossner-vcsl)
+//      already verified and in use for the TX81Z FM piano; VCSL's
+//      license is CC0 for the whole collection, not per-instrument, so
+//      using more of its catalogue needs no new verification). Every
+//      path below was checked directly against the mirror's own
+//      `sfz_files.json` manifest and confirmed to resolve (sfz file +
+//      its .ogg/.m4a sample assets, both 200) before being added here —
+//      not assumed from smplr's own hardcoded example path, which
+//      pointed at a "Strings/Violin" instrument this particular mirror
+//      does not actually have (checked and confirmed absent from the
+//      manifest, so violin/cello/strings/choir/brass/trumpet/trombone/
+//      clarinet/flute/oboe/bass/guitars stay on their existing FluidR3
+//      mapping rather than guessing at an unverified VCSL path).
 const FAMILY_SAMPLE_MAP = {
   keys: { type: "piano" },
   epiano: { type: "epiano", instrument: "WurlitzerEP200" },
@@ -44,20 +70,21 @@ const FAMILY_SAMPLE_MAP = {
   guitar_clean: { type: "soundfont", instrument: "electric_guitar_clean" },
   guitar_distorted: { type: "soundfont", instrument: "overdriven_guitar" },
   bass: { type: "soundfont", instrument: "acoustic_bass" },
+  synthbass: { type: "soundfont", instrument: "synth_bass_1" },
   strings: { type: "soundfont", instrument: "string_ensemble_1" },
   violin: { type: "soundfont", instrument: "violin" },
   cello: { type: "soundfont", instrument: "cello" },
-  harp: { type: "soundfont", instrument: "orchestral_harp" },
+  harp: { type: "versilian", instrument: "Chordophones/Composite Chordophones/Concert Harp" },
   choir: { type: "soundfont", instrument: "choir_aahs" },
   brass: { type: "soundfont", instrument: "brass_section" },
   trumpet: { type: "soundfont", instrument: "trumpet" },
   trombone: { type: "soundfont", instrument: "trombone" },
-  saxophone: { type: "soundfont", instrument: "alto_sax" },
+  saxophone: { type: "versilian", instrument: "Aerophones/Reed Aerophones/Tenor Saxophone - Vibrato" },
   clarinet: { type: "soundfont", instrument: "clarinet" },
   flute: { type: "soundfont", instrument: "flute" },
   oboe: { type: "soundfont", instrument: "oboe" },
-  marimba: { type: "soundfont", instrument: "marimba" },
-  bell: { type: "soundfont", instrument: "tubular_bells" },
+  marimba: { type: "versilian", instrument: "Idiophones/Struck Idiophones/Marimba" },
+  bell: { type: "versilian", instrument: "Idiophones/Struck Idiophones/Tubular Bells 1" },
 };
 
 export function hasSample(family) {
@@ -70,6 +97,7 @@ async function createSampledInstrument(ctx, family) {
   let inst;
   if (def.type === "piano") inst = SplendidGrandPiano(ctx, { destination: ctx.destination, decayTime: 0.6 });
   else if (def.type === "epiano") inst = ElectricPiano(ctx, { destination: ctx.destination, instrument: def.instrument });
+  else if (def.type === "versilian") inst = Versilian(ctx, { destination: ctx.destination, instrument: def.instrument });
   else inst = Soundfont(ctx, { destination: ctx.destination, kit: "FluidR3_GM", instrument: def.instrument });
   await (inst.ready || inst.load);
   return inst;
