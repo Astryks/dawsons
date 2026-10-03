@@ -72,6 +72,12 @@ this list is checked before adding any new dependency.
 | Greg Sullivan Wurlitzer EP200 | CC-BY 3.0 | Attribution in `website/studio/SOUND_LIBRARY.md` and the app footer's credits link |
 | VCSL (Versilian Community Sample Library) | CC0 1.0 | TX81Z FM piano |
 | FluidR3_GM renderings (gleitz/midi-js-soundfonts) | MIT (SoundFont) / CC-BY 3.0 (renderings) | All other GM instruments; MusyngKite/FatBoy (CC-BY-SA) deliberately excluded |
+
+## Browser homepage DAW (`website/`)
+
+| Component | License | Notes |
+|---|---|---|
+| @breezystack/lamejs 1.2.7 | LGPL-3.0 (confirmed directly against the package's own LICENSE file, not just package.json) | Vendored unmodified at `website/js/vendor/lamejs-1.2.7.js` (license text copied to `website/js/vendor/LAMEJS-LICENSE.txt`); MP3 export from the homepage DAW's "Export song" button. Weak/library copyleft, same category already accepted for symphonia above: using this unmodified file doesn't obligate open-sourcing Dawsons itself, only this one vendored file if it's ever modified — unlike the GPL/AGPL licenses rejected under "Explicitly excluded" below, which would have forced the whole program open. |
 | Sonic Pi sample pack | CC0 1.0 | Vendored one-shots + loop library (amen/breakbeat loops excluded) |
 | TR-808 (M. Fischer 1994) and LM-2 one-shots via smpldsnds/drum-machines | Public domain | Vendored |
 

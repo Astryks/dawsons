@@ -7,6 +7,14 @@ import { STARTERS, PRESET_LIBRARY } from "./starter-patterns.js";
 import { paletteFor, soundLabel, createPattern, toggleStep, autoFillEveryBeats, setBpm, getStepSec, rebuildBuffer } from "./pattern-editor.js";
 import { instrumentIconSvg, uiIconSvg } from "./instrument-icons.js";
 import { audioBufferToBase64Wav, base64WavToAudioBuffer, encodeWav } from "./wav-encoder.js";
+// Vendored unmodified from @breezystack/lamejs 1.2.7 (LGPL-3.0, verified
+// directly against its own LICENSE file — see js/vendor/LAMEJS-LICENSE.txt
+// and THIRD_PARTY_NOTICES.md). Used as a separate, unmodified file per the
+// LGPL's own linking exception — the same weak-copyleft category this
+// project already accepted for symphonia (MPL-2.0): it doesn't obligate
+// open-sourcing Dawsons itself, only this one vendored file if it's ever
+// modified.
+import { Mp3Encoder } from "./vendor/lamejs-1.2.7.js";
 
 const engine = new Engine();
 let currentSong = null;
@@ -2414,13 +2422,44 @@ function renderFullMix() {
   return mixBuffer;
 }
 
-function downloadMix(filenameBase) {
+// Float32 (-1..1) -> Int16 PCM, clamped — lamejs's encoder (like most PCM
+// encoders) takes 16-bit samples, not Web Audio's native float format.
+function floatTo16BitPCM(floatArray) {
+  const out = new Int16Array(floatArray.length);
+  for (let i = 0; i < floatArray.length; i++) {
+    const s = Math.max(-1, Math.min(1, floatArray[i]));
+    out[i] = s < 0 ? s * 0x8000 : s * 0x7fff;
+  }
+  return out;
+}
+
+// Encodes a stereo AudioBuffer to MP3 via the vendored lamejs encoder, fed
+// in 1152-sample blocks (lamejs's own required frame size — passing other
+// sizes silently produces corrupt/truncated output, confirmed against its
+// README example). 128kbps: a reasonable default for a full-mix export,
+// not exposed as a setting to keep the export control to one click.
+function encodeMp3(audioBuffer) {
+  const left = floatTo16BitPCM(audioBuffer.getChannelData(0));
+  const right = floatTo16BitPCM(audioBuffer.getChannelData(1));
+  const encoder = new Mp3Encoder(2, audioBuffer.sampleRate, 128);
+  const blockSize = 1152;
+  const chunks = [];
+  for (let i = 0; i < left.length; i += blockSize) {
+    const chunk = encoder.encodeBuffer(left.subarray(i, i + blockSize), right.subarray(i, i + blockSize));
+    if (chunk.length > 0) chunks.push(chunk);
+  }
+  const final = encoder.flush();
+  if (final.length > 0) chunks.push(final);
+  return new Blob(chunks, { type: "audio/mp3" });
+}
+
+function downloadMix(filenameBase, format = "wav") {
   const mixBuffer = renderFullMix();
-  const wav = encodeWav(mixBuffer);
-  const blob = new Blob([wav], { type: "audio/wav" });
+  const blob =
+    format === "mp3" ? encodeMp3(mixBuffer) : new Blob([encodeWav(mixBuffer)], { type: "audio/wav" });
   const a = document.createElement("a");
   a.href = URL.createObjectURL(blob);
-  a.download = `${filenameBase || currentSong?.title || "dawsons-song"}.wav`;
+  a.download = `${filenameBase || currentSong?.title || "dawsons-song"}.${format}`;
   document.body.appendChild(a);
   a.click();
   setTimeout(() => {
@@ -2507,13 +2546,14 @@ document.getElementById("hero-record-btn").onclick = () => {
 };
 
 // --- Export / download the full song (all tracks, respecting
-// mute/solo/pan/startOffsetSec/loop) as a WAV file. WAV via the
-// existing zero-dependency encodeWav is the guaranteed-working
-// baseline; MP3 specifically needs a license-verified pure-JS encoder
-// this pass didn't add (see STATUS.md) — not attempted half-verified.
+// mute/solo/pan/startOffsetSec/loop) as MP3 (default) or WAV. WAV via the
+// existing zero-dependency encodeWav is the lossless baseline; MP3 uses
+// the vendored lamejs encoder (see THIRD_PARTY_NOTICES.md / the import
+// comment above for the license reasoning).
 document.getElementById("export-btn").onclick = () => {
   if (!engine.tracks.length) return;
-  downloadMix();
+  const format = document.getElementById("export-format").value;
+  downloadMix(undefined, format);
 };
 
 // --- "+ Add track" — a persistent control right in the timeline
