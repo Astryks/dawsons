@@ -28,6 +28,25 @@
   --teal: #6b8a80;
   --danger: #b23a3a;
 
+  /* (2026-10-04) Color-ROLE pass, per direct feedback ("too purple" —
+     --purple/--purple-deep had been used as the one accent for nearly
+     every interactive element: every primary CTA, every active/checked
+     state, every slider's accent-color, etc., so the whole app read as
+     monotone purple even though this richer palette already existed).
+     Reassigned by function instead of one color doing everything:
+       --olive-deep : primary/CTA buttons (download, export, "+Add",
+                       "Add" preset buttons, DJ deck transport)
+       --rose       : active/selected/armed/looping/filled states
+                       (is-active, is-filled, is-armed, is-looping)
+       --ochre      : hover borders, and the upsell link color
+       --teal       : input accent-color (sliders/checkboxes), focus
+                       outlines, drag-over highlight
+       --purple/-deep: kept deliberately narrow — just the logo
+                       gradient, the Bass category clip color
+                       (layer-color-1), one instrument icon, and the
+                       already-multi-hued DJ platter disc — so it
+                       doesn't disappear, just stops being everywhere. */
+
   /* Warm color-field accents for the always-ready default instrument
      tracks and the "+" add-instrument menu — each instrument still
      reads as a distinct identity, just within the same moody, glowing
@@ -131,7 +150,7 @@ body {
 }
 
 .daw-nav__links a.daw-nav__cta {
-  background: var(--purple-deep);
+  background: var(--olive-deep);
   color: #fff;
 }
 
@@ -175,8 +194,8 @@ body {
   gap: 0.45rem;
   padding: 0.45rem 0.9rem;
   border-radius: 8px;
-  border: 1px solid var(--purple-deep);
-  background: var(--purple-deep);
+  border: 1px solid var(--olive-deep);
+  background: var(--olive-deep);
   color: #fff;
   font-size: 0.85rem;
   cursor: pointer;
@@ -232,11 +251,11 @@ body {
 }
 
 .instrument-track:hover {
-  border-color: var(--purple-deep);
+  border-color: var(--ochre);
 }
 
 .instrument-track.is-active {
-  border-color: var(--purple);
+  border-color: var(--rose);
   background: var(--panel);
 }
 
@@ -289,19 +308,19 @@ body {
 }
 
 .instrument-track__mute.is-looping {
-  background: var(--purple-deep);
+  background: var(--rose);
   color: #fff;
-  border-color: var(--purple-deep);
+  border-color: var(--rose);
 }
 
 .instrument-track__pan {
   width: 44px;
   flex: 0 0 auto;
-  accent-color: var(--purple);
+  accent-color: var(--teal);
 }
 
 .instrument-track input[type="range"] {
-  accent-color: var(--purple);
+  accent-color: var(--teal);
 }
 
 /* Main area: transport + timeline */
@@ -334,8 +353,8 @@ body {
 }
 
 .daw-transport button.is-primary {
-  background: var(--purple-deep);
-  border-color: var(--purple-deep);
+  background: var(--olive-deep);
+  border-color: var(--olive-deep);
   color: #fff;
 }
 
@@ -373,7 +392,7 @@ body {
 }
 
 .daw-bpm input:focus {
-  outline: 1px solid var(--purple-deep);
+  outline: 1px solid var(--teal);
 }
 
 .daw-timeline {
@@ -546,7 +565,7 @@ body {
 
 .daw-effects__row input[type="range"] {
   flex: 1;
-  accent-color: var(--purple);
+  accent-color: var(--teal);
 }
 
 .daw-note {
@@ -563,7 +582,7 @@ body {
 }
 
 .daw-note--upsell a {
-  color: var(--purple);
+  color: var(--ochre);
 }
 
 /* --- Draggable transport scrubber --- */
@@ -610,8 +629,8 @@ body {
   padding: 0.4rem 0.8rem;
   margin-bottom: 0.5rem;
   border-radius: 8px;
-  border: 1px solid var(--purple-deep, var(--border));
-  background: var(--purple-deep);
+  border: 1px solid var(--olive-deep, var(--border));
+  background: var(--olive-deep);
   color: #fff;
   font-size: 0.82rem;
   font-weight: 600;
@@ -633,8 +652,8 @@ body {
 .timeline-toolbar button {
   padding: 0.45rem 0.9rem;
   border-radius: 8px;
-  border: 1px solid var(--purple-deep, var(--border));
-  background: var(--purple-deep);
+  border: 1px solid var(--olive-deep, var(--border));
+  background: var(--olive-deep);
   color: #fff;
   font-weight: 600;
   cursor: pointer;
@@ -687,7 +706,7 @@ body {
 .waveform-bar {
   flex: 1;
   min-width: 1px;
-  background: linear-gradient(180deg, var(--purple), var(--rose));
+  background: linear-gradient(180deg, var(--rose), var(--ochre));
   border-radius: 1px;
   opacity: 0.85;
 }
@@ -733,7 +752,7 @@ body {
 
 .timeline-add-btn:hover {
   color: var(--text);
-  border-color: var(--purple);
+  border-color: var(--ochre);
 }
 
 .timeline-add-menu {
@@ -798,7 +817,7 @@ body {
 }
 
 .instrument-browser__real-toggle input {
-  accent-color: var(--purple-deep);
+  accent-color: var(--teal);
 }
 
 /* Small badge marking an instrument row that has a real sampled match
@@ -840,12 +859,12 @@ body {
 
 .instrument-browser__chip:hover {
   color: var(--text);
-  border-color: var(--purple);
+  border-color: var(--ochre);
 }
 
 .instrument-browser__chip.is-active {
-  background: var(--purple-deep);
-  border-color: var(--purple-deep);
+  background: var(--rose);
+  border-color: var(--rose);
   color: #fff;
 }
 
@@ -927,15 +946,15 @@ body {
 
 .instrument-browser__blank-btn:hover {
   color: var(--text);
-  border-color: var(--purple);
+  border-color: var(--ochre);
   background: var(--panel-alt);
 }
 
 .instrument-browser__action {
   padding: 0.3rem 0.7rem;
   border-radius: 6px;
-  border: 1px solid var(--purple-deep);
-  background: var(--purple-deep);
+  border: 1px solid var(--olive-deep);
+  background: var(--olive-deep);
   color: #fff;
   font-size: 0.78rem;
   cursor: pointer;
@@ -953,7 +972,7 @@ body {
 
 .instrument-browser__action--ghost:hover {
   color: var(--text);
-  border-color: var(--purple);
+  border-color: var(--ochre);
 }
 
 .daw-starter__btn {
@@ -1049,11 +1068,11 @@ body {
 }
 
 .pattern-grid__step:hover {
-  border-color: var(--purple);
+  border-color: var(--ochre);
 }
 
 .pattern-grid__step.is-filled {
-  background: linear-gradient(135deg, var(--purple), var(--rose));
+  background: linear-gradient(135deg, var(--rose), var(--ochre));
   color: #1c0e10;
   font-weight: 700;
 }
@@ -1222,8 +1241,8 @@ body {
 }
 
 .timeline-layer__special-body button.is-primary {
-  background: var(--purple-deep);
-  border-color: var(--purple-deep);
+  background: var(--olive-deep);
+  border-color: var(--olive-deep);
   color: #fff;
 }
 
@@ -1257,8 +1276,8 @@ body {
 }
 
 .midi-keyboard-controls button.is-primary {
-  background: var(--purple-deep);
-  border-color: var(--purple-deep);
+  background: var(--olive-deep);
+  border-color: var(--olive-deep);
   color: #fff;
 }
 
@@ -1310,11 +1329,11 @@ body {
 }
 
 .mpc-pad:hover {
-  border-color: var(--purple);
+  border-color: var(--ochre);
 }
 
 .mpc-pad.is-active {
-  background: var(--purple-deep);
+  background: var(--rose);
   transform: scale(0.96);
 }
 
@@ -1400,7 +1419,7 @@ body {
 }
 
 .midi-keyboard__black.is-active {
-  background: var(--purple-deep);
+  background: var(--rose);
 }
 
 .timeline-layer__inline-check {
@@ -1421,7 +1440,7 @@ body {
 
 .timeline-layer__inline-range input[type="range"] {
   width: 100px;
-  accent-color: var(--purple);
+  accent-color: var(--teal);
 }
 
 .effect-stack {
@@ -1442,7 +1461,7 @@ body {
 
 .effect-stack input[type="range"] {
   width: 80px;
-  accent-color: var(--purple);
+  accent-color: var(--teal);
 }
 
 /* --- Left-sidebar sound picker for the active pattern track --- */
@@ -1471,8 +1490,8 @@ body {
 }
 
 .sound-picker__btn.is-armed {
-  background: var(--purple-deep);
-  border-color: var(--purple-deep);
+  background: var(--rose);
+  border-color: var(--rose);
   color: #fff;
 }
 
@@ -1509,8 +1528,8 @@ body {
 /* --- Drag a file straight onto the timeline --- */
 
 .daw-timeline.is-drag-over {
-  border-color: var(--purple);
-  box-shadow: inset 0 0 0 2px var(--purple);
+  border-color: var(--teal);
+  box-shadow: inset 0 0 0 2px var(--teal);
 }
 
 /* --- Mixer / Save-Load / Share side panels --- rendered in normal
@@ -1603,7 +1622,7 @@ body {
   direction: rtl;
   width: 24px;
   height: 100px;
-  accent-color: var(--purple);
+  accent-color: var(--teal);
 }
 
 .mixer-strip__buttons {
@@ -1623,7 +1642,7 @@ body {
 
 .mixer-strip__param input[type="range"] {
   width: 100%;
-  accent-color: var(--purple);
+  accent-color: var(--teal);
 }
 
 /* --- Right-click context menu --- */
@@ -1758,8 +1777,8 @@ body {
 .dj-mixer__transport button {
   padding: 0.4rem 0.7rem;
   border-radius: 8px;
-  border: 1px solid var(--purple-deep);
-  background: var(--purple-deep);
+  border: 1px solid var(--olive-deep);
+  background: var(--olive-deep);
   color: #fff;
   font-size: 0.8rem;
   cursor: pointer;
@@ -1821,7 +1840,7 @@ body {
 
 .dj-mixer__volume input {
   flex: 1;
-  accent-color: var(--purple);
+  accent-color: var(--teal);
 }
 
 .dj-mixer__cues {
