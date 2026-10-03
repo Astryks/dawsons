@@ -102,6 +102,7 @@
         <div class="feature-callouts">
           <div class="feature-callout">
             <div class="feature-callout__title"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg> Upload a song, see how it's built</div>
+            <button type="button" class="feature-callout__cta" id="hero-upload-btn"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v11"/><path d="M8 7l4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg> Upload a file</button>
             <p class="feature-callout__body">
               The free desktop app splits any song into vocals/drums/bass/guitar/piano and detects its
               tempo, key, and chords — a real breakdown of how the track was made, not a guess. This
@@ -111,6 +112,7 @@
           </div>
           <div class="feature-callout">
             <div class="feature-callout__title"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M9 5.5h6M9 8.5h6" stroke-width="1.2"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5v3.5"/><path d="M8.5 21h7"/></svg> Sing it, play it back as any instrument</div>
+            <button type="button" class="feature-callout__cta" id="hero-record-btn"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M9 5.5h6M9 8.5h6" stroke-width="1.2"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5v3.5"/><path d="M8.5 21h7"/></svg> Record</button>
             <p class="feature-callout__body">
               Hum or sing into your mic and it's pitch-tracked note-by-note, then replayed through any of
               8 instrument voices — auto-tuned into a key if you can't quite hold the note, with Robotic
@@ -132,6 +134,7 @@
           <button id="undo-btn" title="Undo (Ctrl/Cmd+Z)" disabled><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 8L3 12l4 4"/><path d="M3 12h10.5a5.5 5.5 0 0 1 0 11H11"/></svg> Undo</button>
           <button id="redo-btn" title="Redo (Ctrl/Cmd+Shift+Z)" disabled><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 8l4 4-4 4"/><path d="M21 12H10.5a5.5 5.5 0 0 0 0 11H13"/></svg> Redo</button>
           <button id="mixer-btn" title="Open mixer view"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 21V13M6 9V3"/><circle cx="6" cy="11" r="2"/><path d="M12 21V15M12 11V3"/><circle cx="12" cy="13" r="2"/><path d="M18 21V17M18 13V3"/><circle cx="18" cy="15" r="2"/></svg> Mixer</button>
+          <button id="export-btn" title="Render the full mix — every track, respecting mute/solo/volume — to a downloadable WAV file"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v11"/><path d="M8 10l4 4 4-4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg> Export song</button>
           <button id="save-project-btn" title="Save this project to your browser"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3"/><rect x="8" y="14" width="8" height="7"/></svg> Save</button>
           <button id="load-project-btn" title="Load a saved project"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v2H3z"/><path d="M3 9l1.5 10a1 1 0 0 0 1 .9h13a1 1 0 0 0 1-.9L21 9"/></svg> Load</button>
           <button id="share-btn" title="Share or copy a link to this song"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.3 10.7l7.4-4.4M8.3 13.3l7.4 4.4"/></svg> Share</button>
@@ -151,6 +154,11 @@
             <div class="timeline-layer timeline-layer--special">
               <div class="timeline-layer__label"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg> MIDI Instrument</div>
               <div class="timeline-layer__special-body timeline-layer__special-body--column">
+                <p class="daw-note record-flow-hint" style="margin: 0 0 0.4rem">
+                  <strong>1.</strong> Pick an instrument sound below &nbsp;→&nbsp; <strong>2.</strong> press Record &nbsp;→&nbsp;
+                  <strong>3.</strong> play the drum pads and piano keys — both are always live together, the dropdown
+                  only changes the piano's sound, never the drum kit.
+                </p>
                 <div class="midi-keyboard-controls">
                   <select id="keyboard-instrument" class="midi-keyboard-controls__instrument" title="Instrument — change this to make the keyboard below sound like anything">
                     <option value="keys">Piano</option>
@@ -299,6 +307,13 @@
                   </select>
                   <button class="is-primary" id="producer-build-btn" disabled>Turn into a song</button>
                 </label>
+                <label class="timeline-layer__inline-range lyric-sing-row" title="Browser text-to-speech, pitched toward the chosen note — a rough approximation of singing, not real vocal synthesis">
+                  Lyrics → sung note
+                  <select id="lyric-note-select"></select>
+                  <input type="text" id="lyric-text-input" placeholder="Type a word or short lyric…" maxlength="60" style="width: 12em" />
+                  <button id="lyric-sing-btn">Preview sung lyric</button>
+                  <span id="lyric-status" class="daw-note" style="margin: 0"></span>
+                </label>
               </div>
             </div>
             <div class="timeline-layer timeline-layer--special">
@@ -340,6 +355,10 @@
                 <button class="is-primary" id="fx-apply-btn" disabled>Apply &amp; add to timeline</button>
               </div>
             </div>
+          </div>
+          <div class="timeline-toolbar">
+            <button type="button" class="is-primary" id="timeline-add-track-btn">+ Add track</button>
+            <span class="daw-note" style="margin: 0">Drums, Piano, Guitar and Bass are ready below by default — use this to add any other instrument lane.</span>
           </div>
           <div id="timeline"></div>
         </div>

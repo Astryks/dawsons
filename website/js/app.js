@@ -1827,6 +1827,50 @@ function buildKeyboardTakeBuffer() {
   return { buffer: buf, family };
 }
 
+// "Make it easy to play piano and drums and press record so it updates
+// kicks snares etc" — instead of dropping the whole take as one opaque
+// combined buffer, each recorded hit/note is placed as a real, visible
+// step in its own instrument's lane: drum hits land in the (single,
+// shared) Drums pattern track; keyboard notes land in a pattern track
+// for whichever instrument was selected on the dropdown at Add time.
+// This reuses the exact same step-grid data model every other pattern
+// track (Drums/Piano/Guitar/Bass, presets, blank-added instruments)
+// already uses — a kick played mid-performance shows up exactly like a
+// kick tapped directly onto the Drums row's grid. The one honest trade:
+// timing snaps to the nearest 1/8-note step (this grid's resolution),
+// so a performance isn't reproduced sample-for-sample free-timed —
+// `startSec / getStepSec()` is rounded to the nearest whole step.
+function findOrCreatePatternTrackForFamily(family) {
+  let index = engine.tracks.findIndex((t) => t.pattern && t.pattern.family === family);
+  if (index === -1) {
+    const pattern = createPattern(engine.ctx, engine.ctx.sampleRate, family, []);
+    engine.addTrack(FAMILY_DISPLAY_NAME[family] || family, pattern.buffer, pattern);
+    index = engine.tracks.length - 1;
+  }
+  return index;
+}
+
+function mergeRecordedEventsIntoLanes(events, noteFamily) {
+  const stepSec = getStepSec();
+  const touched = new Set();
+  for (const ev of events) {
+    const step = Math.max(0, Math.round(ev.startSec / stepSec));
+    const family = ev.type === "drum" ? "drums" : noteFamily;
+    const trackIndex = findOrCreatePatternTrackForFamily(family);
+    const track = engine.tracks[trackIndex];
+    if (step >= track.pattern.totalSteps) track.pattern.totalSteps = step + 1;
+    if (ev.type === "drum") track.pattern.hits.push({ step, sound: ev.sound });
+    else track.pattern.hits.push({ step, note: ev.note });
+    touched.add(trackIndex);
+  }
+  for (const i of touched) {
+    const track = engine.tracks[i];
+    track.buffer = rebuildBuffer(engine.ctx, engine.ctx.sampleRate, track.pattern.family, track.pattern.hits, track.pattern.totalSteps);
+    track.pattern.buffer = track.buffer;
+  }
+  return touched.size;
+}
+
 keyboardRecordBtn.onclick = async () => {
   await engine.resume();
   if (!keyboardRecording) {
@@ -1866,20 +1910,28 @@ keyboardPreviewBtn.onclick = () => {
 };
 
 keyboardAddBtn.onclick = () => {
-  if (!keyboardTakeBuffer) return;
+  if (!keyboardTakeBuffer || !keyboardRecordedEvents.length) return;
   pushUndo();
-  engine.addTrack(`Keyboard: ${FAMILY_DISPLAY_NAME[keyboardTakeBuffer.family] || keyboardTakeBuffer.family}`, keyboardTakeBuffer.buffer);
+  const family = document.getElementById("keyboard-instrument").value;
+  const laneCount = mergeRecordedEventsIntoLanes(keyboardRecordedEvents, family);
   renderTrackList();
   renderTimeline();
-  keyboardStatus.textContent = "Added to timeline.";
+  keyboardStatus.textContent = `Added to ${laneCount} lane${laneCount === 1 ? "" : "s"} — your hits/notes now show as real steps in the Drums/${
+    FAMILY_DISPLAY_NAME[family] || family
+  } rows below.`;
   keyboardTakeBuffer = null;
+  keyboardRecordedEvents = [];
   keyboardPreviewBtn.disabled = true;
   keyboardAddBtn.disabled = true;
   keyboardDiscardBtn.disabled = true;
 };
 
 keyboardDiscardBtn.onclick = () => {
-  keyboardRecordedNotes = [];
+  // Pre-existing bug fixed in passing: this referenced an undeclared
+  // `keyboardRecordedNotes` (always a ReferenceError in a module's
+  // strict-mode scope, so Discard was completely broken) instead of
+  // the real `keyboardRecordedEvents` state this whole feature uses.
+  keyboardRecordedEvents = [];
   keyboardTakeBuffer = null;
   keyboardPreviewBtn.disabled = true;
   keyboardAddBtn.disabled = true;
@@ -2323,6 +2375,60 @@ async function applySharedState(encoded) {
   renderWaveform();
 }
 
+// Renders the whole arrangement — every track, respecting mute/solo,
+// pan, and each track's real `startOffsetSec`/`loop` — down to one
+// stereo buffer, for "export the recorded song." A plain additive
+// mixdown (no limiter): simple, predictable, and matches how the
+// engine's own live playback already sums tracks in `Engine.play()`.
+function renderFullMix() {
+  const sampleRate = engine.ctx.sampleRate;
+  const maxDur = engine.maxDurationSec();
+  const totalSamples = Math.max(1, Math.ceil(maxDur * sampleRate));
+  const mixBuffer = engine.ctx.createBuffer(2, totalSamples, sampleRate);
+  const anySoloed = engine.tracks.some((t) => t.solo);
+  for (const track of engine.tracks) {
+    const audible = anySoloed ? track.solo : !track.muted;
+    if (!audible) continue;
+    const offsetSamples = Math.round((track.startOffsetSec || 0) * sampleRate);
+    // Equal-amplitude pan (not equal-power) — consistent with the
+    // engine's own StereoPannerNode default curve closely enough for a
+    // "download the mix" export; a full DSP-accurate pan law isn't
+    // needed for this.
+    const gainL = track.pan <= 0 ? 1 : 1 - track.pan;
+    const gainR = track.pan >= 0 ? 1 : 1 + track.pan;
+    for (let ch = 0; ch < 2; ch++) {
+      const src = track.buffer.getChannelData(Math.min(ch, track.buffer.numberOfChannels - 1));
+      const dst = mixBuffer.getChannelData(ch);
+      const g = ch === 0 ? gainL : gainR;
+      if (track.loop && src.length > 0) {
+        for (let pos = offsetSamples; pos < totalSamples; pos += src.length) {
+          const n = Math.min(src.length, totalSamples - pos);
+          for (let i = 0; i < n; i++) dst[pos + i] += src[i] * g;
+        }
+      } else {
+        const n = Math.min(src.length, totalSamples - offsetSamples);
+        for (let i = 0; i < n; i++) dst[offsetSamples + i] += src[i] * g;
+      }
+    }
+  }
+  return mixBuffer;
+}
+
+function downloadMix(filenameBase) {
+  const mixBuffer = renderFullMix();
+  const wav = encodeWav(mixBuffer);
+  const blob = new Blob([wav], { type: "audio/wav" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `${filenameBase || currentSong?.title || "dawsons-song"}.wav`;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    URL.revokeObjectURL(a.href);
+    a.remove();
+  }, 2000);
+}
+
 function renderSharePanel() {
   const panel = document.getElementById("share-panel");
   const { url, unshareableCount } = buildShareUrl();
@@ -2373,26 +2479,7 @@ function renderSharePanel() {
       window.open(`https://twitter.com/intent/tweet?text=${message}`, "_blank", "noopener");
     };
   }
-  document.getElementById("share-download-btn").onclick = () => {
-    const totalSamples = Math.ceil(engine.maxDurationSec() * engine.ctx.sampleRate);
-    const mixBuffer = engine.ctx.createBuffer(2, Math.max(1, totalSamples), engine.ctx.sampleRate);
-    const anySoloed = engine.tracks.some((t) => t.solo);
-    for (const t of engine.tracks) {
-      if (t.muted || (anySoloed && !t.solo)) continue;
-      for (let ch = 0; ch < 2; ch++) {
-        const src = t.buffer.getChannelData(Math.min(ch, t.buffer.numberOfChannels - 1));
-        const dst = mixBuffer.getChannelData(ch);
-        for (let i = 0; i < src.length && i < dst.length; i++) dst[i] += src[i];
-      }
-    }
-    const wav = encodeWav(mixBuffer);
-    const blob = new Blob([wav], { type: "audio/wav" });
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(blob);
-    a.download = `${currentSong?.title || "dawsons-song"}.wav`;
-    a.click();
-    URL.revokeObjectURL(a.href);
-  };
+  document.getElementById("share-download-btn").onclick = () => downloadMix();
 }
 
 document.getElementById("share-btn").onclick = () => {
@@ -2404,6 +2491,100 @@ document.getElementById("share-btn").onclick = () => {
 
 document.getElementById("undo-btn").onclick = handleUndo;
 document.getElementById("redo-btn").onclick = handleRedo;
+
+// --- Hero callout buttons — "show upload file button, and a audio
+// record button on top in each box." Both trigger the exact same flows
+// already used further down the page, rather than a second parallel
+// implementation: the upload button clicks the same hidden
+// #upload-input the sidebar's "Upload a clip…" row and the Any Sound
+// row's "Upload a clip" button already share; the record button scrolls
+// the Voice row into view and clicks its own Record button directly, so
+// what happens is immediately visible instead of implicit.
+document.getElementById("hero-upload-btn").onclick = () => document.getElementById("upload-input").click();
+document.getElementById("hero-record-btn").onclick = () => {
+  voiceRecordBtn.closest(".timeline-layer--special").scrollIntoView({ behavior: "smooth", block: "center" });
+  voiceRecordBtn.click();
+};
+
+// --- Export / download the full song (all tracks, respecting
+// mute/solo/pan/startOffsetSec/loop) as a WAV file. WAV via the
+// existing zero-dependency encodeWav is the guaranteed-working
+// baseline; MP3 specifically needs a license-verified pure-JS encoder
+// this pass didn't add (see STATUS.md) — not attempted half-verified.
+document.getElementById("export-btn").onclick = () => {
+  if (!engine.tracks.length) return;
+  downloadMix();
+};
+
+// --- "+ Add track" — a persistent control right in the timeline
+// itself (not just the sidebar), per "an easy way to add any other
+// track." Reuses the existing sidebar instrument search/browser rather
+// than a second picker.
+document.getElementById("timeline-add-track-btn").onclick = () => {
+  const browser = document.getElementById("sidebar-instrument-browser");
+  const search = document.getElementById("sidebar-instrument-search");
+  browser.scrollIntoView({ behavior: "smooth", block: "center" });
+  search.focus();
+};
+
+// --- Lyrics → sung note ("make it easy to select note and type lyrics
+// so a voice sings that note"). Implemented with the browser's built-in
+// SpeechSynthesis API — zero cost, zero new dependency, zero license
+// risk, matching this project's hard local/free constraint. Its
+// `.pitch` (0..2, default 1) is driven by the chosen note's semitone
+// offset from C4 (one octave either way maps to the API's full 0..2
+// range). This is a genuinely crude approximation of singing — spoken
+// TTS with its pitch nudged, not real formant-correct vocal synthesis —
+// so it's deliberately labeled "Preview" rather than "Add to timeline":
+// browsers don't expose `speechSynthesis` output to the Web Audio API
+// (no MediaStreamDestination capture path), so there is no reliable way
+// to actually record this audio into a timeline clip from inside the
+// page; it only ever plays live through the system's TTS voice.
+const LYRIC_NOTES = [
+  { label: "C3", midi: 48 },
+  { label: "D3", midi: 50 },
+  { label: "E3", midi: 52 },
+  { label: "F3", midi: 53 },
+  { label: "G3", midi: 55 },
+  { label: "A3", midi: 57 },
+  { label: "B3", midi: 59 },
+  { label: "C4", midi: 60 },
+  { label: "D4", midi: 62 },
+  { label: "E4", midi: 64 },
+  { label: "F4", midi: 65 },
+  { label: "G4", midi: 67 },
+  { label: "A4", midi: 69 },
+  { label: "B4", midi: 71 },
+  { label: "C5", midi: 72 },
+];
+function renderLyricNoteOptions() {
+  const select = document.getElementById("lyric-note-select");
+  select.innerHTML = LYRIC_NOTES.map((n) => `<option value="${n.midi}"${n.midi === 60 ? " selected" : ""}>${n.label}</option>`).join("");
+}
+const lyricStatus = document.getElementById("lyric-status");
+const lyricSingBtn = document.getElementById("lyric-sing-btn");
+if (!window.speechSynthesis) {
+  lyricSingBtn.disabled = true;
+  lyricStatus.textContent = "This browser doesn't support speech synthesis.";
+} else {
+  lyricSingBtn.onclick = () => {
+    const text = document.getElementById("lyric-text-input").value.trim();
+    if (!text) {
+      lyricStatus.textContent = "Type a word or short lyric first.";
+      return;
+    }
+    const select = document.getElementById("lyric-note-select");
+    const midi = Number(select.value);
+    const noteLabel = select.selectedOptions[0]?.textContent || "";
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.pitch = Math.max(0, Math.min(2, 1 + (midi - 60) / 12));
+    utterance.rate = 0.85;
+    window.speechSynthesis.cancel();
+    window.speechSynthesis.speak(utterance);
+    lyricStatus.textContent = `Previewing "${text}" pitched toward ${noteLabel} — live preview only (browser TTS can't be captured into the timeline), a rough approximation of singing, not real vocal synthesis.`;
+  };
+}
+renderLyricNoteOptions();
 
 initializeDefaultTracks();
 renderSidebarInstrumentBrowser();

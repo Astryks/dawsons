@@ -493,6 +493,56 @@ body {
   color: var(--text);
 }
 
+.feature-callout__cta {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.4rem 0.8rem;
+  margin-bottom: 0.5rem;
+  border-radius: 8px;
+  border: 1px solid var(--purple-deep, var(--border));
+  background: var(--purple-deep);
+  color: #fff;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.feature-callout__cta:hover {
+  filter: brightness(1.15);
+}
+
+.timeline-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  margin: 0.6rem 0;
+  flex-wrap: wrap;
+}
+
+.timeline-toolbar button {
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid var(--purple-deep, var(--border));
+  background: var(--purple-deep);
+  color: #fff;
+  font-weight: 600;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+
+.timeline-toolbar button:hover {
+  filter: brightness(1.15);
+}
+
+.record-flow-hint {
+  line-height: 1.4;
+}
+
+.lyric-sing-row {
+  flex-wrap: wrap;
+}
+
 /* --- YouTube/SoundCloud-style waveform preview + draggable scrub line --- */
 
 .daw-preview__time {
@@ -1052,8 +1102,13 @@ body {
   position: absolute;
   top: 0.3rem;
   right: 0.4rem;
-  font-size: 0.65rem;
-  color: var(--text-dim);
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text);
+  background: rgba(0, 0, 0, 0.4);
+  padding: 0.05rem 0.4rem;
+  border-radius: 5px;
+  line-height: 1.4;
 }
 
 /* --- A real, playable on-screen piano keyboard: click a key (or use
@@ -1088,9 +1143,9 @@ body {
 }
 
 .midi-keyboard__white .midi-keyboard__label {
-  color: #6b5a91;
-  font-size: 0.72rem;
-  font-weight: 600;
+  color: #3a2c5c;
+  font-size: 0.88rem;
+  font-weight: 800;
 }
 
 .midi-keyboard__white.is-active {
@@ -1115,9 +1170,9 @@ body {
 }
 
 .midi-keyboard__black .midi-keyboard__label {
-  color: #c9b8ec;
-  font-size: 0.65rem;
-  font-weight: 600;
+  color: #fff;
+  font-size: 0.8rem;
+  font-weight: 800;
 }
 
 .midi-keyboard__black.is-active {
