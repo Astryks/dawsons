@@ -994,6 +994,46 @@ document.getElementById("sidebar-real-instrument-toggle").addEventListener("chan
   useRealInstrumentSound = e.target.checked;
 });
 
+// (2026-10-04) Collapsed-by-default dropdown around the instrument
+// browser, per direct feedback ("the left area makes no sense... add a
+// drop down") — a presentation wrapper only, every data hook/click
+// delegation above still fires on the same elements regardless of
+// whether this panel is open or closed.
+const instrumentBrowserToggle = document.getElementById("instrument-browser-toggle");
+const instrumentBrowserPanel = document.getElementById("instrument-browser-panel");
+function openInstrumentBrowserDropdown() {
+  instrumentBrowserPanel.hidden = false;
+  instrumentBrowserToggle.setAttribute("aria-expanded", "true");
+}
+function closeInstrumentBrowserDropdown() {
+  instrumentBrowserPanel.hidden = true;
+  instrumentBrowserToggle.setAttribute("aria-expanded", "false");
+}
+instrumentBrowserToggle.addEventListener("click", () => {
+  if (instrumentBrowserPanel.hidden) openInstrumentBrowserDropdown();
+  else closeInstrumentBrowserDropdown();
+});
+// Click-away collapses it, same as any dropdown/popover — but not a
+// click on the toggle button itself (that already has its own handler
+// above) or inside the panel (picking a category chip or typing a
+// search query shouldn't close it out from under you). Uses
+// `composedPath()` rather than `panel.contains(e.target)`: a chip click
+// synchronously re-renders the chip/list markup (see the delegated
+// `.daw-sidebar` click handler above, which runs first during bubbling
+// since it's closer to the target), detaching the original clicked
+// element from the document by the time this handler runs — `contains`
+// on a detached node always reports false even though the click
+// genuinely happened inside the panel, which was incorrectly closing
+// the dropdown on every chip click. `composedPath()` is captured at
+// dispatch time and stays accurate regardless of any DOM mutation a
+// handler earlier in the bubble phase made.
+document.addEventListener("click", (e) => {
+  if (instrumentBrowserPanel.hidden) return;
+  const path = e.composedPath();
+  if (path.includes(instrumentBrowserPanel) || path.includes(instrumentBrowserToggle)) return;
+  closeInstrumentBrowserDropdown();
+});
+
 // The instrument browser and preset library both live in the sidebar
 // now, outside #timeline, so they get their own click delegation.
 document.querySelector(".daw-sidebar").addEventListener("click", (e) => {
@@ -1012,6 +1052,7 @@ document.querySelector(".daw-sidebar").addEventListener("click", (e) => {
   const addBlankFamilyBtn = e.target.closest("[data-add-blank-family]");
   if (addBlankFamilyBtn) {
     handleAddBlankTrack(addBlankFamilyBtn.dataset.addBlankFamily);
+    closeInstrumentBrowserDropdown();
     return;
   }
   const addFamilyBtn = e.target.closest("[data-add-family]");
@@ -1022,6 +1063,7 @@ document.querySelector(".daw-sidebar").addEventListener("click", (e) => {
     } else {
       handleAddInstrumentTrack(family);
     }
+    closeInstrumentBrowserDropdown();
     return;
   }
   const addPresetBtn = e.target.closest("[data-add-preset]");
@@ -1053,12 +1095,14 @@ document.getElementById("timeline").addEventListener("contextmenu", (e) => {
   // Right-clicking empty space below the last track (no row there at
   // all) still guides you straight to the instrument browser — you
   // shouldn't have to already have a track to right-click on one. The
-  // browser lives permanently in the sidebar now, so this just scrolls
-  // it into view and focuses the search box instead of "opening" it.
+  // browser lives in the sidebar as a collapsed-by-default dropdown
+  // (see openInstrumentBrowserDropdown), so this opens it, scrolls it
+  // into view, and focuses the search box.
   if (!layer || layer.dataset.trackIndex === undefined) {
     e.preventDefault();
     closeContextMenu();
-    document.getElementById("sidebar-instrument-browser").scrollIntoView({ behavior: "smooth", block: "center" });
+    openInstrumentBrowserDropdown();
+    document.getElementById("instrument-browser-panel").scrollIntoView({ behavior: "smooth", block: "center" });
     document.getElementById("sidebar-instrument-search").focus();
     return;
   }
@@ -1097,7 +1141,8 @@ document.getElementById("timeline").addEventListener("contextmenu", (e) => {
   items.push({
     label: "+ Add an instrument",
     action: () => {
-      document.getElementById("sidebar-instrument-browser").scrollIntoView({ behavior: "smooth", block: "center" });
+      openInstrumentBrowserDropdown();
+      document.getElementById("instrument-browser-panel").scrollIntoView({ behavior: "smooth", block: "center" });
       document.getElementById("sidebar-instrument-search").focus();
     },
   });

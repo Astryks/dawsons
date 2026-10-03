@@ -765,13 +765,57 @@ body {
 /* --- GarageBand-style instrument browser: search box + instruments
    grouped by category, each with a Starter/Blank action pair. --- */
 
-.instrument-browser {
-  margin-top: 0.6rem;
+/* (2026-10-04) Collapsed-by-default dropdown wrapper, per direct
+   feedback ("the left area makes no sense... add a drop down") — the
+   chips+list browser itself was already working correctly, the problem
+   was that it was always fully expanded (~1145px tall with "All"
+   selected), reading as cluttered rather than a clean picker. This
+   class now wraps the whole search+toggle+chips+list panel (it used to
+   be unused/vestigial — repurposed rather than inventing a new one),
+   hidden by default via the [hidden] attribute and toggled from
+   #instrument-browser-toggle in app.js. */
+.instrument-browser__dropdown-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.55rem 0.8rem;
+  border-radius: 10px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  background: var(--panel-alt);
+  color: var(--text);
+  font-size: 0.88rem;
+  cursor: pointer;
+  text-align: left;
+}
+
+.instrument-browser__dropdown-toggle:hover {
+  border-color: var(--ochre);
+}
+
+.instrument-browser__dropdown-toggle[aria-expanded="true"] {
+  border-color: var(--olive-deep);
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.instrument-browser__dropdown-caret {
+  color: var(--text-dim);
+  transition: transform 0.15s ease;
+}
+
+.instrument-browser__dropdown-toggle[aria-expanded="true"] .instrument-browser__dropdown-caret {
+  transform: rotate(180deg);
+}
+
+.instrument-browser {
+  margin-top: 0;
+  border: 1px solid var(--olive-deep);
+  border-top: none;
+  border-radius: 0 0 10px 10px;
   background: var(--panel-alt);
   padding: 0.7rem;
-  max-height: 360px;
+  max-height: 440px;
   overflow-y: auto;
 }
 
