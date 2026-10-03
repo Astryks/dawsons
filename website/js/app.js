@@ -56,6 +56,7 @@ function snapshotTracks() {
   return engine.tracks.map((t) => ({
     name: t.name,
     buffer: t.buffer,
+    colorIndex: t.colorIndex,
     muted: t.muted,
     solo: t.solo,
     pan: t.pan,
@@ -392,7 +393,8 @@ function renderTimeline() {
       // is a separate, bigger change to how that grid is laid out.
       const body = track.pattern
         ? renderPatternGridHtml(track, i)
-        : `<div class="timeline-layer__bar layer-color-${i % 6}" data-drag-track="${i}" style="width:${pct}%; left:${leftPct}%" title="Drag the middle to move this clip, or its right edge to trim its length">
+        : `<div class="timeline-layer__bar layer-color-${track.colorIndex}" data-drag-track="${i}" style="width:${pct}%; left:${leftPct}%" title="Drag the middle to move this clip, or its right edge to trim its length">
+            ${renderClipWaveformHtml(track)}
             <div class="timeline-layer__resize-handle" data-resize-track="${i}"></div>
           </div>`;
       return `
@@ -594,6 +596,38 @@ function computeWaveformPeaks(numBars) {
 
 const WAVEFORM_BARS = 120;
 
+// Per-clip "frequency-like" waveform, Logic-Pro-timeline style — real
+// amplitude peaks drawn from that one track's own actual audio data
+// (same peak-scan technique as computeWaveformPeaks above, just scoped
+// to a single track's buffer instead of the whole project), not a
+// decorative placeholder pattern.
+const CLIP_WAVEFORM_BARS = 32;
+
+function computeTrackWaveformPeaks(track, numBars) {
+  const peaks = new Array(numBars).fill(0);
+  const data = track.buffer.getChannelData(0);
+  const total = data.length;
+  if (!total) return peaks;
+  for (let i = 0; i < numBars; i++) {
+    const startSample = Math.floor((i / numBars) * total);
+    const endSample = Math.max(startSample + 1, Math.floor(((i + 1) / numBars) * total));
+    let peak = 0;
+    for (let s = startSample; s < endSample; s += 4) {
+      const abs = Math.abs(data[s]);
+      if (abs > peak) peak = abs;
+    }
+    peaks[i] = peak;
+  }
+  const maxPeak = Math.max(...peaks, 0.001);
+  return peaks.map((p) => Math.min(1, p / maxPeak));
+}
+
+function renderClipWaveformHtml(track) {
+  const peaks = computeTrackWaveformPeaks(track, CLIP_WAVEFORM_BARS);
+  const bars = peaks.map((p) => `<div class="timeline-layer__bar-wave-bar" style="height:${Math.max(10, p * 100)}%"></div>`).join("");
+  return `<div class="timeline-layer__bar-waveform">${bars}</div>`;
+}
+
 function renderWaveform() {
   const el = document.getElementById("waveform");
   const peaks = computeWaveformPeaks(WAVEFORM_BARS);
@@ -650,6 +684,18 @@ document.getElementById("play-pause-btn").onclick = async () => {
 document.getElementById("stop-btn").onclick = () => {
   engine.stop();
   updatePlayhead();
+};
+
+// --- "Download the free desktop app" banner ---
+// Honest placeholder: as of this writing there is no published desktop
+// release to link to (checked `api.github.com/repos/Astryks/dawsons/releases`
+// fresh — empty). Rather than a dead link or a fabricated URL, clicking
+// the button reveals an inline "not published yet" note. If a real
+// release exists by the time this runs, swap this handler for a plain
+// link to the actual release asset instead.
+document.getElementById("download-app-btn").onclick = () => {
+  const note = document.getElementById("download-app-note");
+  note.hidden = false;
 };
 
 // --- Tempo: rescales pattern-editor.js's step duration and rebuilds
@@ -2179,6 +2225,7 @@ function serializeTrackForSave(track) {
     return {
       kind: "pattern",
       name: track.name,
+      colorIndex: track.colorIndex,
       family: track.pattern.family,
       hits: track.pattern.hits,
       totalSteps: track.pattern.totalSteps,
@@ -2195,6 +2242,7 @@ function serializeTrackForSave(track) {
   return {
     kind: "audio",
     name: track.name,
+    colorIndex: track.colorIndex,
     muted: track.muted,
     solo: track.solo,
     pan: track.pan,
@@ -2212,12 +2260,13 @@ function serializeTrackForSave(track) {
 }
 
 async function deserializeTrackFromSave(data) {
+  const colorIndex = data.colorIndex ?? null;
   if (data.kind === "pattern") {
     const pattern = createPattern(engine.ctx, engine.ctx.sampleRate, data.family, data.hits, data.totalSteps);
-    engine.addTrack(data.name, pattern.buffer, pattern);
+    engine.addTrack(data.name, pattern.buffer, pattern, colorIndex);
   } else {
     const buffer = await base64WavToAudioBuffer(engine.ctx, data.audioBase64);
-    engine.addTrack(data.name, buffer);
+    engine.addTrack(data.name, buffer, null, colorIndex);
   }
   const track = engine.tracks[engine.tracks.length - 1];
   track.muted = data.muted;

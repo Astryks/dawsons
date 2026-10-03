@@ -135,6 +135,64 @@ body {
   color: #fff;
 }
 
+/* "Download the free desktop app" banner — sits right at the top of the
+   page, above the sidebar/hero/timeline body, per direct request. No
+   real published release exists yet (checked the repo's GitHub
+   Releases API fresh before building this), so the button is honest
+   rather than a dead link: clicking it reveals an inline "not
+   published yet" note instead of linking anywhere. */
+.download-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding: 0.6rem 1.2rem;
+  background: var(--panel-alt);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+
+.download-banner__text {
+  font-size: 0.85rem;
+  color: var(--text-dim);
+}
+
+.download-banner__text strong {
+  color: var(--text);
+}
+
+.download-banner__action {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-shrink: 0;
+}
+
+.download-banner__btn {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.45rem 0.9rem;
+  border-radius: 8px;
+  border: 1px solid var(--purple-deep);
+  background: var(--purple-deep);
+  color: #fff;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.download-banner__btn:hover {
+  filter: brightness(1.15);
+}
+
+.download-banner__note {
+  font-size: 0.8rem;
+  color: var(--text-dim);
+  font-style: italic;
+}
+
 .daw-body {
   display: flex;
   flex: 1;
@@ -367,6 +425,30 @@ body {
 .timeline-layer__bar:active {
   cursor: grabbing;
   filter: brightness(1.2);
+}
+
+/* Per-clip waveform drawn from the track's real audio peaks (see
+   renderClipWaveformHtml/computeTrackWaveformPeaks in app.js) — the
+   Logic-Pro-timeline pattern Sid pointed at ("frequency-like" look
+   inside each clip), restyled in this app's own palette rather than
+   Logic's. Sits inside the colored clip bar, semi-transparent so the
+   track's own color (see .layer-color-0..5 below) still reads through. */
+.timeline-layer__bar-waveform {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  gap: 1px;
+  padding: 0 6px;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.timeline-layer__bar-wave-bar {
+  flex: 1 1 0;
+  min-width: 1px;
+  background: rgba(255, 255, 255, 0.55);
+  border-radius: 1px;
 }
 
 .timeline-layer__resize-handle {
