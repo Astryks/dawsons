@@ -8,7 +8,7 @@ from pathlib import Path
 
 import librosa
 
-from app.pipeline import chords, lyrics, sections, stems, tempo_key
+from app.pipeline import chords, lyrics, sections, stems, tempo_key, video
 from app.scene_graph.builder import build_fragment
 from app.scene_graph.validate import validate
 
@@ -22,6 +22,12 @@ def run_analysis(
     def progress(stage: str, value: float) -> None:
         if on_progress:
             on_progress(stage, value)
+
+    original_path = input_path
+    if video.is_video_container(input_path):
+        progress("extracting_audio", 0.0)
+        input_path = video.extract_audio(input_path, out_dir)
+        progress("extracting_audio", 1.0)
 
     progress("separating_stems", 0.0)
     stem_paths = stems.separate(input_path, out_dir, device=device, on_progress=progress)
@@ -47,9 +53,9 @@ def run_analysis(
     duration_sec = float(librosa.get_duration(path=str(input_path)))
 
     fragment = build_fragment(
-        title=input_path.stem,
+        title=original_path.stem,
         duration_sec=duration_sec,
-        source_file=str(input_path),
+        source_file=str(original_path),
         stem_paths=stem_paths,
         tempo_key=tk,
         chords=chord_segments,

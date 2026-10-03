@@ -736,7 +736,14 @@ export default function App() {
 
   async function handleUploadSong() {
     const path = await open({
-      filters: [{ name: "Audio", extensions: ["mp3", "wav", "flac", "m4a", "ogg"] }],
+      filters: [
+        { name: "Audio", extensions: ["mp3", "wav", "flac", "m4a", "ogg"] },
+        // Video containers: the sidecar extracts the audio track via
+        // ffmpeg (app/pipeline/video.py) before running the same
+        // analysis pipeline — keep this list in sync with
+        // video.VIDEO_EXTENSIONS there.
+        { name: "Video", extensions: ["mp4", "mov", "m4v"] },
+      ],
     });
     if (!path || Array.isArray(path)) return;
 
