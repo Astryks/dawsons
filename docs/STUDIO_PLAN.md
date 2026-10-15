@@ -1,6 +1,7 @@
 # MyDawsons Studio — redesign plan (browser DAW)
 
-Status: **Phase 1 MVP built on branch `feat/studio-redesign`, served at `/studio/`.
+Status: **v2 (Phase 2 essentials + DAW upgrade) built on branch `feat/studio-redesign`, served at `/studio/`.
+Preview: https://mydawsons-studio-preview.vercel.app/studio/ (throwaway Vercel project).
 Production (`mydawsons.com`, GitHub Pages from `main`) is untouched.**
 
 ## Where things live
@@ -30,10 +31,39 @@ Production (`mydawsons.com`, GitHub Pages from `main`) is untouched.**
 - **Timeline**: add Drums/Keys/Audio tracks; record pads/keys/voice into clips (count-in, metronome, optional 1/16 quantize); upload audio (file picker or drag-drop); CC0 loop library (preview, drag or +); clip move (also across tracks of the same kind), trim both edges, loop (drag right edge to repeat), reverse, tape speed 0.5–2×, stretch (keeps pitch, WSOLA), pitch ±12 st (keeps length), "Fit to tempo", volume, split at playhead, duplicate, delete, quantize/transpose note clips; track mute/solo/volume/pan; snap to 1/16; zoom.
 - **Export**: offline render of the whole mix to 16-bit 44.1 kHz stereo WAV.
 
-### Phase 2 — make it sticky
-- Autosave to IndexedDB + project list; undo/redo; save/load project files (JSON + audio blobs).
-- Piano-roll/step editor for note clips (edit notes, draw beats), velocity lanes.
-- Per-track effects (reverb, delay, EQ, compressor, filter) and a master section; send/return reverb.
+### v2 — built (October 2026)
+
+**Typing layout (default "Compact"; Settings ⚙ keeps "Classic" v1).** Matched by physical key (`KeyboardEvent.code`), so it works on AZERTY/QWERTZ too. Drums and piano play at the same time — no mode switch.
+
+```
+Drums, left hand (same shape as the 3x6 pads)     Piano, right hand
+  Q W E R T Y   toms / percussion                   U I . P [ ]     C# D# (gap) F# G# A#
+  A S D F G `   hats / cymbals                      H J K L ; ' \   C  D  E  F  G  A  B
+  Z X C V B N   kick, kick 2, snare, snare 2,      Octave: ,  down   .  up
+                clap, rim
+```
+Every pad and piano key shows its key. Shift = harder hit. Space play/stop, Enter record, Home, Delete, Ctrl/⌘+Z / Shift+Ctrl/⌘+Z (or Ctrl+Y) undo/redo, Esc, `?` help.
+
+**Import from anywhere.** Upload or drop files anywhere on the page; "🔗 From link" fetches an audio URL directly, and if the host blocks CORS retries via `website/api/fetch-audio.js` (Vercel function, preview project only — same-site callers, http(s) only, private IPs blocked after DNS + on every redirect, audio content types, 30 MB / 20 s caps). Streaming services (YouTube, Spotify, SoundCloud, Apple Music…) are refused in both client and proxy. "⏺ Record a tab" uses `getDisplayMedia` (tab/system audio) + MediaRecorder → new audio clip at the playhead. A one-line rights note is shown in the import bar and the footer.
+
+**Clip editing.** ⇆ reverse button on every audio clip (one click) + right-click / long-press clip menu (reverse, half/normal tape speed, fit to tempo, fades, convert voice → notes, loop, split, duplicate, track effects, delete). Plain edge drag = trim (or repeat if looping); **Alt/Option + edge drag = time-stretch** (pitch kept; dashed edge cursor while Alt is held, live "Stretch 1.25×" tooltip). Fades: drag the small top-corner handles or pick from the clip bar.
+
+**Effects** (`js/fx.js`, original Web Audio). Per track: EQ (3-band), filter (LP/HP/BP), distortion, compressor, chorus, delay (tempo-synced presets), convolution reverb with **self-generated impulse responses** (seeded decaying noise — no IR files to license). Each effect has presets, and one-click chain presets: Small room, Big hall, Telephone, Radio, Lo-fi, Vocal polish, Punchy drums, Dreamy, Dub echo. Master bus: reverb + limiter (ceiling) + volume. Export uses the identical chain.
+
+**Phase-2 essentials.** Undo/redo (80 steps, snapshot-based, buffers referenced by id), autosave to IndexedDB (project JSON + raw audio, restored on load with a "Start new" option), 7-step onboarding tour on first visit (re-run from `?`), shortcuts help (`?`), clip fades.
+
+**Extras chosen (high value, low risk).** Drum step sequencer (▦ Steps on any drum clip, 1/16 grid up to 64 steps), tap tempo, a tuner (note + cents needle) in the voice panel, "Voice Lead" built-in synth that follows pitch bends. Skipped for now to avoid bloat: piano-roll editor (next on the list), a separate metronome UI (Click already exists).
+
+**Voice → any instrument.** "Sing → instrument" with its own *Play as* menu (every keyboard sound, plus "Drums — beatbox mode"); if a Keys track is selected, the voice plays and records onto that track. Pitch tracking moved from YIN to the **McLeod Pitch Method** in the AudioWorklet with a 32 ms window and a 5.3 ms hop (was 43 ms / 10.7 ms). Note tracker with hysteresis on pitch (±0.7 st band, 3 frames to start, 4 to change, 6 to stop) and on level (gate opens at the sensitivity threshold, closes at 60 %), velocity from loudness, optional **Glide** (live pitch-bend on built-in synths; sampled instruments take the start offset). Press ● to record the notes. **Convert a vocal clip to instrument**: clip menu → offline MPM over the clip → notes on a new Keys track (uses the voice panel's instrument, scale snap and octave).
+CREPE-tiny was considered: the model is MIT-licensed, but it adds ~2 MB of weights + TF.js/ONNX runtime and a 64 ms+ analysis window, so it would *raise* latency. MPM is the lower-latency choice for live play; CREPE stays a Phase-3 option for offline conversion accuracy.
+
+Tests: headless Chrome with a fake mic (synthesised sung melody C-D-E-G-E-C): voice played 60 62 64 67 64 60; clip conversion produced 64 67 64 60 60 62 (first note clipped by the fake device start). See the v2 report for full results.
+
+### Phase 2 — remaining
+
+- Project list + save/load project files (JSON + audio blobs). (Autosave + undo/redo done in v2.)
+- Piano-roll editor for keys clips, velocity lanes. (Drum step grid done in v2.)
+- Send/return reverb buses; automation. (Per-track FX + master done in v2.)
 - Self-host (or R2/CDN-mirror) the streamed piano/soundfont samples for reliability and preload the default sounds; progress UI on first load.
 - Loop library v2: tempo/key metadata, auto-fit on drop, more CC0 genres (guitar/bass/keys/vocal chops); search.
 - Latency calibration wizard (tap-along) for mic takes and voice-to-instrument.
@@ -57,7 +87,13 @@ website/studio/
   js/instruments.js  keyboard sounds (smplr: Splendid piano, e-pianos, FluidR3 GM) + built-in synths
   js/clipfx.js       reverse, WSOLA time-stretch, pitch shift, waveform peaks
   js/voice.js        mic capture, note tracker, beatbox classifier + training
-  js/voice-worklet.js AudioWorklet: capture + YIN + band energies (audio thread)
+  js/voice-worklet.js AudioWorklet: capture + McLeod pitch (MPM) + band energies (audio thread)
+  js/keymap.js       compact (v2) and classic computer-keyboard layouts
+  js/fx.js           per-track effects, generated reverb IRs, presets, master bus
+  js/store.js        undo/redo snapshots + IndexedDB autosave
+  js/importers.js    URL import (+ proxy fallback) and tab/system-audio capture
+  js/pitch.js        MPM + note tracker (offline vocal -> notes)
+website/api/fetch-audio.js  Vercel function: CORS fallback for URL import (preview only)
   js/piano.js, pads.js, midi.js, loops.js, audio.js
   vendor/smplr-1.1.0.mjs (MIT)
   samples/           CC0 / PD one-shots + loops (5 MB, ogg + m4a for Safari)
@@ -74,9 +110,11 @@ playback and WAV export on exactly the same code path.
 - Samples: Splendid Grand (PD), Wurlitzer by Greg Sullivan (CC-BY 3.0, attributed), VCSL TX81Z (CC0), FluidR3_GM (MIT / CC-BY 3.0 renderings), Sonic Pi pack (CC0), TR-808 & LM-2 (PD per distributor).
 - Excluded: MusyngKite/FatBoy (CC-BY-SA), Hydrogen kits (GPL), Drum Abuse (no license found), amen/breakbeat loops (commercial-record provenance).
 
-## Known limits of the MVP
-- No undo, no autosave (a leave-page warning guards unsaved work).
+## Known limits
+- Autosave lives in this browser only (IndexedDB); no cloud sync or project files yet. Undo history is per tab and holds processed audio in memory.
 - Sampled instruments need network on first use; built-in synths/kits work offline.
-- Voice-to-instrument latency ~50–70 ms (analysis window + confirmation frames); monophonic; tuned on synthetic test signals only so far.
+- Voice-to-instrument latency ~35–50 ms (32 ms window + 3 × 5.3 ms confirmation); monophonic; tuned on synthetic test signals only so far.
+- Glide bends only the built-in synths live (smplr samplers can't be re-pitched after note-on).
+- Tab capture needs Chrome/Edge on desktop; Safari/Firefox have no tab-audio capture. The URL proxy only exists on the Vercel preview; on GitHub Pages, CORS-blocked links show a "download it and drag it in" message.
 - Stretch/pitch processing runs on the main thread (fine for loops; a few seconds for long songs).
 - Web MIDI isn't available in Safari/iOS.

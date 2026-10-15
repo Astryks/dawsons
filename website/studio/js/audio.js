@@ -1,25 +1,32 @@
 // Shared Web Audio plumbing for the Studio: one AudioContext, a master
 // bus with a gentle limiter, sample loading, and small helpers.
 
+import { buildMaster, defaultMaster } from "./fx.js";
+
 let ctx = null;
 let master = null;
-let limiter = null;
+let masterHandle = null;
+let masterSettings = defaultMaster();
 
 export function getCtx() {
   if (!ctx) {
     const AC = window.AudioContext || window.webkitAudioContext;
     ctx = new AC({ latencyHint: "interactive" });
-    limiter = ctx.createDynamicsCompressor();
-    limiter.threshold.value = -3;
-    limiter.knee.value = 0;
-    limiter.ratio.value = 20;
-    limiter.attack.value = 0.002;
-    limiter.release.value = 0.1;
     master = ctx.createGain();
-    master.gain.value = 0.9;
-    master.connect(limiter).connect(ctx.destination);
+    master.gain.value = 1;
+    setMasterFx(masterSettings);
   }
   return ctx;
+}
+
+// Master bus: master gain -> [reverb] -> [limiter] -> speakers.
+export function setMasterFx(m) {
+  masterSettings = m;
+  if (!ctx) return;
+  try { master.disconnect(); } catch { /* */ }
+  masterHandle?.dispose();
+  masterHandle = buildMaster(ctx, m, ctx.destination);
+  master.connect(masterHandle.input);
 }
 
 export function getMaster() {

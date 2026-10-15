@@ -42,6 +42,7 @@ export const INSTRUMENTS = [
   sf("sawlead", "Saw Lead", "lead_2_sawtooth", "Synths & Pads"),
   sf("sqlead", "Square Lead", "lead_1_square", "Synths & Pads"),
   { id: "analog", name: "Analog Synth (built-in)", type: "synth", preset: "analog", group: "Synths & Pads" },
+  { id: "vlead", name: "Voice Lead (built-in, follows pitch bends)", type: "synth", preset: "analog", group: "Synths & Pads" },
   { id: "chip", name: "Chiptune (built-in)", type: "synth", preset: "chip", group: "Synths & Pads" },
   sf("brass", "Brass Section", "brass_section", "Brass & Winds"),
   sf("trumpet", "Trumpet", "trumpet", "Brass & Winds"),
@@ -79,8 +80,8 @@ function wrapSmplr(inst) {
   const ready = (inst.ready || inst.load).then(() => undefined);
   return {
     ready,
-    start({ note, velocity = 100, time, duration }) {
-      return inst.start({ note, velocity, time, duration: duration ?? undefined });
+    start({ note, velocity = 100, time, duration, detune }) {
+      return inst.start({ note, velocity, time, duration: duration ?? undefined, ...(detune ? { detune } : {}) });
     },
     stop(target) {
       inst.stop(target);
@@ -100,7 +101,7 @@ class BuiltInSynth {
     this.ready = Promise.resolve();
   }
 
-  start({ note, velocity = 100, time, duration }) {
+  start({ note, velocity = 100, time, duration, detune = 0 }) {
     const c = this.c;
     const t = Math.max(time ?? c.currentTime, c.currentTime);
     const f = midiToFreq(note);
@@ -155,7 +156,8 @@ class BuiltInSynth {
     g.gain.exponentialRampToValueAtTime(0.9 * v + 0.05, t + attack);
     g.gain.exponentialRampToValueAtTime(sustain * v + 0.02, t + attack + 0.25);
     filt.connect(g).connect(this.out);
-    oscs.forEach((o) => o.start(t));
+    const baseDetune = oscs.map((o) => o.detune.value);
+    oscs.forEach((o, i) => { o.detune.value = baseDetune[i] + detune; o.start(t); });
     const voice = { g, oscs, stopped: false };
     this.voices.add(voice);
     const stop = (when) => {
@@ -168,7 +170,10 @@ class BuiltInSynth {
       this.voices.delete(voice);
     };
     if (duration != null) stop(t + duration);
-    return (when) => stop(typeof when === "number" ? when : undefined);
+    const fn = (when) => stop(typeof when === "number" ? when : undefined);
+    // live pitch-bend (voice glide): cents relative to the note
+    fn.bend = (cents) => oscs.forEach((o, i) => o.detune.setTargetAtTime(baseDetune[i] + cents, c.currentTime, 0.015));
+    return fn;
   }
 
   stop() {

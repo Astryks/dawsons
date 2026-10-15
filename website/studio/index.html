@@ -27,19 +27,29 @@
 
     <div class="st-opts">
       <label class="st-bpm" title="Tempo">BPM <input id="bpm" type="number" min="40" max="220" value="100" /></label>
+      <button id="btn-tap" class="chip" title="Tap tempo: tap 4+ times in time">Tap</button>
       <button id="btn-metro" class="chip" title="Metronome">🔔 Click</button>
-      <button id="btn-countin" class="chip is-on" title="1-bar count-in before recording">1-bar count-in</button>
+      <button id="btn-countin" class="chip is-on" title="1-bar count-in before recording">Count-in</button>
       <button id="btn-snap" class="chip is-on" title="Snap clips to the 1/16 grid">Snap</button>
-      <button id="btn-quant" class="chip" title="Quantize recorded pads/keys to 1/16 notes">Quantize rec</button>
+      <button id="btn-quant" class="chip" title="Quantize recorded pads/keys to 1/16 notes">Quantize</button>
     </div>
 
-    <div class="st-keysmode" role="group" aria-label="Computer keyboard plays">
+    <div class="st-edit" role="group" aria-label="Edit">
+      <button id="btn-undo" class="chip" title="Undo (Ctrl/Cmd+Z)" aria-label="Undo" disabled>↶</button>
+      <button id="btn-redo" class="chip" title="Redo (Ctrl/Cmd+Shift+Z)" aria-label="Redo" disabled>↷</button>
+      <span id="save-state" class="dim save-state" title="Your project autosaves in this browser"></span>
+    </div>
+
+    <div class="st-keysmode" id="keysmode" role="group" aria-label="Computer keyboard plays" hidden>
       <span>Computer keys play</span>
       <button id="km-drums" class="seg is-on">Drums</button>
       <button id="km-piano" class="seg">Piano</button>
     </div>
 
+    <button id="btn-master" class="chip" title="Master reverb &amp; limiter">🎚 Master</button>
     <button id="btn-export" class="btn btn--accent" title="Render the whole mix to a WAV file">⬇ Export WAV</button>
+    <button id="btn-settings" class="tbtn tbtn--sm" title="Settings" aria-label="Settings">⚙</button>
+    <button id="btn-help" class="tbtn tbtn--sm" title="Keyboard shortcuts &amp; tour (?)" aria-label="Help">?</button>
   </header>
 
   <section class="st-keys" aria-label="Keyboard">
@@ -48,9 +58,9 @@
         <select id="inst-select" aria-label="Keyboard sound"></select>
       </label>
       <div class="oct">
-        <button id="oct-down" class="chip" title="Octave down (Z)">−</button>
+        <button id="oct-down" class="chip" title="Octave down (, key)">−</button>
         <span id="oct-label">Keys: C4</span>
-        <button id="oct-up" class="chip" title="Octave up (X)">+</button>
+        <button id="oct-up" class="chip" title="Octave up (. key)">+</button>
       </div>
       <button id="btn-midi" class="chip" title="Use a USB/Bluetooth MIDI keyboard or pad controller">Connect MIDI</button>
       <span id="midi-status" class="dim"></span>
@@ -67,7 +77,7 @@
           <select id="kit-select" aria-label="Drum kit"></select>
         </div>
         <div id="pads" class="pads"></div>
-        <p class="hint">Tap the pads, or use keys <kbd>1</kbd>–<kbd>6</kbd> · <kbd>Q</kbd>–<kbd>Y</kbd> · <kbd>A</kbd>–<kbd>H</kbd>. Tap nearer the bottom of a pad to hit harder.</p>
+        <p class="hint" id="pads-hint"></p>
       </section>
 
       <section class="panel" id="voice-panel">
@@ -76,11 +86,12 @@
         <label class="check"><input type="checkbox" id="mic-arm" disabled /> Record my voice as audio when I press ●</label>
         <div class="segs" role="group" aria-label="Voice to instrument">
           <button class="seg is-on" data-vmode="off">Off</button>
-          <button class="seg" data-vmode="melody">Sing → keys</button>
+          <button class="seg" data-vmode="melody">Sing → instrument</button>
           <button class="seg" data-vmode="beatbox">Beatbox → drums</button>
         </div>
         <div id="vm-melody" class="vm" hidden>
-          <p class="hint">Hum or sing one note at a time — it plays the keyboard sound above.</p>
+          <p class="hint">Hum or sing one note at a time — it plays live. Press ● to record it as notes.</p>
+          <label class="row">Play as <select id="vm-inst" aria-label="Instrument your voice plays"></select></label>
           <div class="row">
             <label>Snap to <select id="vm-scale">
               <option value="chromatic">All notes</option><option value="major">Major</option><option value="minor">Minor</option>
@@ -92,7 +103,8 @@
             </select></label>
             <label>Octave <select id="vm-oct"><option value="-2">−2</option><option value="-1">−1</option><option value="0" selected>0</option><option value="1">+1</option><option value="2">+2</option></select></label>
           </div>
-          <div class="vm-note"><span id="vm-note">—</span><span id="vm-cents" class="dim"></span></div>
+          <label class="check"><input type="checkbox" id="vm-glide" /> Glide: bend the note with my voice <span class="dim">(built-in synths)</span></label>
+          <div class="vm-note tuner" title="Tuner"><span id="vm-note">—</span><span id="vm-cents" class="dim"></span><div class="tuner__bar"><i id="tuner-needle"></i></div></div>
         </div>
         <div id="vm-beatbox" class="vm" hidden>
           <p class="hint">"B" / "boom" → kick, "psh" / "k" → snare, "ts" → hi-hat. Teach it your own sounds for better accuracy:</p>
@@ -116,12 +128,31 @@
         <button class="chip" data-add="keys">+ Keys</button>
         <button class="chip" data-add="audio">+ Audio</button>
         <span class="sep"></span>
-        <label class="chip chip--file" title="Upload audio files (WAV, MP3, M4A, OGG…) — they stay in your browser">⬆ Upload loops/audio<input id="file-input" type="file" accept="audio/*" multiple hidden /></label>
+        <label class="chip chip--file" title="Upload audio files (WAV, MP3, M4A, OGG…) or drop them anywhere — they stay in your browser">⬆ Upload<input id="file-input" type="file" accept="audio/*,video/*" multiple hidden /></label>
+        <button class="chip" id="btn-url" title="Import an audio file from a link">🔗 From link</button>
+        <button class="chip" id="btn-tab" title="Record what's playing in another tab (or system audio)">⏺ Record a tab</button>
         <button class="chip" id="btn-lib">🎵 Loop library</button>
         <span class="grow"></span>
         <button class="chip" id="zoom-out" title="Zoom out">−</button>
         <span class="dim">Zoom</span>
         <button class="chip" id="zoom-in" title="Zoom in">+</button>
+      </div>
+
+      <div id="import-bar" class="import-bar" hidden>
+        <form id="url-form" class="row">
+          <input id="url-input" type="url" placeholder="https://example.com/sound.mp3" aria-label="Audio file link" required />
+          <button class="btn btn--accent" type="submit">Fetch</button>
+          <button class="chip" type="button" id="url-close">Close</button>
+        </form>
+        <p class="hint">Link straight to an audio file (.mp3, .wav, .ogg, .m4a). For music on streaming sites, use <b>⏺ Record a tab</b>. <b>Only use sounds you have the rights to.</b></p>
+        <p class="hint" id="url-status" role="status"></p>
+      </div>
+
+      <div id="tab-bar" class="import-bar tab-bar" hidden>
+        <span class="rec-dot"></span><strong>Recording tab audio</strong> <span id="tab-time" class="dim">0:00</span>
+        <div class="meter meter--inline"><div id="tab-level"></div></div>
+        <button class="btn btn--accent" id="tab-stop">■ Stop &amp; add to timeline</button>
+        <span class="hint">Only record sounds you have the rights to.</span>
       </div>
 
       <div id="clip-bar" class="clip-bar" hidden>
@@ -145,6 +176,9 @@
         </span>
         <button class="chip" id="cb-loop" title="Loop: drag the clip's right edge to repeat it">↻ Loop</button>
         <label>Vol <input type="range" id="cb-gain" min="0" max="2" step="0.01" value="1" /></label>
+        <span class="cb-audio"><label title="Fade in / out (or drag the small handles at the top corners of the clip)">Fades
+          <select id="cb-fade"><option value="0">None</option><option value="0.05">Short</option><option value="0.5">½ s</option><option value="2">2 s</option></select></label></span>
+        <span class="cb-drums"><button class="chip" id="cb-steps" title="Edit this beat on a step grid">▦ Steps</button></span>
         <button class="chip" id="cb-split" title="Split at the playhead">✂ Split</button>
         <button class="chip" id="cb-dup" title="Duplicate after this clip">Duplicate</button>
         <button class="chip chip--danger" id="cb-del" title="Delete (Del)">🗑</button>
@@ -164,6 +198,22 @@
         </div>
       </div>
 
+      <div id="step-panel" class="drawer" hidden>
+        <div class="drawer__head"><h3>▦ Step sequencer <span class="dim" id="step-info"></span></h3>
+          <span class="grow"></span>
+          <button class="chip" id="step-clear">Clear</button>
+          <button class="chip" id="step-close">Close</button></div>
+        <div id="step-grid" class="step-grid"></div>
+      </div>
+
+      <div id="fx-panel" class="drawer fx-panel" hidden>
+        <div class="drawer__head"><h3>🎛 Effects — <span id="fx-title">Track</span></h3>
+          <label>Preset <select id="fx-chain"></select></label>
+          <span class="grow"></span>
+          <button class="chip" id="fx-close">Close</button></div>
+        <div id="fx-list" class="fx-list"></div>
+      </div>
+
       <div id="loop-lib" class="loop-lib" hidden>
         <div class="loop-lib__head"><h3>Loop library <span class="dim">(free, CC0 — drag onto the timeline or press +)</span></h3><button class="chip" id="lib-close">Close</button></div>
         <div id="loop-list" class="loop-list"></div>
@@ -172,10 +222,29 @@
   </main>
 
   <footer class="st-foot">
-    <span>Everything runs in your browser — nothing is uploaded.</span>
+    <span>Everything runs in your browser and autosaves here — nothing is uploaded. Only use sounds you have the rights to.</span>
     <a href="SOUND_LIBRARY.md" target="_blank" rel="noopener">Sound credits &amp; licenses</a>
     <a href="../">Classic MyDawsons</a>
   </footer>
+
+  <div id="clip-menu" class="ctx-menu" role="menu" hidden></div>
+
+  <div id="modal" class="modal" hidden>
+    <div class="modal__box" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+      <button class="chip modal__x" id="modal-close" aria-label="Close">✕</button>
+      <h2 id="modal-title"></h2>
+      <div id="modal-body"></div>
+    </div>
+  </div>
+
+  <div id="tour" class="tour" hidden>
+    <div class="tour__ring"></div>
+    <div class="tour__bubble" role="dialog" aria-live="polite">
+      <p id="tour-text"></p>
+      <div class="row"><span id="tour-step" class="dim"></span><span class="grow"></span>
+        <button class="chip" id="tour-skip">Skip</button><button class="btn btn--accent" id="tour-next">Next</button></div>
+    </div>
+  </div>
 
   <div id="toast" class="toast" role="alert" hidden></div>
   <script type="module" src="js/main.js"></script>
