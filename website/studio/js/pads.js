@@ -1,5 +1,4 @@
 // 3x6 drum pad grid (18 pads): click/touch (multi-touch) + key hints.
-import { PAD_KEYS } from "./kits.js";
 
 export class Pads {
   constructor(el, { onHit }) {
@@ -11,7 +10,7 @@ export class Pads {
       b.type = "button";
       b.className = `pad pad--row${Math.floor(i / 6)}`;
       b.dataset.pad = i;
-      b.innerHTML = `<span class="pad__name"></span><kbd class="pad__key">${PAD_KEYS[i].toUpperCase()}</kbd>`;
+      b.innerHTML = `<span class="pad__name"></span><kbd class="pad__key"></kbd>`;
       b.addEventListener("pointerdown", (e) => {
         e.preventDefault();
         const r = b.getBoundingClientRect();
@@ -23,6 +22,10 @@ export class Pads {
       el.appendChild(b);
       this.padEls.push(b);
     }
+  }
+
+  setKeys(labels) {
+    this.padEls.forEach((b, i) => (b.querySelector(".pad__key").textContent = labels[i] || ""));
   }
 
   setNames(names) {

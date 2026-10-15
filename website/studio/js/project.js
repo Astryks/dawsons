@@ -2,7 +2,8 @@
 // recording and mute/solo. Timeline positions are in seconds; the BPM
 // drives the grid, snapping, quantize and the metronome.
 
-import { getCtx, getMaster, click, resumeAudio } from "./audio.js";
+import { getCtx, getMaster, click, resumeAudio, setMasterFx } from "./audio.js";
+import { buildChain, buildMaster, defaultFx, defaultMaster } from "./fx.js";
 import { ensureKit, loadKit, playPad, kitById } from "./kits.js";
 import { createInstrument, instrumentById } from "./instruments.js";
 import { processClipBuffer } from "./clipfx.js";
@@ -21,6 +22,7 @@ export const state = {
   snap: true,
   quantize: false,
   zoom: 70, // px per second
+  master: defaultMaster(),
 };
 
 const listeners = new Set();
@@ -53,15 +55,15 @@ export const snapT = (t) => (state.snap ? Math.round(t / grid()) * grid() : t);
 function buildNodes(c, track, dest) {
   const input = c.createGain();
   const vol = c.createGain();
+  const chain = buildChain(c, track.fx, input, vol);
   const pan = c.createStereoPanner ? c.createStereoPanner() : null;
   const mute = c.createGain();
   vol.gain.value = track.volume;
   if (pan) pan.pan.value = track.pan;
-  input.connect(vol);
   if (pan) vol.connect(pan).connect(mute);
   else vol.connect(mute);
   mute.connect(dest);
-  return { input, vol, pan, mute };
+  return { input, vol, pan, mute, chain };
 }
 
 export function createTrack(kind, opts = {}) {
@@ -79,7 +81,10 @@ export function createTrack(kind, opts = {}) {
     clips: [],
     kitId: opts.kitId || (kind === "drums" ? hooks.padKit() : null),
     instrumentId: opts.instrumentId || (kind === "keys" ? hooks.keysInstrument() : null),
+    fx: opts.fx || defaultFx(),
   };
+  if (opts.id) track.id = opts.id;
+  if (opts.color) track.color = opts.color;
   track.nodes = buildNodes(c, track, getMaster());
   if (kind === "keys") setTrackInstrument(track, track.instrumentId);
   if (kind === "drums") ensureKit(track.kitId);
@@ -88,8 +93,20 @@ export function createTrack(kind, opts = {}) {
   return track;
 }
 
+// Re-wires a track's effect chain after its fx settings changed.
+export function rebuildFx(track) {
+  const c = getCtx();
+  track.nodes.chain?.dispose();
+  track.nodes.chain = buildChain(c, track.fx, track.nodes.input, track.nodes.vol);
+}
+
+export function applyMasterFx() {
+  setMasterFx(state.master);
+}
+
 export function setTrackInstrument(track, id) {
   track.instrumentId = id;
+  track._instId = id;
   try { track.inst?.stop(); } catch { /* */ }
   track.inst = createInstrument(getCtx(), id, track.nodes.input, (p) =>
     hooks.status(`Loading ${instrumentById(id).name}… ${p.loaded}/${p.total}`)
@@ -107,6 +124,7 @@ export function removeTrack(id) {
   if (!t) return;
   try { t.inst?.stop(); } catch { /* */ }
   t.nodes.mute.disconnect();
+  t.nodes.chain?.dispose();
   state.tracks = state.tracks.filter((x) => x.id !== id);
   if (state.selectedTrackId === id) state.selectedTrackId = null;
   applyMuteSolo();
@@ -156,6 +174,8 @@ export function addAudioClip(track, buffer, start, name = "Clip") {
     loop: false,
     length: buffer.duration,
     gain: 1,
+    fadeIn: 0,
+    fadeOut: 0,
   };
   track.clips.push(clip);
   return clip;
@@ -239,6 +259,28 @@ export function clipEvents(clip, from, to, underway, cb) {
   }
 }
 
+// Clip volume envelope (fade in/out, short de-click ramps) for the part of
+// the clip between timeline positions a..b.
+export function fadeGainAt(clip, pos) {
+  const fi = Math.max(0.003, clip.fadeIn || 0);
+  const fo = Math.max(0.003, clip.fadeOut || 0);
+  const x = pos - clip.start;
+  const end = clip.length;
+  let g = 1;
+  if (x < fi) g = Math.min(g, Math.max(0, x / fi));
+  if (x > end - fo) g = Math.min(g, Math.max(0, (end - x) / fo));
+  return g * clip.gain;
+}
+function applyFades(param, clip, a, b, toCtx) {
+  param.setValueAtTime(fadeGainAt(clip, a), toCtx(a));
+  const pts = [clip.start + Math.max(0.003, clip.fadeIn || 0), clip.start + clip.length - Math.max(0.003, clip.fadeOut || 0), b];
+  pts.sort((x, y) => x - y);
+  for (const p of pts) {
+    if (p <= a || p > b + 1e-6) continue;
+    param.linearRampToValueAtTime(fadeGainAt(clip, p), toCtx(p));
+  }
+}
+
 // Schedules one track's events in [from, to) on context `c`.
 // env: { toCtx(pos), sources:Set, inst, kitBufs, dest }
 export function scheduleTrack(c, track, from, to, underway, env) {
@@ -251,10 +293,11 @@ export function scheduleTrack(c, track, from, to, underway, env) {
         s.buffer = clip.buf;
         s.playbackRate.value = clip.rate;
         const g = c.createGain();
-        g.gain.value = clip.gain;
-        s.connect(g).connect(env.dest);
         const dur = Math.max(0.001, Math.min(ev.dur, clip.buf.duration - ev.offset));
-        s.start(Math.max(when, c.currentTime), Math.max(0, ev.offset), dur);
+        const t0 = Math.max(when, c.currentTime);
+        applyFades(g.gain, clip, ev.at + (t0 - when), ev.at + dur / clip.rate, env.toCtx);
+        s.connect(g).connect(env.dest);
+        s.start(t0, Math.max(0, ev.offset), dur);
         env.sources?.add(s);
         s.onended = () => env.sources?.delete(s);
       } else if (track.kind === "drums") {
@@ -484,16 +527,10 @@ export async function renderMix() {
   const end = songEnd();
   if (end <= 0) throw new Error("Nothing to export yet — record or add a clip first.");
   const sr = 44100;
-  const tail = 2;
+  const tail = 2 + (state.master.reverb?.on ? state.master.reverb.size : 0);
   const off = new OfflineAudioContext(2, Math.ceil((end + tail) * sr), sr);
-  const bus = off.createDynamicsCompressor();
-  bus.threshold.value = -3;
-  bus.ratio.value = 20;
-  bus.attack.value = 0.002;
-  bus.release.value = 0.1;
-  const masterGain = off.createGain();
-  masterGain.gain.value = 0.9;
-  masterGain.connect(bus).connect(off.destination);
+  const masterBus = buildMaster(off, state.master, off.destination);
+  const masterGain = masterBus.input;
   for (const t of state.tracks) {
     if (!audible(t) || !t.clips.length) continue;
     const nodes = buildNodes(off, t, masterGain);
@@ -507,3 +544,111 @@ export async function renderMix() {
   }
   return off.startRendering();
 }
+
+// ------------------------------------------------- save / undo snapshots
+// Audio buffers are referenced by id so snapshots stay small; the
+// registry keeps every buffer a snapshot might need.
+
+const bufIds = new WeakMap();
+export const buffers = new Map(); // id -> AudioBuffer
+let bufSeq = 1;
+export function bufferId(buf) {
+  if (!buf) return null;
+  let id = bufIds.get(buf);
+  if (!id) {
+    id = `b${Date.now().toString(36)}${bufSeq++}`;
+    bufIds.set(buf, id);
+    buffers.set(id, buf);
+  }
+  return id;
+}
+export function registerBuffer(id, buf) {
+  bufIds.set(buf, id);
+  buffers.set(id, buf);
+}
+
+const TRACK_KEYS = ["id", "kind", "name", "color", "volume", "pan", "mute", "solo", "kitId", "instrumentId", "fx"];
+
+export function serialize() {
+  return {
+    v: 2,
+    bpm: state.bpm,
+    master: state.master,
+    tracks: state.tracks.map((t) => {
+      const o = {};
+      TRACK_KEYS.forEach((k) => (o[k] = t[k]));
+      o.clips = t.clips.map((c) => {
+        const { src, buf, processing, ...rest } = c;
+        if (c.kind === "audio") {
+          rest.srcId = bufferId(src);
+          rest.bufId = bufferId(buf);
+        }
+        return rest;
+      });
+      return o;
+    }),
+  };
+}
+
+// Restores a snapshot, reusing live track objects (and their loaded
+// instruments) where the id matches.
+export function restore(snap) {
+  const c = getCtx();
+  if (state.playing) stop();
+  state.bpm = snap.bpm || 100;
+  state.master = snap.master || defaultMaster();
+  applyMasterFx();
+  const old = new Map(state.tracks.map((t) => [t.id, t]));
+  const next = [];
+  const toProcess = [];
+  for (const st of snap.tracks || []) {
+    let t = old.get(st.id);
+    const fx = JSON.parse(JSON.stringify(st.fx || defaultFx()));
+    if (t && t.kind === st.kind) {
+      old.delete(st.id);
+      TRACK_KEYS.forEach((k) => k !== "fx" && (t[k] = st[k]));
+      t.fx = fx;
+      rebuildFx(t);
+      if (t.kind === "keys" && t.inst && t._instId !== st.instrumentId) setTrackInstrument(t, st.instrumentId);
+    } else {
+      t = { ...st, fx, clips: [] };
+      t.nodes = buildNodes(c, t, getMaster());
+      if (t.kind === "keys") setTrackInstrument(t, t.instrumentId);
+      if (t.kind === "drums") ensureKit(t.kitId).catch(() => {});
+    }
+    t.clips = (st.clips || []).map((sc) => {
+      const clip = JSON.parse(JSON.stringify(sc));
+      if (clip.kind === "audio") {
+        clip.src = buffers.get(sc.srcId);
+        clip.buf = buffers.get(sc.bufId);
+        delete clip.srcId;
+        delete clip.bufId;
+        if (!clip.src) return null;
+        if (!clip.buf) {
+          clip.buf = clip.src;
+          if (clip.reversed || clip.stretch !== 1 || clip.pitch) toProcess.push(clip);
+        }
+      }
+      return clip;
+    }).filter(Boolean);
+    next.push(t);
+  }
+  old.forEach((t) => {
+    try { t.inst?.stop(); } catch { /* */ }
+    try { t.nodes.mute.disconnect(); } catch { /* */ }
+    t.nodes.chain?.dispose();
+  });
+  state.tracks = next;
+  // keep new ids unique after loading
+  next.forEach((t) => t.clips.forEach((cl) => bumpSeq(cl.id)));
+  next.forEach((t) => bumpSeq(t.id));
+  if (!trackById(state.selectedTrackId)) state.selectedTrackId = null;
+  if (state.selectedClipId && !findClip(state.selectedClipId)) state.selectedClipId = null;
+  applyMuteSolo();
+  toProcess.forEach((cl) => reprocess(cl));
+}
+function bumpSeq(id) {
+  const n = Number(String(id).replace(/^\D+/, ""));
+  if (Number.isFinite(n) && n >= seq) seq = n + 1;
+}
+export const newId = (p) => uid(p);

@@ -74,6 +74,7 @@ this list is checked before adding any new dependency.
 | FluidR3_GM renderings (gleitz/midi-js-soundfonts) | MIT (SoundFont) / CC-BY 3.0 (renderings) | All other GM instruments; MusyngKite/FatBoy (CC-BY-SA) deliberately excluded |
 | Sonic Pi sample pack | CC0 1.0 | Vendored one-shots + loop library (amen/breakbeat loops excluded) |
 | TR-808 (M. Fischer 1994) and LM-2 one-shots via smpldsnds/drum-machines | Public domain | Vendored |
+| Studio v2 effects, reverb impulse responses, Voice Lead synth, MPM pitch tracker | Original code (no third-party license) | Impulse responses are generated at runtime in `website/studio/js/fx.js`; v2 added no third-party samples or libraries |
 
 Full per-set provenance and confidence notes: [`website/studio/SOUND_LIBRARY.md`](website/studio/SOUND_LIBRARY.md).
 

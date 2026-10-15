@@ -4,8 +4,9 @@
 
 import {
   state, changed, trackById, findClip, clipCycle, bufOffset, snapT, beat, songEnd,
-  applyMuteSolo, removeTrack, seek,
+  applyMuteSolo, removeTrack, seek, reprocess, fitLength,
 } from "./project.js";
+import { fxSummary } from "./fx.js";
 import { peaks } from "./clipfx.js";
 import { kitById } from "./kits.js";
 import { instrumentById } from "./instruments.js";
@@ -15,7 +16,10 @@ const ROW_H = 76;
 const peakCache = new WeakMap();
 
 export class Timeline {
-  constructor(root, { onSelect, onDropFiles, onDropLoop }) {
+  constructor(root, { onSelect, onDropFiles, onDropLoop, onClipMenu, onOpenFx, onReverse }) {
+    this.onClipMenu = onClipMenu;
+    this.onOpenFx = onOpenFx;
+    this.onReverse = onReverse;
     this.root = root;
     this.onSelect = onSelect;
     this.onDropFiles = onDropFiles;
@@ -34,6 +38,28 @@ export class Timeline {
     this.rows.addEventListener("pointerdown", (e) => this.pointerDown(e));
     window.addEventListener("pointermove", (e) => this.pointerMove(e));
     window.addEventListener("pointerup", (e) => this.pointerUp(e));
+    window.addEventListener("pointercancel", (e) => this.pointerUp(e));
+    this.rows.addEventListener("contextmenu", (e) => {
+      const clipEl = e.target.closest(".clip");
+      if (!clipEl) return;
+      e.preventDefault();
+      this.cancelLongPress();
+      this.drag = null;
+      const f = findClip(clipEl.dataset.clip);
+      if (f) {
+        this.onSelect(f.track.id, f.clip.id);
+        this.onClipMenu(f.clip.id, e.clientX, e.clientY);
+      }
+    });
+    // Alt/Option held: edges time-stretch instead of trim/loop
+    const altSync = (e) => document.body.classList.toggle("alt-held", !!e.altKey);
+    window.addEventListener("keydown", altSync);
+    window.addEventListener("keyup", altSync);
+    window.addEventListener("blur", () => document.body.classList.remove("alt-held"));
+    this.tip = document.createElement("div");
+    this.tip.className = "drag-tip";
+    this.tip.hidden = true;
+    document.body.appendChild(this.tip);
 
     // drag & drop audio files / library loops onto the timeline
     this.root.addEventListener("dragover", (e) => {
@@ -98,6 +124,7 @@ export class Timeline {
     const sub =
       t.kind === "drums" ? kitById(t.kitId).name : t.kind === "keys" ? instrumentById(t.instrumentId).name : "Audio";
     const icon = t.kind === "drums" ? "🥁" : t.kind === "keys" ? "🎹" : "🎙️";
+    const fxOn = fxSummary(t.fx);
     row.innerHTML = `
       <div class="tl-head" style="width:${HEADER_W}px">
         <div class="tl-head__top">
@@ -109,6 +136,7 @@ export class Timeline {
         <div class="tl-head__ctrls">
           <button class="tl-btn${t.mute ? " is-on" : ""}" data-act="mute" title="Mute">M</button>
           <button class="tl-btn tl-btn--solo${t.solo ? " is-on" : ""}" data-act="solo" title="Solo">S</button>
+          <button class="tl-btn tl-btn--fx${fxOn.length ? " is-on" : ""}" data-act="fx" title="Effects${fxOn.length ? ": " + fxOn.join(", ") : ""}">FX</button>
           <input type="range" min="0" max="1.2" step="0.01" value="${t.volume}" data-act="vol" title="Volume" aria-label="Volume" />
           <input type="range" min="-1" max="1" step="0.01" value="${t.pan}" data-act="pan" title="Pan" aria-label="Pan" class="tl-pan" />
         </div>
@@ -146,6 +174,7 @@ export class Timeline {
         el.addEventListener("click", () => {
           if (act === "mute") t.mute = !t.mute;
           if (act === "solo") t.solo = !t.solo;
+          if (act === "fx") return this.onOpenFx(t.id);
           if (act === "delete") {
             if (t.clips.length && !confirm(`Delete track "${t.name}"?`)) return;
             removeTrack(t.id);
@@ -172,9 +201,19 @@ export class Timeline {
       if (c.pitch) badges.push(`${c.pitch > 0 ? "+" : ""}${c.pitch} st`);
     }
     if (c.loop) badges.push("LOOP");
-    el.innerHTML = `<canvas></canvas><div class="clip__label">${escapeHtml(c.name)}${
+    const W = Math.max(6, c.length * state.zoom);
+    const fi = Math.min(W, (c.fadeIn || 0) * state.zoom);
+    const fo = Math.min(W, (c.fadeOut || 0) * state.zoom);
+    const edgeTip = c.kind === "audio"
+      ? "Drag: trim (or repeat, if looping) · Alt/Option-drag: time-stretch"
+      : "Drag: trim (or repeat, if looping) · Alt/Option-drag: stretch the notes";
+    el.innerHTML = `<canvas></canvas><svg class="clip__fades" width="${W}" height="${ROW_H - 10}" aria-hidden="true">${
+      fi > 0 ? `<polygon points="0,0 ${fi},0 0,${ROW_H - 10}" />` : ""}${
+      fo > 0 ? `<polygon points="${W},0 ${W - fo},0 ${W},${ROW_H - 10}" />` : ""}</svg>
+      <div class="clip__label">${c.kind === "audio" ? `<button class="clip__rev${c.reversed ? " is-on" : ""}" data-rev title="Reverse this clip (click)">⇆</button>` : ""}${escapeHtml(c.name)}${
       badges.length ? ` <em>${badges.join(" · ")}</em>` : ""
-    }</div><div class="clip__h clip__h--l" data-edge="l"></div><div class="clip__h clip__h--r" data-edge="r"></div>`;
+    }</div><div class="clip__fade clip__fade--in" data-fade="in" title="Drag to fade in" style="left:${Math.max(0, fi - 6)}px"></div><div class="clip__fade clip__fade--out" data-fade="out" title="Drag to fade out" style="right:${Math.max(0, fo - 6)}px"></div><div class="clip__h clip__h--l" data-edge="l" title="${edgeTip}"></div><div class="clip__h clip__h--r" data-edge="r" title="${edgeTip}"></div>`;
+    if (c.kind !== "audio") el.querySelectorAll(".clip__fade, .clip__fades").forEach((x) => x.remove());
     requestAnimationFrame(() => this.drawClip(el.querySelector("canvas"), t, c));
     return el;
   }
@@ -266,8 +305,25 @@ export class Timeline {
     const found = findClip(clipEl.dataset.clip);
     if (!found) return;
     e.preventDefault();
+    if (e.button === 2) return; // context menu handles it
     const { clip } = found;
+    if (e.target.closest("[data-rev]")) {
+      this.onSelect(track.id, clip.id);
+      this.onReverse(clip.id);
+      return;
+    }
     const edge = e.target.dataset.edge || null;
+    const fade = e.target.dataset.fade || null;
+    // long-press (touch) opens the clip menu
+    this.cancelLongPress();
+    const lx = e.clientX;
+    const ly = e.clientY;
+    this.longPress = setTimeout(() => {
+      if (this.drag && !this.drag.moved) {
+        this.drag = null;
+        this.onClipMenu(clip.id, lx, ly);
+      }
+    }, 550);
     this.onSelect(track.id, clip.id); // re-renders: grab the fresh element
     clipEl = this.rows.querySelector(`[data-clip="${clip.id}"]`) || clipEl;
     this.drag = {
@@ -283,6 +339,12 @@ export class Timeline {
       notes: clip.notes ? clip.notes.map((n) => ({ ...n })) : null,
       el: clipEl,
       moved: false,
+      fade,
+      fadeIn: clip.fadeIn || 0,
+      fadeOut: clip.fadeOut || 0,
+      stretchMode: !!(edge && e.altKey),
+      stretch: clip.stretch,
+      rate: clip.rate,
     };
   }
 
@@ -290,9 +352,38 @@ export class Timeline {
     const d = this.drag;
     if (!d) return;
     const dt = (e.clientX - d.x0) / state.zoom;
-    if (Math.abs(e.clientX - d.x0) > 3) d.moved = true;
+    if (Math.abs(e.clientX - d.x0) > 3) {
+      d.moved = true;
+      this.cancelLongPress();
+    }
     if (!d.moved) return;
     const c = d.clip;
+    if (d.fade) {
+      const max = c.length * 0.95;
+      if (d.fade === "in") c.fadeIn = Math.max(0, Math.min(max - (c.fadeOut || 0), d.fadeIn + dt));
+      else c.fadeOut = Math.max(0, Math.min(max - (c.fadeIn || 0), d.fadeOut - dt));
+      this.showTip(e, d.fade === "in" ? `Fade in ${c.fadeIn.toFixed(2)} s` : `Fade out ${c.fadeOut.toFixed(2)} s`);
+      const fresh = this.renderClip(d.track, c);
+      d.el.replaceWith(fresh);
+      d.el = fresh;
+      return;
+    }
+    if (d.stretchMode) {
+      // time-stretch: the dragged edge sets a new length, pitch is kept
+      const newLen = d.edge === "r"
+        ? Math.max(0.1, snapT(d.start + d.length + dt) - d.start)
+        : Math.max(0.1, d.start + d.length - Math.max(0, snapT(d.start + dt)));
+      const factor = newLen / d.length;
+      d.factor = Math.max(0.25, Math.min(4, factor));
+      const len = d.length * d.factor;
+      c.start = d.edge === "l" ? d.start + d.length - len : d.start;
+      d.newLen = len;
+      d.el.style.left = `${c.start * state.zoom}px`;
+      d.el.style.width = `${Math.max(6, len * state.zoom)}px`;
+      d.el.classList.add("is-stretching");
+      this.showTip(e, `Stretch ${d.factor.toFixed(2)}× · pitch kept`);
+      return;
+    }
     if (!d.edge) {
       c.start = Math.max(0, snapT(d.start + dt));
       d.el.style.left = `${c.start * state.zoom}px`;
@@ -303,6 +394,7 @@ export class Timeline {
       d.target = target && target.kind === d.track.kind ? target : null;
       return;
     }
+    if (d.edge) this.showTip(e, c.loop && d.edge === "r" ? `Repeat ×${(c.length / clipCycle(c)).toFixed(2)}` : "Trim · hold Alt/Option to stretch");
     if (d.edge === "r") {
       if (c.loop) {
         c.length = Math.max(clipCycle(c) * 0.25, snapT(d.start + d.length + dt) - c.start);
@@ -354,10 +446,44 @@ export class Timeline {
     d.el.style.width = `${Math.max(6, c.length * state.zoom)}px`;
   }
 
+  showTip(e, text) {
+    this.tip.hidden = false;
+    this.tip.textContent = text;
+    this.tip.style.transform = `translate(${e.clientX + 14}px, ${e.clientY - 30}px)`;
+  }
+
+  cancelLongPress() {
+    clearTimeout(this.longPress);
+    this.longPress = null;
+  }
+
   pointerUp() {
+    this.cancelLongPress();
+    this.tip.hidden = true;
     const d = this.drag;
     if (!d) return;
     this.drag = null;
+    if (d.stretchMode && d.moved && d.factor && Math.abs(d.factor - 1) > 0.005) {
+      const c = d.clip;
+      if (c.kind === "audio") {
+        const reps = c.loop ? d.length / clipCycle(c) : 1;
+        c.stretch = +(d.stretch * d.factor).toFixed(4);
+        reprocess(c).then(() => {
+          if (c.loop) c.length = reps * clipCycle(c);
+          else fitLength(c);
+          changed("all");
+        });
+      } else {
+        c.notes.forEach((n) => {
+          n.t *= d.factor;
+          n.d = (n.d ?? 0.2) * d.factor;
+        });
+        c.cycle *= d.factor;
+        c.length = d.length * d.factor;
+      }
+      changed("all");
+      return;
+    }
     if (d.target && d.target !== d.track) {
       d.track.clips = d.track.clips.filter((x) => x !== d.clip);
       d.target.clips.push(d.clip);

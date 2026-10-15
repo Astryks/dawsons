@@ -4,11 +4,6 @@ import { noteName } from "./audio.js";
 
 const BLACK = new Set([1, 3, 6, 8, 10]);
 
-// Computer keys -> semitone offset from the current octave's C.
-export const PIANO_KEYS = {
-  a: 0, w: 1, s: 2, e: 3, d: 4, f: 5, t: 6, g: 7, y: 8, h: 9, u: 10, j: 11,
-  k: 12, o: 13, l: 14, p: 15, ";": 16, "'": 17,
-};
 
 export class Piano {
   constructor(el, { onDown, onUp }) {
@@ -19,6 +14,7 @@ export class Piano {
     this.count = 25;
     this.baseOctave = 4; // computer keys start at C4
     this.pointers = new Map();
+    this.hints = []; // [label, semitone offset from the current octave's C]
     this.keyEls = new Map();
     el.addEventListener("pointerdown", (e) => this.pdown(e));
     el.addEventListener("pointermove", (e) => this.pmove(e));
@@ -71,7 +67,7 @@ export class Piano {
       if (hint) {
         const h = document.createElement("span");
         h.className = "pk__hint";
-        h.textContent = hint.toUpperCase();
+        h.textContent = hint;
         k.appendChild(h);
       }
       this.el.appendChild(k);
@@ -81,8 +77,13 @@ export class Piano {
 
   hintFor(m) {
     const base = this.baseOctave * 12 + 12;
-    for (const [key, off] of Object.entries(PIANO_KEYS)) if (base + off === m) return key;
+    for (const [label, off] of this.hints) if (base + off === m) return label;
     return null;
+  }
+
+  setHints(hints) {
+    this.hints = hints;
+    this.render();
   }
 
   setOctave(o) {

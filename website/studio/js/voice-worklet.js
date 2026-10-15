@@ -1,12 +1,11 @@
 // AudioWorklet: microphone capture + real-time voice analysis.
 // Runs on the audio thread so pitch/onset tracking isn't hitched by UI work.
-// Per hop (~10.7 ms) it posts: rms, f0 (YIN on a 2x-decimated signal),
-// YIN confidence, low/high band energy ratios and zero-crossing rate.
+// Per hop (~5.3 ms) it posts: rms, f0 (McLeod Pitch Method on a
+// 2x-decimated signal, 32 ms window), MPM clarity, low/high band energy ratios and zero-crossing rate.
 // When recording, it also posts raw mic chunks with their context frame.
 
-const W = 1024; // YIN frame, decimated samples (~43 ms at 24 kHz)
-const HOP = 256; // decimated samples between analyses (~10.7 ms)
-const YIN_THRESH = 0.15;
+const W = 768; // analysis frame, decimated samples (~32 ms at 24 kHz)
+const HOP = 128; // decimated samples between analyses (~5.3 ms)
 
 class VoiceProcessor extends AudioWorkletProcessor {
   constructor() {
@@ -24,7 +23,7 @@ class VoiceProcessor extends AudioWorkletProcessor {
     this.decPhase = 0;
     this.dsr = sampleRate / 2;
     this.tauMin = Math.floor(this.dsr / 1100);
-    this.tauMax = Math.min(W / 2, Math.ceil(this.dsr / 65));
+    this.tauMax = Math.min(W - 2, Math.ceil(this.dsr / 65));
     this.diff = new Float32Array(this.tauMax + 1);
     // band trackers (raw rate)
     this.lpLow = 0;
@@ -108,37 +107,51 @@ class VoiceProcessor extends AudioWorkletProcessor {
       const r = this.ring;
       const p0 = this.ringPos; // oldest sample
       for (let k = 0; k < W; k++) buf[k] = r[(p0 + k) % W];
-      const d = this.diff;
+      const n = this.diff;
       const tauMax = this.tauMax;
-      const L = W - tauMax;
-      d[0] = 1;
-      let running = 0;
-      let tauEst = -1;
-      for (let tau = 1; tau <= tauMax; tau++) {
-        let sum = 0;
-        for (let j = 0; j < L; j++) {
-          const v = buf[j] - buf[j + tau];
-          sum += v * v;
+      for (let tau = 0; tau <= tauMax; tau++) {
+        let acf = 0;
+        let m = 0;
+        for (let j = 0, L = W - tau; j < L; j++) {
+          const a = buf[j];
+          const b = buf[j + tau];
+          acf += a * b;
+          m += a * a + b * b;
         }
-        running += sum;
-        d[tau] = running > 0 ? (sum * tau) / running : 1;
+        n[tau] = m > 0 ? (2 * acf) / m : 0;
       }
-      for (let tau = this.tauMin; tau <= tauMax; tau++) {
-        if (d[tau] < YIN_THRESH) {
-          while (tau + 1 <= tauMax && d[tau + 1] < d[tau]) tau++;
-          tauEst = tau;
+      // MPM: highest "key maximum" (between positive zero crossings) that
+      // reaches 0.9 x the overall best.
+      let tau = 1;
+      while (tau < tauMax && n[tau] > 0) tau++;
+      let maxV = 0;
+      let cnt = 0;
+      const peaks = this.peaks || (this.peaks = new Int32Array(64));
+      let best = -1;
+      let bestVal = 0;
+      for (; tau < tauMax && cnt < 64; tau++) {
+        if (n[tau] > 0) {
+          if (n[tau] > bestVal) { bestVal = n[tau]; best = tau; }
+          if (n[tau + 1] <= 0 && best > 0) {
+            peaks[cnt++] = best;
+            if (bestVal > maxV) maxV = bestVal;
+            best = -1;
+            bestVal = 0;
+          }
+        }
+      }
+      for (let i = 0; i < cnt; i++) {
+        const p = peaks[i];
+        if (n[p] >= 0.9 * maxV && p >= this.tauMin) {
+          const a = n[p - 1];
+          const b = n[p];
+          const c = n[p + 1];
+          const den = a + c - 2 * b;
+          const shift = den !== 0 ? (0.5 * (a - c)) / den : 0;
+          f0 = this.dsr / (p + shift);
+          conf = b;
           break;
         }
-      }
-      if (tauEst > 0) {
-        // parabolic interpolation
-        const a = d[tauEst - 1] ?? d[tauEst];
-        const b = d[tauEst];
-        const c = tauEst + 1 <= tauMax ? d[tauEst + 1] : b;
-        const denom = a + c - 2 * b;
-        const shift = denom !== 0 ? (0.5 * (a - c)) / denom : 0;
-        f0 = this.dsr / (tauEst + shift);
-        conf = 1 - b;
       }
     }
     this.port.postMessage({ type: "frame", frame, rms, f0, conf, low, high, zcr });
