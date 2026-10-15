@@ -14,6 +14,9 @@ import { VoiceEngine, BEAT_TO_PAD } from "./voice.js";
 import { LOOPS } from "./loops.js";
 import { Timeline } from "./timeline.js";
 import { encodeWav } from "../../js/wav-encoder.js";
+import { buildSong } from "./songgen.js";
+import { VoiceColor, VOICE_PRESETS } from "./voice-color.js";
+import { separateFile } from "./stems-client.js";
 import {
   state, hooks, onChange, changed, createTrack, selectedTrack, trackById, findClip, addAudioClip,
   addNotesClip, setTrackInstrument, setTrackKit, play, stop, record, seek, reprocess, fitLength,
@@ -32,6 +35,7 @@ let voiceInstrumentId = "vlead";
 let voiceInst = null;
 let freeInst = null;
 const voice = new VoiceEngine();
+const voiceColor = new VoiceColor(() => getMaster());
 
 hooks.padKit = () => padKit;
 hooks.keysInstrument = () => keysInstrument;
@@ -222,7 +226,7 @@ function applyLayout(l) {
   $("#pads-hint").innerHTML =
     l === "classic"
       ? `Classic keys: <kbd>1</kbd>–<kbd>6</kbd> · <kbd>Q</kbd>–<kbd>Y</kbd> · <kbd>A</kbd>–<kbd>H</kbd> (switch “Computer keys play” above). Tap lower on a pad to hit harder.`
-      : `Left hand drums: <kbd>Q</kbd>–<kbd>Y</kbd> · <kbd>A</kbd>–<kbd>G</kbd> <kbd>\`</kbd> · <kbd>Z</kbd>–<kbd>N</kbd>. Right hand piano: <kbd>H</kbd>–<kbd>'</kbd> (+<kbd>U</kbd> <kbd>I</kbd> <kbd>P</kbd> <kbd>[</kbd> <kbd>]</kbd>), octave <kbd>,</kbd> <kbd>.</kbd> — both at once. Hold <kbd>Shift</kbd> to hit harder.`;
+      : `Left hand, like the pads: <kbd>1</kbd>–<kbd>4</kbd> · <kbd>Q</kbd>–<kbd>R</kbd> · <kbd>A</kbd>–<kbd>F</kbd> · <kbd>Z</kbd>–<kbd>V</kbd> (extras <kbd>5</kbd> <kbd>6</kbd>). Right hand piano: <kbd>H</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> <kbd>;</kbd> <kbd>'</kbd>. Hold <kbd>Shift</kbd> to hit harder.`;
   $("#oct-down").title = `Octave down (${l === "classic" ? "Z" : ","})`;
   $("#oct-up").title = `Octave up (${l === "classic" ? "X" : "."})`;
 }
@@ -231,7 +235,7 @@ const keyNotes = new Map();
 window.addEventListener("keydown", (e) => {
   if (e.key === "Escape") return closeOverlays();
   if (e.target.closest?.("input, select, textarea") && !["range", "checkbox", "radio"].includes(e.target.type)) return;
-  if (!$("#modal").hidden && e.key !== "Escape") return;
+  if ((!$("#modal").hidden || !$("#rec-sheet").hidden) && e.key !== "Escape") return;
   const mod = e.metaKey || e.ctrlKey;
   if (mod && !e.altKey && e.key.toLowerCase() === "z") {
     e.preventDefault();
@@ -255,7 +259,7 @@ window.addEventListener("keydown", (e) => {
   }
   if (e.key === "Enter") {
     e.preventDefault();
-    if (!e.repeat) record();
+    if (!e.repeat) onRecordPress();
     return;
   }
   if (e.key === "Home") return seek(0);
@@ -367,6 +371,7 @@ voice.onTrainDone = (cls) => {
 
 $("#btn-mic").onclick = async () => {
   if (voice.isOpen) {
+    voiceColor.stop();
     voice.close();
     $("#btn-mic").textContent = "Enable mic";
     $("#btn-mic").classList.remove("is-on");
@@ -377,6 +382,7 @@ $("#btn-mic").onclick = async () => {
   try {
     await resumeAudio();
     await voice.open();
+    voiceColor.attach(voice.source);
     $("#btn-mic").textContent = "Mic on";
     $("#btn-mic").classList.add("is-on");
     $("#mic-arm").disabled = false;
@@ -435,8 +441,15 @@ function togglePlay() {
   else play();
 }
 $("#btn-play").onclick = togglePlay;
-$("#btn-rec").onclick = () => record();
+$("#btn-rec").onclick = () => onRecordPress();
 $("#btn-home").onclick = () => seek(0);
+$("#btn-loop").onclick = () => {
+  state.loop = !state.loop;
+  if (state.loop && !(state.loopBars > 0)) state.loopBars = 4;
+  $("#btn-loop").classList.toggle("is-on", state.loop);
+  $("#btn-loop").setAttribute("aria-pressed", String(state.loop));
+  changed("transport");
+};
 $("#bpm").addEventListener("change", (e) => {
   state.bpm = Math.max(40, Math.min(220, Number(e.target.value) || 100));
   e.target.value = state.bpm;
@@ -847,7 +860,10 @@ function renderTransport() {
   $("#btn-play").textContent = state.playing ? "■" : "▶";
   $("#btn-play").classList.toggle("is-on", state.playing);
   $("#btn-play").setAttribute("aria-label", state.playing ? "Stop" : "Play");
+  document.body.classList.toggle("is-playing", state.playing);
   $("#btn-rec").classList.toggle("is-on", state.recording);
+  $("#btn-loop").classList.toggle("is-on", !!state.loop);
+  $("#btn-loop").setAttribute("aria-pressed", String(!!state.loop));
   document.body.classList.toggle("is-recording", state.recording);
 }
 
@@ -862,6 +878,7 @@ onChange((what) => {
   if (what === "playhead") {
     timeline.renderPlayhead();
     renderTime();
+    markScene();
     return;
   }
   if (what === "transport") {
@@ -873,6 +890,7 @@ onChange((what) => {
   updateClipBar();
   renderTransport();
   renderTime();
+  renderSession();
   if (!$("#step-panel").hidden) renderSteps();
   $("#bpm").value = state.bpm;
   snapshotSoon();
@@ -898,7 +916,13 @@ loadSaved()
   })
   .catch((e) => console.warn("No autosave available", e))
   .finally(() => {
-    if (!localStorage.getItem("studio.toured")) setTimeout(startTour, 600);
+    const song = new URLSearchParams(location.search).get("song");
+    if (song) {
+      [...state.tracks].forEach((t) => removeTrack(t.id));
+      runSong(song, false);
+    }
+    const savedUrl = localStorage.getItem("dawsons.stemsUrl");
+    if (savedUrl && $("#stem-url")) $("#stem-url").value = savedUrl;
   });
 // Preload the default kit (decoding works before the first user gesture).
 ensureKit(padKit).catch(() => {});
@@ -1103,6 +1127,7 @@ function setRate(c, r) {
 function closeOverlays() {
   closeMenu();
   $("#modal").hidden = true;
+  $("#rec-sheet").hidden = true;
   if (!$("#tour").hidden) endTour();
 }
 
@@ -1368,14 +1393,14 @@ $("#btn-help").onclick = showHelp;
 $("#btn-settings").onclick = () => {
   modal("Settings", `
     <h3>Computer-keyboard layout</h3>
-    <label class="check"><input type="radio" name="kl" value="compact" ${layout === "compact" ? "checked" : ""}/> <b>Compact (new)</b> — drums on the left hand, piano on the right, both at once</label>
+    <label class="check"><input type="radio" name="kl" value="compact" ${layout === "compact" ? "checked" : ""}/> <b>Pads + piano</b> — 4×4 drums on the left hand, piano on the right, both at once</label>
     <label class="check"><input type="radio" name="kl" value="classic" ${layout === "classic" ? "checked" : ""}/> <b>Classic</b> — 1–6 / Q–Y / A–H pads or A W S E D piano, with a Drums/Piano switch</label>
     <h3>Project</h3>
     <p class="hint">Your project autosaves in this browser (IndexedDB). Clearing site data deletes it — export a WAV to keep a copy.</p>
     <div class="row"><button class="chip chip--danger" id="set-new">Start a new empty project</button></div>`);
   $$('input[name="kl"]').forEach((r) => (r.onchange = () => {
     applyLayout(r.value);
-    toast(r.value === "compact" ? "Compact layout: drums left hand, piano right hand" : "Classic layout");
+    toast(r.value === "compact" ? "Pads on the left hand, piano on the right" : "Classic layout");
   }));
   $("#set-new").onclick = () => {
     if (!confirm("Start a new project? Undo can bring the old one back until you close the tab.")) return;
@@ -1388,8 +1413,8 @@ $("#btn-settings").onclick = () => {
 
 const TOUR = [
   ["#pads", "Tap the pads — or play them from your keyboard. Every pad shows its key."],
-  ["#piano", "The piano is on your right hand (H J K L ; '), so you can drum and play keys at the same time."],
-  ["#btn-rec", "Press ● (or Enter) to record what you play onto the timeline."],
+  ["#piano", "The mini piano sits with the pads. Your right hand plays it (H J K L ; ') while the left hand plays drums."],
+  ["#btn-rec", "Record opens a short menu: play the kit, capture your voice, autotune, a voice changer, or sing into an instrument."],
   ["#voice-panel", "Sing or hum into any instrument, or beatbox into the drums."],
   [".st-arrange__bar", "Bring sound in: upload or drop files, paste a link, record a tab, or use the free loop library."],
   ["#timeline", "Right-click (or long-press) a clip for reverse, fades and more. Alt/Option-drag an edge to stretch. Each track's FX button opens effects."],
@@ -1431,3 +1456,268 @@ function endTour() {
 $("#tour-next").onclick = nextTour;
 $("#tour-skip").onclick = endTour;
 window.addEventListener("resize", () => tourIdx >= 0 && showTourStep());
+
+// ------------------------------------------------------- playful studio
+
+const PRESET_LABELS = {
+  robot: "Robot", radio: "Radio", telephone: "Phone", megaphone: "Mega",
+  cave: "Cave", chorus: "Chorus", chipmunk: "Chipmunk", giant: "Giant",
+};
+
+function onRecordPress() {
+  if (state.recording) {
+    record();
+    return;
+  }
+  $("#rec-detail").hidden = true;
+  $("#rec-arm").hidden = false;
+  $("#rec-changer-opts").hidden = true;
+  $("#rec-inst-opts").hidden = true;
+  $$("#rec-sheet [data-rec]").forEach((b) => b.classList.remove("is-on"));
+  $("#rec-sheet").hidden = false;
+  $("#rec-sheet [data-rec]")?.focus();
+}
+
+async function ensureMic() {
+  if (!voice.isOpen) await $("#btn-mic").onclick();
+  return voice.isOpen;
+}
+
+function syncMelodyUi(scale) {
+  $$("[data-vmode]").forEach((x) => x.classList.toggle("is-on", x.dataset.vmode === "melody"));
+  $("#vm-melody").hidden = false;
+  $("#vm-beatbox").hidden = true;
+  $("#vm-scale").value = scale;
+  $("#vm-inst").value = voiceInstrumentId;
+  document.getElementById("voice-panel").open = true;
+}
+
+async function armMelody(instId, scale) {
+  voice.releaseNote();
+  voice.mode = "melody";
+  voice.scale = scale || "major";
+  voice.glide = false;
+  $("#vm-glide").checked = false;
+  voiceInstrumentId = instId;
+  $("#mic-arm").checked = false;
+  syncMelodyUi(voice.scale);
+  voiceTarget();
+}
+
+function showRecDetail(message) {
+  $("#rec-detail").hidden = false;
+  $("#rec-live").textContent = message;
+}
+
+async function chooseRec(kind) {
+  $$("#rec-sheet [data-rec]").forEach((b) => b.classList.toggle("is-on", b.dataset.rec === kind));
+  if (kind === "play") {
+    $("#rec-sheet").hidden = true;
+    await resumeAudio();
+    record();
+    return;
+  }
+  if (!(await ensureMic())) {
+    $("#rec-changer-opts").hidden = true;
+    $("#rec-inst-opts").hidden = true;
+    $("#rec-arm").hidden = true;
+    showRecDetail("Need a microphone for this one. Allow mic access, then tap it again.");
+    return;
+  }
+  $("#rec-arm").hidden = false;
+  if (kind === "voice") {
+    voice.releaseNote();
+    voice.mode = "off";
+    $("#mic-arm").checked = true;
+    voiceColor.setPreset("dry");
+    $$("[data-vmode]").forEach((x) => x.classList.toggle("is-on", x.dataset.vmode === "off"));
+    $("#vm-melody").hidden = true;
+    $("#vm-beatbox").hidden = true;
+    $("#rec-sheet").hidden = true;
+    record();
+    toast("Recording your voice. Press Record again to stop.");
+    return;
+  }
+  if (kind === "autotune") {
+    await armMelody("vlead", "major");
+    voiceColor.stop();
+    showRecDetail("Live autotune — your pitch snaps to C major and plays as a voice. Put it on a track when you're ready.");
+    return;
+  }
+  if (kind === "changer") {
+    voice.releaseNote();
+    voice.mode = "off";
+    $("#mic-arm").checked = true;
+    if (!$("#rec-changer-opts").children.length) {
+      $("#rec-changer-opts").innerHTML = VOICE_PRESETS.map((id) => `<button type="button" class="chip" data-preset="${id}">${PRESET_LABELS[id]}</button>`).join("");
+      $$("#rec-changer-opts [data-preset]").forEach((b) => {
+        b.onclick = () => {
+          voiceColor.setPreset(b.dataset.preset);
+          $$("#rec-changer-opts [data-preset]").forEach((x) => x.classList.toggle("is-on", x === b));
+          $("#rec-live").textContent = `${PRESET_LABELS[b.dataset.preset]} is live. The track keeps your dry voice; you hear the effect now.`;
+        };
+      });
+    }
+    $("#rec-changer-opts").hidden = false;
+    voiceColor.setPreset("robot");
+    $$("#rec-changer-opts [data-preset]").forEach((x) => x.classList.toggle("is-on", x.dataset.preset === "robot"));
+    showRecDetail("Robot is live. Try the other colors, then put the take on a track.");
+    return;
+  }
+  if (kind === "instrument") {
+    if (!$("#rec-inst").children.length) $("#rec-inst").innerHTML = $("#inst-select").innerHTML;
+    const id = $("#rec-inst").value || "sax";
+    $("#rec-inst").value = id;
+    $("#rec-inst-opts").hidden = false;
+    await armMelody(id, $("#rec-scale").value || "major");
+    voiceColor.stop();
+    showRecDetail("Sing and you should hear that instrument right away. Put it on a track to keep the notes.");
+  }
+}
+
+$$("#rec-sheet [data-rec]").forEach((b) => {
+  b.onclick = () => chooseRec(b.dataset.rec);
+});
+$("#rec-close").onclick = () => {
+  $("#rec-sheet").hidden = true;
+};
+$("#rec-sheet").addEventListener("pointerdown", (e) => {
+  if (e.target.id === "rec-sheet") $("#rec-sheet").hidden = true;
+});
+$("#rec-arm").onclick = () => {
+  $("#rec-sheet").hidden = true;
+  record();
+};
+$("#rec-inst").onchange = (e) => {
+  voiceInstrumentId = e.target.value;
+  $("#vm-inst").value = voiceInstrumentId;
+  voiceTarget();
+};
+$("#rec-scale").onchange = (e) => {
+  voice.scale = e.target.value;
+  $("#vm-scale").value = voice.scale;
+};
+
+async function runSong(prompt, autoplay) {
+  await resumeAudio();
+  const info = buildSong(prompt);
+  select(info.drumId, info.clipId);
+  $("#bpm").value = state.bpm;
+  changed("all");
+  if (autoplay) {
+    try { await play(); } catch { /* suspended until a gesture */ }
+  }
+  toast(`${info.title} is ready at ${state.bpm} BPM. Jam on the pads.`);
+}
+
+$("#song-form").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  const prompt = $("#song-prompt").value.trim() || "happy pop";
+  if (state.tracks.some((t) => t.clips.length)) {
+    if (!confirm("Replace the current song with this beat?")) return;
+    if (state.playing) stop();
+    [...state.tracks].forEach((t) => removeTrack(t.id));
+  }
+  await runSong(prompt, true);
+});
+$$("[data-song]").forEach((b) => {
+  b.onclick = () => {
+    $("#song-prompt").value = b.dataset.song;
+    $("#song-form").requestSubmit();
+  };
+});
+
+const SCENE_COUNT = 4;
+const SCENE_BARS = 4;
+
+function renderSession() {
+  const el = $("#session-grid");
+  if (!el) return;
+  if (!state.tracks.length) {
+    el.innerHTML = `<p class="session__empty hint">Make a beat or add a track. Four scenes show up here.</p>`;
+    return;
+  }
+  const bar = beat() * 4;
+  const heads = Array.from({ length: SCENE_COUNT }, (_, i) => `<button type="button" class="session__h" data-scene="${i}">${i + 1}</button>`).join("");
+  const rows = state.tracks.map((t) => {
+    const cells = Array.from({ length: SCENE_COUNT }, (_, i) => {
+      const start = i * SCENE_BARS * bar;
+      const end = start + SCENE_BARS * bar;
+      const filled = t.clips.some((c) => c.start < end - 0.01 && c.start + (c.length || 0) > start + 0.01);
+      return `<button type="button" class="session__cell${filled ? " is-filled" : ""}" data-scene="${i}" data-track="${t.id}" style="--c:${t.color}" aria-label="${t.name}, scene ${i + 1}${filled ? ", has a clip" : ", empty"}"></button>`;
+    }).join("");
+    return `<button type="button" class="session__name" data-track="${t.id}">${t.name}</button>${cells}`;
+  }).join("");
+  el.innerHTML = `<div class="session__grid"><span></span>${heads}${rows}</div>`;
+  el.querySelectorAll("[data-scene]").forEach((b) => {
+    b.onclick = () => launchScene(Number(b.dataset.scene), b.dataset.track || null);
+  });
+  el.querySelectorAll(".session__name").forEach((b) => {
+    b.onclick = () => select(b.dataset.track, null);
+  });
+  markScene();
+}
+
+function markScene() {
+  const bar = beat() * 4;
+  const sceneLen = SCENE_BARS * bar;
+  const scene = Math.min(SCENE_COUNT - 1, Math.max(0, Math.floor(state.playhead / sceneLen)));
+  document.querySelectorAll("#session-grid [data-scene]").forEach((el) => {
+    const on = state.loop && state.loopFromBar === Number(el.dataset.scene) * SCENE_BARS && Number(el.dataset.scene) === scene;
+    el.classList.toggle("is-now", on);
+  });
+}
+
+async function launchScene(index, trackId) {
+  await resumeAudio();
+  state.loop = true;
+  state.loopFromBar = index * SCENE_BARS;
+  state.loopBars = SCENE_BARS;
+  if (trackId) select(trackId, null);
+  const pos = state.loopFromBar * beat() * 4;
+  seek(pos);
+  if (!state.playing) play();
+  changed("transport");
+}
+
+$("#btn-stem-open").onclick = () => {
+  const card = $("#stem-card");
+  card.open = true;
+  card.scrollIntoView({ behavior: "smooth", block: "nearest" });
+};
+$("#stem-url").addEventListener("change", () => {
+  try { localStorage.setItem("dawsons.stemsUrl", $("#stem-url").value.trim()); } catch { /* private mode */ }
+});
+$("#stem-go").onclick = async () => {
+  const file = $("#stem-file").files?.[0];
+  if (!file) return toast("Choose a song file first");
+  const btn = $("#stem-go");
+  btn.disabled = true;
+  try {
+    await resumeAudio();
+    const url = $("#stem-url").value.trim();
+    try { localStorage.setItem("dawsons.stemsUrl", url); } catch { /* private mode */ }
+    const result = await separateFile(file, {
+      url,
+      onStatus: (m) => { $("#stem-status").textContent = m; },
+    });
+    if (state.playing) stop();
+    let first = null;
+    for (const [name, buffer] of Object.entries(result.stems)) {
+      const label = name.charAt(0).toUpperCase() + name.slice(1);
+      const track = createTrack("audio", { name: label });
+      const clip = addAudioClip(track, buffer, 0, label);
+      if (!first) first = { id: track.id, clip: clip.id };
+    }
+    if (first) select(first.id, first.clip);
+    $("#stem-status").textContent = result.note;
+    toast(result.engine === "demucs" ? "Demucs stems are each on a track" : "Quick split is on the timeline");
+    changed("all");
+  } catch (err) {
+    console.error(err);
+    $("#stem-status").textContent = err.message || "Split failed";
+    toast("Couldn't split that file");
+  } finally {
+    btn.disabled = false;
+  }
+};

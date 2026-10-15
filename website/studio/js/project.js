@@ -22,6 +22,9 @@ export const state = {
   snap: true,
   quantize: false,
   zoom: 70, // px per second
+  loop: false,
+  loopFromBar: 0,
+  loopBars: 4,
   master: defaultMaster(),
 };
 
@@ -353,8 +356,19 @@ export async function play({ countIn = false } = {}) {
     const pos = posAt(c.currentTime);
     state.countingIn = pos < startPos;
     state.playhead = Math.max(startPos, pos);
+    if (state.loop && !state.recording && !state.countingIn) {
+      const bar = beat() * 4;
+      const loopStart = Math.max(0, state.loopFromBar) * bar;
+      const loopEnd = loopStart + Math.max(1, state.loopBars) * bar;
+      if (state.playhead >= loopEnd - 0.0001) {
+        const span = loopEnd - loopStart;
+        const over = state.playhead - loopEnd;
+        seek(loopStart + ((over % span) + span) % span);
+        return;
+      }
+    }
     changed("playhead");
-    if (!state.recording && state.playhead > songEnd() + 0.6 && songEnd() > 0) {
+    if (!state.loop && !state.recording && state.playhead > songEnd() + 0.6 && songEnd() > 0) {
       stop();
       state.playhead = startPos;
       changed("playhead");

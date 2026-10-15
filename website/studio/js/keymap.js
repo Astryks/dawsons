@@ -11,11 +11,17 @@
 //    same on AZERTY/QWERTZ/Dvorak keyboards.
 //  - "classic" (v1): one set of keys, toggled between drums and piano.
 
-export const COMPACT_PADS = [
-  "KeyQ", "KeyW", "KeyE", "KeyR", "KeyT", "KeyY",
-  "KeyA", "KeyS", "KeyD", "KeyF", "KeyG", "Backquote",
-  "KeyZ", "KeyX", "KeyC", "KeyV", "KeyB", "KeyN",
+// 4x4 Akai-style pad order (kit index). The last two are the extra sounds
+// that don't fit a 4x4 (pedal hat, splash) and sit under the grid.
+export const MPC_ORDER = [6, 8, 16, 17, 9, 10, 3, 4, 0, 1, 2, 15, 12, 13, 14, 5, 7, 11];
+export const COMPACT_PAD_CODES = [
+  "Digit1", "Digit2", "Digit3", "Digit4",
+  "KeyQ", "KeyW", "KeyE", "KeyR",
+  "KeyA", "KeyS", "KeyD", "KeyF",
+  "KeyZ", "KeyX", "KeyC", "KeyV",
+  "Digit5", "Digit6",
 ];
+export const COMPACT_PADS = COMPACT_PAD_CODES;
 export const COMPACT_PIANO = {
   KeyH: 0, KeyU: 1, KeyJ: 2, KeyI: 3, KeyK: 4, KeyL: 5, KeyP: 6,
   Semicolon: 7, BracketLeft: 8, Quote: 9, BracketRight: 10, Backslash: 11,
@@ -42,7 +48,12 @@ export function saveLayout(l) {
 
 // Labels shown on the pads / piano keys for the given layout.
 export function padLabels(layout) {
-  return layout === "classic" ? CLASSIC_PADS.map((k) => k.toUpperCase()) : COMPACT_PADS.map(codeLabel);
+  if (layout === "classic") return CLASSIC_PADS.map((k) => k.toUpperCase());
+  const labels = new Array(18).fill("");
+  COMPACT_PAD_CODES.forEach((code, i) => {
+    labels[MPC_ORDER[i]] = codeLabel(code);
+  });
+  return labels;
 }
 export function pianoLabels(layout) {
   const src = layout === "classic" ? CLASSIC_PIANO : COMPACT_PIANO;
@@ -53,8 +64,8 @@ export function pianoLabels(layout) {
 // Returns {type:"pad", index} | {type:"note", offset, id} | {type:"octave", d} | null
 export function resolveKey(e, layout, keysMode) {
   if (layout === "compact") {
-    const p = COMPACT_PADS.indexOf(e.code);
-    if (p >= 0) return { type: "pad", index: p };
+    const p = COMPACT_PAD_CODES.indexOf(e.code);
+    if (p >= 0) return { type: "pad", index: MPC_ORDER[p] };
     if (e.code in COMPACT_PIANO) return { type: "note", offset: COMPACT_PIANO[e.code], id: e.code };
     if (e.code === "Comma") return { type: "octave", d: -1 };
     if (e.code === "Period") return { type: "octave", d: 1 };

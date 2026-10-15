@@ -25,12 +25,20 @@ export class Piano {
   }
 
   layout() {
-    const w = this.el.clientWidth || 800;
-    const whites = Math.max(10, Math.min(36, Math.floor(w / 34)));
-    // pick an octave-aligned range roughly centred on C4
-    const octaves = Math.max(1, Math.round(whites / 7));
-    const low = 60 - 12 * Math.floor(octaves / 2);
-    const count = octaves * 12 + 1;
+    const fixed = Number(this.el.dataset.octaves);
+    let low;
+    let count;
+    if (fixed >= 1) {
+      // Mini Akai-style keyboard: C3 up, independent of the column width.
+      low = 48;
+      count = fixed * 12 + 1;
+    } else {
+      const w = this.el.clientWidth || 800;
+      const whites = Math.max(10, Math.min(36, Math.floor(w / 34)));
+      const octaves = Math.max(1, Math.round(whites / 7));
+      low = 60 - 12 * Math.floor(octaves / 2);
+      count = octaves * 12 + 1;
+    }
     if (low === this.low && count === this.count && this.keyEls.size) return;
     this.low = low;
     this.count = count;
