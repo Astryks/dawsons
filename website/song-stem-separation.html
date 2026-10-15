@@ -23,8 +23,9 @@
   <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/daw.css" />
   <link rel="stylesheet" href="css/hub.css" />
+  <link rel="stylesheet" href="css/play.css" />
   <script type="application/ld+json">
-{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Can I separate stems on mydawsons.com in the browser?", "acceptedAnswer": {"@type": "Answer", "text": "Not full Demucs-style stem separation. That needs the free desktop app’s local compute. The browser can still upload clips for reverse, pitch, and effects."}}, {"@type": "Question", "name": "Is stem separation a paid cloud API?", "acceptedAnswer": {"@type": "Answer", "text": "Dawsons’ product constraint is free local compute for core analysis — not a metered cloud stem API. Confirm current desktop packaging on the machine where you install it."}}, {"@type": "Question", "name": "Will it recreate a copyrighted song for me?", "acceptedAnswer": {"@type": "Answer", "text": "Analysis helps you inspect structure of audio you provide. Dawsons does not offer ripping commercial streaming services or shipping sound-alike reconstructions of chart hits as product features."}}]}
+{"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Can I separate stems on mydawsons.com in the browser?", "acceptedAnswer": {"@type": "Answer", "text": "The studio can quick-split a file in your tab into drums, bass, melody, and the rest. A real vocal separation uses the free local Demucs engine (the same open-source model as the desktop app). This site does not call a paid stem API."}}, {"@type": "Question", "name": "Is stem separation a paid cloud API?", "acceptedAnswer": {"@type": "Answer", "text": "Dawsons’ product constraint is free local compute for core analysis — not a metered cloud stem API. Confirm current desktop packaging on the machine where you install it."}}, {"@type": "Question", "name": "Will it recreate a copyrighted song for me?", "acceptedAnswer": {"@type": "Answer", "text": "Analysis helps you inspect structure of audio you provide. Dawsons does not offer ripping commercial streaming services or shipping sound-alike reconstructions of chart hits as product features."}}]}
   </script>
 </head>
 <body>
@@ -50,19 +51,19 @@
         </span>
       </a>
       <nav class="daw-nav__links">
-        <a href="/">Open the DAW</a>
+        <a href="/">Home</a>
+        <a href="studio/">Studio</a>
         <a href="discover.html">Discover</a>
-        
-        <a href="app/index.html" target="_blank" rel="noopener">Voice Notes</a>
+        <a href="classic.html">Classic</a>
       </nav>
     </header>
 
     <main class="hub-main">
       <p class="hub-eyebrow">Desktop app</p>
       <h1>Upload a song — see how it’s built</h1>
-      <p class="hub-intro">The free Dawsons desktop app splits a song into vocals, drums, bass, guitar, and piano stems and detects tempo, key, chords, and sections — assembled into an editable project. That pipeline needs real local compute, so it is not available in the lightweight browser DAW.</p>
+      <p class="hub-intro">The free Dawsons desktop app splits a song into vocals, drums, bass, guitar, and piano stems and detects tempo, key, chords, and sections. The browser studio can quick-split a file in the tab, and it can call that same free Demucs engine if you run it locally. Neither path uses a paid API.</p>
       <div class="hub-ctas">
-      <a href="/" class="is-primary">Try the browser DAW first</a>
+      <a href="studio/" class="is-primary">Split a song in the studio</a>
       <a href="free-online-daw.html" class="">What the browser can do</a>
       <a href="voice-to-instrument.html" class="">Voice to instrument</a>
       </div>
@@ -76,7 +77,7 @@
       </section>
       <section class="hub-section">
         <h2>What you can try in the browser today</h2>
-        <p>The browser DAW’s Any Sound row lets you upload a clip and reverse or pitch-shift it immediately, with effects — useful for experimentation while the desktop handles full song breakdown. Open <a href="/">mydawsons.com</a>.</p>
+        <p>In the <a href="studio/">studio</a>, choose Split a song. The quick split stays in your tab (drums, bass, melody, other — not a vocal isolator). For vocals, drums, bass, and other, start the local sidecar and paste its URL. The classic DAW can still reverse, pitch, and effect a clip you upload.</p>
       </section>
       <section class="hub-section">
         <h2>What we do not do</h2>
@@ -84,7 +85,7 @@
       </section>
       <section class="hub-section hub-faq" aria-labelledby="faq-heading">
         <h2 id="faq-heading">Common questions</h2>
-      <details><summary>Can I separate stems on mydawsons.com in the browser?</summary><p>Not full Demucs-style stem separation. That needs the free desktop app’s local compute. The browser can still upload clips for reverse, pitch, and effects.</p></details>
+      <details><summary>Can I separate stems on mydawsons.com in the browser?</summary><p>The studio can quick-split a file in your tab into drums, bass, melody, and the rest. A real vocal separation uses the free local Demucs engine (the same open-source model as the desktop app). This site does not call a paid stem API.</p></details>
       <details><summary>Is stem separation a paid cloud API?</summary><p>Dawsons’ product constraint is free local compute for core analysis — not a metered cloud stem API. Confirm current desktop packaging on the machine where you install it.</p></details>
       <details><summary>Will it recreate a copyrighted song for me?</summary><p>Analysis helps you inspect structure of audio you provide. Dawsons does not offer ripping commercial streaming services or shipping sound-alike reconstructions of chart hits as product features.</p></details>
       </section>

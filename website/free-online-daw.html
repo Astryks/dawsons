@@ -23,6 +23,7 @@
   <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/daw.css" />
   <link rel="stylesheet" href="css/hub.css" />
+  <link rel="stylesheet" href="css/play.css" />
   <script type="application/ld+json">
 {"@context": "https://schema.org", "@type": "FAQPage", "mainEntity": [{"@type": "Question", "name": "Is the MyDawsons browser DAW really free?", "acceptedAnswer": {"@type": "Answer", "text": "Yes. The browser DAW at mydawsons.com is free to use with no install and no account. The desktop app is also positioned as free and local."}}, {"@type": "Question", "name": "Do I need to upload my audio to use it?", "acceptedAnswer": {"@type": "Answer", "text": "No. The browser DAW runs in your tab. Files you drop onto the timeline are processed locally in the browser for that session — they are not uploaded to a Dawsons server from this site."}}, {"@type": "Question", "name": "Can the browser version split a full song into stems?", "acceptedAnswer": {"@type": "Answer", "text": "No. Full stem separation needs the free desktop app’s local AI pipeline. The browser version can still upload clips for reverse, pitch, and effects, and use voice-to-instrument tools."}}]}
   </script>
@@ -50,19 +51,19 @@
         </span>
       </a>
       <nav class="daw-nav__links">
-        <a href="/">Open the DAW</a>
+        <a href="/">Home</a>
+        <a href="studio/">Studio</a>
         <a href="discover.html">Discover</a>
-        
-        <a href="app/index.html" target="_blank" rel="noopener">Voice Notes</a>
+        <a href="classic.html">Classic</a>
       </nav>
     </header>
 
     <main class="hub-main">
       <p class="hub-eyebrow">Browser DAW</p>
       <h1>Free online DAW — make music in your browser</h1>
-      <p class="hub-intro">MyDawsons is a free online DAW that runs entirely in this tab. Layer instruments, edit patterns, play pads and a keyboard, upload clips, and apply effects — nothing is uploaded to a Dawsons server.</p>
+      <p class="hub-intro">MyDawsons is a free online DAW that runs in your tab. Play a drum kit and piano, make a beat from a sentence, record your voice, and stack tracks. Nothing is uploaded to a Dawsons server.</p>
       <div class="hub-ctas">
-      <a href="/" class="is-primary">Open the free DAW</a>
+      <a href="studio/" class="is-primary">Open the studio</a>
       <a href="discover.html" class="">Discover genres</a>
       <a href="voice-to-instrument.html" class="">Voice to instrument</a>
       </div>
@@ -70,14 +71,14 @@
         <h2>What you can do in the browser</h2>
         <ul>
           <li>Multi-track timeline with instruments, mute/solo, mixer, undo/redo, save/load in the browser, and share links.</li>
-          <li>Step-grid pattern editing, preset patterns, searchable instrument browser, on-screen MIDI keyboard, and an 8-pad drum grid.</li>
+          <li>A 4×4 drum kit, mini piano, scene launcher, and prompt-made beats in the studio. The classic DAW keeps the step grid, instrument browser, and mixer.</li>
           <li>Upload a clip or drag a file onto the timeline; reverse, pitch-shift, and stack effects (reverb, delay, compression, EQ, and more).</li>
           <li>Record mic audio or tab/system audio (with browser permission) into the Any Sound row.</li>
         </ul>
       </section>
       <section class="hub-section">
         <h2>What stays on the desktop app</h2>
-        <p>Real song stem separation (vocals/drums/bass/guitar/piano) and tempo/key/chord detection need local compute — those live in the free desktop app, not this static browser page. See <a href="song-stem-separation.html">song stem separation</a>.</p>
+        <p>Tempo, key, and chord detection, plus the full six-stem Demucs split, live in the free desktop app. The studio can quick-split a song in the tab and can call that same local Demucs engine if you run it. See <a href="song-stem-separation.html">song stem separation</a>.</p>
       </section>
       <section class="hub-section">
         <h2>Privacy-friendly by design</h2>

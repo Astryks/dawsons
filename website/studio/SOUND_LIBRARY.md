@@ -41,6 +41,10 @@ the **Drum Abuse** packs (no license statement found), **Hydrogen** drum kits
 - **Lo-fi Dusty** processing (sample-rate reduction, bit-crush, low-pass, soft clip) applied to CC0/PD one-shots.
 - Built-in keyboard synths: Analog Synth, Sub Bass, Chiptune (`js/instruments.js`).
 - Metronome click.
+- **Reverb impulse responses (v2)**: generated in the browser by `impulse()` in `js/fx.js` (seeded decaying filtered noise + early reflections). No third-party IR files are used, so there's nothing to license.
+- **Voice Lead** built-in synth and every effect (EQ, filter, distortion, compressor, chorus, delay, master limiter) — original Web Audio code.
+
+v2 added **no new third-party samples or code**.
 
 ## Code dependencies
 
@@ -50,12 +54,18 @@ the **Drum Abuse** packs (no license statement found), **Hydrogen** drum kits
 | Web Audio API, AudioWorklet, Web MIDI, MediaDevices | — | Browser platform APIs | — |
 
 No Tone.js is used in this MVP — raw Web Audio + smplr covers scheduling,
-sampling and export with fewer moving parts. WSOLA time-stretch, YIN pitch
-tracking and the beatbox classifier are original implementations of
-well-known public techniques.
+sampling and export with fewer moving parts. WSOLA time-stretch, McLeod
+pitch tracking (MPM; YIN in v1) and the beatbox classifier are original
+implementations of well-known published techniques. CREPE was evaluated
+but not shipped (see docs/STUDIO_PLAN.md).
 
 ## User content
 
-Files a user uploads or records stay in their browser tab. Nothing is
-uploaded to a server. Users are responsible for rights to material they
-import (e.g. samples from commercial records).
+Files a user uploads, records or captures from a tab stay in their browser
+(autosaved to IndexedDB on their device). Nothing is uploaded to a server.
+"Import from link" downloads the file into the browser; when a site blocks
+cross-origin requests, the preview's `/api/fetch-audio` helper fetches it
+server-side and passes it straight through without storing it. Streaming
+services are refused, and the UI tells users to only use sounds they have
+the rights to. Users are responsible for rights to material they import
+(e.g. samples from commercial records).

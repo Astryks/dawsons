@@ -1,0 +1,586 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Classic DAW — Dawsons | MyDawsons</title>
+  <meta name="robots" content="noindex" />
+  <meta name="description" content="Free AI-native DAW in your browser. Layer instruments, make beats, sing to instrument, and edit clips locally — no install, nothing uploaded. Desktop app adds real stem separation." />
+  <link rel="canonical" href="https://mydawsons.com/classic.html" />
+  <meta property="og:type" content="website" />
+  <meta property="og:url" content="https://mydawsons.com/" />
+  <meta property="og:title" content="MyDawsons — free AI-native DAW" />
+  <meta property="og:description" content="Play with layered instruments, effects, voice tools, and original songs right in your browser — no install. Nothing is uploaded." />
+  <meta property="og:image" content="https://mydawsons.com/app/icon-512.png" />
+  <meta property="og:site_name" content="MyDawsons" />
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="MyDawsons — free AI-native DAW" />
+  <meta name="twitter:description" content="Free browser DAW with instruments, beats, and voice-to-instrument. Local in your tab — no upload." />
+  <meta name="twitter:image" content="https://mydawsons.com/app/icon-512.png" />
+  <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+  <link rel="apple-touch-icon" href="favicon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/daw.css" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "WebApplication",
+    "name": "MyDawsons",
+    "alternateName": ["Dawsons", "My Dawsons"],
+    "url": "https://mydawsons.com/",
+    "applicationCategory": "MultimediaApplication",
+    "operatingSystem": "Web browser",
+    "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+    "description": "Free AI-native browser DAW. Layer instruments, make beats, sing to instrument, and edit clips locally in your tab. Desktop app adds local stem separation and song analysis.",
+    "isAccessibleForFree": true
+  }
+  </script>
+</head>
+<body>
+  <div class="daw-shell">
+    <header class="daw-nav">
+      <div class="daw-logo" title="A440 — the international concert-pitch standard adopted in 1939, the reference tone every orchestra and instrument still tunes to.">
+        <svg class="daw-logo__mark" viewBox="0 0 52 60" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+          <defs>
+            <linearGradient id="noteGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" stop-color="var(--purple)" />
+              <stop offset="55%" stop-color="var(--rose)" />
+              <stop offset="100%" stop-color="var(--ochre)" />
+            </linearGradient>
+          </defs>
+          <path d="M 38 8 A 15 15 0 0 1 38 34" stroke="var(--teal)" stroke-width="1.3" fill="none" opacity="0.5" stroke-linecap="round" />
+          <path d="M 43 3 A 22 22 0 0 1 43 39" stroke="var(--teal)" stroke-width="1.1" fill="none" opacity="0.3" stroke-linecap="round" />
+          <ellipse cx="15" cy="47" rx="9.5" ry="6.8" transform="rotate(-16 15 47)" fill="url(#noteGradient)" />
+          <rect x="22.2" y="9" width="2.8" height="39" rx="1.4" fill="url(#noteGradient)" />
+          <path d="M 24.6 9 C 32 6.5 41 10.5 39.5 19 C 38.3 25.5 30.5 27.5 26 25 C 30.5 20.5 31.5 14 24.6 9 Z" fill="url(#noteGradient)" />
+        </svg>
+        <span class="daw-logo__text">
+          <span class="daw-logo__dawsons">Dawsons</span>
+        </span>
+      </div>
+      <nav class="daw-nav__links">
+        <a href="studio/" class="daw-nav__studio">Studio (beta)</a>
+        <a href="discover.html">Discover genres</a>
+        <a href="free-online-daw.html">Free online DAW</a>
+        <a href="voice-to-instrument.html">Voice tools</a>
+        <a href="app/index.html" target="_blank" rel="noopener">Voice Notes</a>
+      </nav>
+    </header>
+
+    <p style="margin:0;padding:0.7rem 1.2rem;background:#2a2018;color:#f6efe4;border-bottom:1px solid #5c2a35">
+      This is the classic DAW — mixer, DJ decks, and the in-house arranger.
+      <a href="studio/" style="color:#ffc83d;font-weight:700">The new studio</a>
+      is the simpler way to play, record, and make a beat.
+      <a href="/" style="color:#ffc83d;font-weight:700">Home</a>
+    </p>
+    <div class="download-banner" id="download-banner">
+      <div class="download-banner__text">
+        <strong>Dawsons for desktop</strong> — real stem separation, tempo/key/chord detection, and the full local AI pipeline this browser demo can't run.
+      </div>
+      <div class="download-banner__action">
+        <a
+          class="download-banner__btn"
+          id="download-app-btn"
+          href="https://github.com/Astryks/dawsons/releases/download/v0.1.0/Dawsons_0.1.0_aarch64.dmg"
+          title="macOS (Apple Silicon). Free, runs entirely on your computer — nothing is uploaded."
+        >
+          <svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12"/><path d="M7 10l5 5 5-5"/><path d="M5 19h14"/></svg>
+          Download the free desktop app
+        </a>
+        <span class="download-banner__note">
+          macOS (Apple Silicon) · Free, runs 100% locally — nothing is uploaded.
+          Unsigned, so macOS will warn it's from an unidentified developer on first open —
+          that's expected for a free direct download, not a problem. Unzip, drag to Applications,
+          try to open it once, then go to <strong>System Settings → Privacy &amp; Security → Open Anyway</strong>.
+        </span>
+      </div>
+    </div>
+
+    <div class="daw-body">
+      <aside class="daw-sidebar">
+        <div class="daw-sidebar__section-title">Your layers</div>
+        <div id="track-list"></div>
+
+        <div class="daw-sidebar__section-title">Sound picker</div>
+        <div class="sound-picker" id="sound-picker">
+          <p class="daw-note">Click a beat track's row in the timeline to edit its sounds.</p>
+        </div>
+
+        <div class="daw-sidebar__section-title">Add an instrument</div>
+        <!-- Collapsed-by-default dropdown wrapping the chips+list browser
+             (logic unchanged from the item-78 redesign — this is just a
+             presentation wrapper; every existing data hook/click
+             delegation still fires on the same elements inside). -->
+        <button type="button" class="instrument-browser__dropdown-toggle" id="instrument-browser-toggle" aria-expanded="false" aria-controls="instrument-browser-panel">
+          <span>+ Choose an instrument</span>
+          <span class="instrument-browser__dropdown-caret">▾</span>
+        </button>
+        <div class="instrument-browser" id="instrument-browser-panel" hidden>
+          <input type="text" id="sidebar-instrument-search" class="instrument-browser__search" placeholder="Search instruments…" />
+          <label class="instrument-browser__real-toggle" title="On by default: rows marked REAL stream an actual recorded instrument sample instead of the built-in synth. Uncheck to use the faster, instantly step-editable synth instead.">
+            <input type="checkbox" id="sidebar-real-instrument-toggle" checked />
+            Real instrument sound where available (uncheck for synth)
+          </label>
+          <p class="daw-note" id="sidebar-instrument-status" style="margin: 0.2rem 0 0.4rem"></p>
+          <div id="sidebar-instrument-chips" class="instrument-browser__chips"></div>
+          <div id="sidebar-instrument-browser"></div>
+        </div>
+
+        <div class="daw-sidebar__section-title">Preset patterns</div>
+        <p class="daw-note" style="margin-top: 0">Click a preset to drop a fully-arranged, ready-to-edit pattern straight into the timeline.</p>
+        <div id="preset-library"></div>
+
+        <div class="daw-sidebar__section-title">Genre &amp; era starters</div>
+        <p class="daw-note" style="margin-top: 0">Original, hand-written multi-instrument starters — one click adds drums + bass + a melody track together, all independently editable. Not sampled or extracted from any real recording.</p>
+        <div id="genre-preset-library"></div>
+
+        <div class="daw-sidebar__section-title">Add a sound</div>
+        <div class="instrument-track" id="upload-track" style="cursor: pointer">
+          <div class="instrument-track__icon"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v11"/><path d="M8 7l4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg></div>
+          <div class="instrument-track__body">
+            <div class="instrument-track__name">Upload a clip…</div>
+          </div>
+        </div>
+        <input type="file" id="upload-input" accept="audio/*" style="display: none" />
+        <p class="daw-note">Or drag a file straight onto the timeline. Runs entirely in this tab — nothing is uploaded anywhere.</p>
+      </aside>
+
+      <main class="daw-main">
+        <div class="feature-callouts">
+          <div class="feature-callout">
+            <div class="feature-callout__title"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg> Upload a song, see how it's built</div>
+            <button type="button" class="feature-callout__cta" id="hero-upload-btn"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v11"/><path d="M8 7l4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg> Upload a file</button>
+            <p class="feature-callout__body">
+              The free desktop app splits any song into vocals/drums/bass/guitar/piano and detects its
+              tempo, key, and chords — a real breakdown of how the track was made, not a guess. This
+              browser version can't run that (it needs real local compute), but its <strong>Any Sound</strong>
+              row below lets you upload a clip and reverse or pitch-shift it right now, no install.
+            </p>
+          </div>
+          <div class="feature-callout">
+            <div class="feature-callout__title"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M9 5.5h6M9 8.5h6" stroke-width="1.2"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5v3.5"/><path d="M8.5 21h7"/></svg> Sing it, play it back as any instrument</div>
+            <button type="button" class="feature-callout__cta" id="hero-record-btn"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M9 5.5h6M9 8.5h6" stroke-width="1.2"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5v3.5"/><path d="M8.5 21h7"/></svg> Record</button>
+            <p class="feature-callout__body">
+              Hum or sing into your mic and it's pitch-tracked note-by-note, then replayed through any of
+              8 instrument voices — auto-tuned into a key if you can't quite hold the note, with Robotic
+              or Muffled voice effects. Try it in the <strong>Voice</strong> row below — fully real, runs
+              right in this tab.
+            </p>
+          </div>
+        </div>
+
+        <p class="daw-note daw-note--upsell" id="upload-midi-boundary-note">
+          Uploads become playable, editable tracks you can drag, stretch, reverse and pitch-shift right
+          away — select more than one file and each becomes its own track instantly, no extra click. Each
+          track also has an experimental <strong>MIDI</strong> button that tracks its one dominant melody
+          line and exports a real .mid file — it works well on a clean solo instrument or vocal, but a
+          full mixed song, chords, drums, or noisy audio (like a gameplay video's soundtrack) won't
+          transcribe cleanly. Real multi-instrument note-level transcription needs the free desktop app's
+          local compute (Demucs stem separation plus real pitch/onset detection) — that boundary hasn't
+          changed, this is a genuinely different, smaller, single-melody feature.
+        </p>
+
+        <div class="daw-timeline">
+          <div class="timeline-toolbar">
+            <button type="button" class="is-primary" id="timeline-add-track-btn">+ Add track</button>
+            <span class="daw-note" style="margin: 0">Drums, Piano, Guitar and Bass are ready below by default — use this to add any other instrument lane.</span>
+          </div>
+          <div id="timeline"></div>
+        </div>
+
+        <div class="daw-transport">
+          <button class="is-primary" id="play-pause-btn"><svg class="icon-inline" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4.5v15l13-7.5z"/></svg> Play</button>
+          <button id="stop-btn">Stop</button>
+          <label class="daw-bpm" title="Tempo — applies to beat/note tracks (drums, bass, keys, guitar and any custom pattern track); pre-recorded melody layers in example songs stay at their original tempo">
+            <span>BPM</span>
+            <input type="number" id="bpm-input" min="40" max="240" step="1" value="120" />
+          </label>
+          <span class="daw-preview__time" id="scrubber-time">0:00 / 0:00</span>
+          <span style="flex: 1"></span>
+          <button id="undo-btn" title="Undo (Ctrl/Cmd+Z)" disabled><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 8L3 12l4 4"/><path d="M3 12h10.5a5.5 5.5 0 0 1 0 11H11"/></svg> Undo</button>
+          <button id="redo-btn" title="Redo (Ctrl/Cmd+Shift+Z)" disabled><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 8l4 4-4 4"/><path d="M21 12H10.5a5.5 5.5 0 0 0 0 11H13"/></svg> Redo</button>
+          <button id="mixer-btn" title="Open mixer view"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 21V13M6 9V3"/><circle cx="6" cy="11" r="2"/><path d="M12 21V15M12 11V3"/><circle cx="12" cy="13" r="2"/><path d="M18 21V17M18 13V3"/><circle cx="18" cy="15" r="2"/></svg> Mixer</button>
+          <span class="export-group">
+            <button id="export-btn" title="Render the full mix — every track, respecting mute/solo/volume — to a downloadable file"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v11"/><path d="M8 10l4 4 4-4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg> Export song</button>
+            <select id="export-format" title="File format for the export" aria-label="Export format">
+              <option value="mp3" selected>MP3</option>
+              <option value="wav">WAV</option>
+            </select>
+          </span>
+          <button id="save-project-btn" title="Save this project to your browser"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3h11l3 3v15H5z"/><path d="M8 3v6h8V3"/><rect x="8" y="14" width="8" height="7"/></svg> Save</button>
+          <button id="load-project-btn" title="Load a saved project"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7a1 1 0 0 1 1-1h5l2 2h9a1 1 0 0 1 1 1v2H3z"/><path d="M3 9l1.5 10a1 1 0 0 0 1 .9h13a1 1 0 0 0 1-.9L21 9"/></svg> Load</button>
+          <button id="share-btn" title="Share or copy a link to this song"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="2.5"/><circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="19" r="2.5"/><path d="M8.3 10.7l7.4-4.4M8.3 13.3l7.4 4.4"/></svg> Share</button>
+        </div>
+
+        <div id="mixer-panel" class="mixer-panel" style="display: none"></div>
+        <div id="share-panel" class="share-panel" style="display: none"></div>
+        <div id="project-panel" class="project-panel" style="display: none"></div>
+
+        <div class="daw-preview" id="preview">
+          <div class="daw-preview__waveform" id="waveform"></div>
+          <div class="daw-preview__scrubline" id="scrubber"></div>
+        </div>
+
+        <div class="daw-timeline">
+          <div class="timeline-special" id="special-tracks">
+            <div class="timeline-layer timeline-layer--special">
+              <div class="timeline-layer__label"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg> MIDI Instrument</div>
+              <div class="timeline-layer__special-body timeline-layer__special-body--column">
+                <p class="daw-note record-flow-hint" style="margin: 0 0 0.4rem">
+                  <strong>1.</strong> Pick an instrument sound below &nbsp;→&nbsp; <strong>2.</strong> press Record &nbsp;→&nbsp;
+                  <strong>3.</strong> play the drum pads and piano keys — both are always live together, the dropdown
+                  only changes the piano's sound, never the drum kit.
+                </p>
+                <div class="midi-keyboard-controls">
+                  <select id="keyboard-instrument" class="midi-keyboard-controls__instrument" title="Instrument — change this to make the keyboard below sound like anything">
+                    <optgroup label="Keyboards">
+                      <option value="keys">Piano</option>
+                      <option value="epiano">Electric Piano</option>
+                      <option value="organ">Organ</option>
+                      <option value="clavinet">Clavinet</option>
+                    </optgroup>
+                    <optgroup label="Guitars &amp; Bass">
+                      <option value="guitar">Guitar (Acoustic)</option>
+                      <option value="guitar_clean">Clean Electric Guitar</option>
+                      <option value="guitar_distorted">Distorted Electric Guitar</option>
+                      <option value="bass">Bass</option>
+                      <option value="synthbass">Synth Bass</option>
+                    </optgroup>
+                    <optgroup label="Strings &amp; Choir">
+                      <option value="strings">Strings</option>
+                      <option value="violin">Violin</option>
+                      <option value="cello">Cello</option>
+                      <option value="harp">Harp</option>
+                      <option value="choir">Choir</option>
+                    </optgroup>
+                    <optgroup label="Winds &amp; Brass">
+                      <option value="flute">Flute</option>
+                      <option value="clarinet">Clarinet</option>
+                      <option value="oboe">Oboe</option>
+                      <option value="saxophone">Saxophone</option>
+                      <option value="brass">Brass</option>
+                      <option value="trumpet">Trumpet</option>
+                      <option value="trombone">Trombone</option>
+                    </optgroup>
+                    <optgroup label="Synths">
+                      <option value="lead">Lead</option>
+                      <option value="pad">Pad</option>
+                      <option value="pluck">Pluck</option>
+                    </optgroup>
+                    <optgroup label="Mallets &amp; Bells">
+                      <option value="bell">Bell</option>
+                      <option value="marimba">Marimba</option>
+                    </optgroup>
+                  </select>
+                  <button id="keyboard-record-btn"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="8"/></svg> Record performance</button>
+                  <span id="keyboard-status" class="daw-note" style="margin: 0">Click keys/pads, or play with your computer keyboard.</span>
+                  <label class="timeline-layer__inline-check" title="Every key/pad you press also drops that exact sound into the timeline at the current playhead position — for a single subtle hit, not a whole recorded take">
+                    <input type="checkbox" id="keyboard-drop-at-playhead" /> Drop each hit at playhead
+                  </label>
+                  <button id="keyboard-preview-btn" disabled>Preview</button>
+                  <button class="is-primary" id="keyboard-add-btn" disabled>Add to timeline</button>
+                  <button id="keyboard-discard-btn" disabled>Discard</button>
+                </div>
+                <!-- 18 pads (3x6), redesigned per direct feedback: F1-F8
+                     were awkward function-row keys; the piano's live
+                     computer-key range below was trimmed to one
+                     diatonic octave (sharps/flats still clickable with
+                     the mouse) specifically to free the number row,
+                     QWERTY row, and home row — three full, mutually
+                     adjacent rows — for this grid with zero key
+                     overlap. See STATUS.md for the exact before/after
+                     key map. -->
+                <div class="mpc-pad-grid" id="mpc-pad-grid">
+                  <div class="mpc-pad" data-drum="kick"><span>Kick</span><span class="mpc-pad__key">1</span></div>
+                  <div class="mpc-pad" data-drum="kick2"><span>Deep Kick</span><span class="mpc-pad__key">2</span></div>
+                  <div class="mpc-pad" data-drum="snare"><span>Snare</span><span class="mpc-pad__key">3</span></div>
+                  <div class="mpc-pad" data-drum="rimshot"><span>Rimshot</span><span class="mpc-pad__key">4</span></div>
+                  <div class="mpc-pad" data-drum="clap"><span>Clap</span><span class="mpc-pad__key">5</span></div>
+                  <div class="mpc-pad" data-drum="snap"><span>Snap</span><span class="mpc-pad__key">6</span></div>
+                  <div class="mpc-pad" data-drum="hihat"><span>Hat</span><span class="mpc-pad__key">Q</span></div>
+                  <div class="mpc-pad" data-drum="openhat"><span>Open Hat</span><span class="mpc-pad__key">W</span></div>
+                  <div class="mpc-pad" data-drum="crash"><span>Crash</span><span class="mpc-pad__key">E</span></div>
+                  <div class="mpc-pad" data-drum="ride"><span>Ride</span><span class="mpc-pad__key">R</span></div>
+                  <div class="mpc-pad" data-drum="tom"><span>Tom</span><span class="mpc-pad__key">T</span></div>
+                  <div class="mpc-pad" data-drum="tomhi"><span>Hi Tom</span><span class="mpc-pad__key">Y</span></div>
+                  <div class="mpc-pad" data-drum="cowbell"><span>Cowbell</span><span class="mpc-pad__key">A</span></div>
+                  <div class="mpc-pad" data-drum="shaker"><span>Shaker</span><span class="mpc-pad__key">S</span></div>
+                  <div class="mpc-pad" data-drum="tambourine"><span>Tambourine</span><span class="mpc-pad__key">D</span></div>
+                  <div class="mpc-pad" data-drum="clave"><span>Clave</span><span class="mpc-pad__key">F</span></div>
+                  <div class="mpc-pad" data-drum="conga"><span>Conga</span><span class="mpc-pad__key">G</span></div>
+                  <div class="mpc-pad" data-drum="tomlo"><span>Low Tom</span><span class="mpc-pad__key">H</span></div>
+                </div>
+                <div class="midi-keyboard-controls" style="margin-top: 0.5rem">
+                  <label class="timeline-layer__inline-range" title="The piano's computer-key range is one octave at a time — these shift it up/down without changing what's on screen. Clicking an on-screen key with the mouse always plays the pictured octave regardless of this setting.">
+                    <button type="button" id="oct-down">Octave −</button>
+                    <span id="keyboard-octave-label">Octave shift: 0</span>
+                    <button type="button" id="oct-up">Octave +</button>
+                  </label>
+                  <span class="daw-note" style="margin: 0">Computer keys Z-M play one white-key octave; sharps/flats are mouse/tap-only on the keys below.</span>
+                </div>
+                <div class="midi-keyboard" id="midi-keyboard">
+                  <div class="midi-keyboard__white" data-note="60"><span class="midi-keyboard__label">Z</span></div>
+                  <div class="midi-keyboard__white" data-note="62"><span class="midi-keyboard__label">X</span></div>
+                  <div class="midi-keyboard__white" data-note="64"><span class="midi-keyboard__label">C</span></div>
+                  <div class="midi-keyboard__white" data-note="65"><span class="midi-keyboard__label">V</span></div>
+                  <div class="midi-keyboard__white" data-note="67"><span class="midi-keyboard__label">B</span></div>
+                  <div class="midi-keyboard__white" data-note="69"><span class="midi-keyboard__label">N</span></div>
+                  <div class="midi-keyboard__white" data-note="71"><span class="midi-keyboard__label">M</span></div>
+                  <div class="midi-keyboard__black" data-note="61" style="left: 9.79%"></div>
+                  <div class="midi-keyboard__black" data-note="63" style="left: 24.07%"></div>
+                  <div class="midi-keyboard__black" data-note="66" style="left: 52.64%"></div>
+                  <div class="midi-keyboard__black" data-note="68" style="left: 66.93%"></div>
+                  <div class="midi-keyboard__black" data-note="70" style="left: 81.21%"></div>
+                </div>
+              </div>
+            </div>
+            <div class="timeline-layer timeline-layer--special">
+              <div class="timeline-layer__label"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M9 5.5h6M9 8.5h6" stroke-width="1.2"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5v3.5"/><path d="M8.5 21h7"/></svg> Voice</div>
+              <div class="timeline-layer__special-body">
+                <button id="voice-record-btn"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="2" width="6" height="11" rx="3"/><path d="M9 5.5h6M9 8.5h6" stroke-width="1.2"/><path d="M5.5 11a6.5 6.5 0 0 0 13 0"/><path d="M12 17.5v3.5"/><path d="M8.5 21h7"/></svg> Record</button>
+                <span id="voice-status" class="daw-note" style="margin: 0"></span>
+                <label class="timeline-layer__inline-range" title="Crop out silence or a false start before it's turned into notes">
+                  Trim
+                  <input type="number" id="voice-trim-start" min="0" step="0.1" value="0" style="width: 4em" /> s
+                  to
+                  <input type="number" id="voice-trim-end" min="0" step="0.1" value="0" style="width: 4em" /> s
+                </label>
+                <select id="voice-instrument" title="Instrument">
+                  <option value="__voice__">Your own voice (pitch-corrected)</option>
+                  <optgroup label="Keyboards">
+                    <option value="keys">Piano</option>
+                    <option value="epiano">Electric Piano</option>
+                    <option value="organ">Organ</option>
+                    <option value="clavinet">Clavinet</option>
+                  </optgroup>
+                  <optgroup label="Guitars &amp; Bass">
+                    <option value="guitar">Guitar (Acoustic)</option>
+                    <option value="guitar_clean">Clean Electric Guitar</option>
+                    <option value="guitar_distorted">Distorted Electric Guitar</option>
+                    <option value="bass">Bass</option>
+                    <option value="synthbass">Synth Bass</option>
+                  </optgroup>
+                  <optgroup label="Strings &amp; Choir">
+                    <option value="strings">Strings</option>
+                    <option value="violin">Violin</option>
+                    <option value="cello">Cello</option>
+                    <option value="harp">Harp</option>
+                    <option value="choir">Choir</option>
+                  </optgroup>
+                  <optgroup label="Winds &amp; Brass">
+                    <option value="flute">Flute</option>
+                    <option value="clarinet">Clarinet</option>
+                    <option value="oboe">Oboe</option>
+                    <option value="saxophone">Saxophone</option>
+                    <option value="brass">Brass</option>
+                    <option value="trumpet">Trumpet</option>
+                    <option value="trombone">Trombone</option>
+                  </optgroup>
+                  <optgroup label="Synths">
+                    <option value="lead">Lead</option>
+                    <option value="pad">Pad</option>
+                    <option value="pluck">Pluck</option>
+                  </optgroup>
+                  <optgroup label="Mallets &amp; Bells">
+                    <option value="bell">Bell</option>
+                    <option value="marimba">Marimba</option>
+                  </optgroup>
+                </select>
+                <label class="timeline-layer__inline-check">
+                  <input type="checkbox" id="voice-autotune" /> Auto-tune
+                </label>
+                <select id="voice-tonic" title="Key">
+                  <option value="0">C</option>
+                  <option value="1">C#</option>
+                  <option value="2">D</option>
+                  <option value="3">D#</option>
+                  <option value="4">E</option>
+                  <option value="5">F</option>
+                  <option value="6">F#</option>
+                  <option value="7">G</option>
+                  <option value="8">G#</option>
+                  <option value="9">A</option>
+                  <option value="10">A#</option>
+                  <option value="11">B</option>
+                </select>
+                <select id="voice-scale" title="Scale">
+                  <option value="major">Major</option>
+                  <option value="minor">Minor</option>
+                </select>
+                <span class="effect-stack" data-stack-for="voice">
+                  <label class="effect-stack__toggle"><input type="checkbox" id="voice-fx-robotic" /> Robotic</label>
+                  <input type="range" id="voice-robotic-hz" min="30" max="300" value="80" style="display: none" title="Carrier Hz" />
+                  <label class="effect-stack__toggle"><input type="checkbox" id="voice-fx-muffled" /> Muffled</label>
+                  <input type="range" id="voice-muffle-hz" min="100" max="4000" value="600" style="display: none" title="Cutoff Hz" />
+                  <label class="effect-stack__toggle"><input type="checkbox" id="voice-fx-distortion" /> Distortion</label>
+                  <input type="range" id="voice-distortion" min="0" max="100" value="40" style="display: none" title="Drive" />
+                  <label class="effect-stack__toggle"><input type="checkbox" id="voice-fx-reverb" /> Reverb</label>
+                  <input type="range" id="voice-reverb" min="0" max="100" value="35" style="display: none" title="Wet %" />
+                  <label class="effect-stack__toggle"><input type="checkbox" id="voice-fx-delay" /> Delay</label>
+                  <input type="range" id="voice-delay" min="0" max="100" value="30" style="display: none" title="Wet %" />
+                  <label class="effect-stack__toggle"><input type="checkbox" id="voice-fx-compress" /> Compression</label>
+                  <label class="effect-stack__toggle" title="A stock presence-boost EQ, the same reference vocal chain that motivated Robotic/Muffled/Distortion/Reverb/Compression"><input type="checkbox" id="voice-fx-eq" /> EQ</label>
+                  <label class="effect-stack__toggle" title="Daft Punk/house-style rhythmic volume pumping, synced to the current BPM"><input type="checkbox" id="voice-fx-sidechain" /> Sidechain Pump</label>
+                  <input type="range" id="voice-sidechain" min="0" max="100" value="60" style="display: none" title="Pump amount" />
+                  <label class="effect-stack__toggle" title="A slow-moving resonant filter sweep — the 'One More Time'/'Da Funk' evolving-tone technique"><input type="checkbox" id="voice-fx-filtersweep" /> Filter Sweep</label>
+                  <input type="range" id="voice-filtersweep" min="0" max="100" value="60" style="display: none" title="Sweep range" />
+                  <label class="effect-stack__toggle" title="A Roland Juno-60-style analog chorus — the lush, shimmering synth sound behind 'Last Christmas'"><input type="checkbox" id="voice-fx-chorus" /> Chorus</label>
+                  <input type="range" id="voice-chorus" min="0" max="100" value="50" style="display: none" title="Wet %" />
+                </span>
+                <button id="voice-preview-btn" disabled title="Hear it through the chosen instrument before adding it">Preview</button>
+                <button class="is-primary" id="voice-render-btn" disabled>Add to timeline</button>
+                <button id="voice-discard-btn" disabled title="Throw away this recording and start over">Discard</button>
+                <label class="timeline-layer__inline-range" title="Builds an original drum/bass/chord/melody arrangement in this genre and key, then loops your recording underneath it for about two minutes">
+                  In-house producer
+                  <select id="producer-genre">
+                    <option value="pop">Pop</option>
+                    <option value="hiphop">Hip-Hop</option>
+                    <option value="blues">Blues</option>
+                    <option value="house">House</option>
+                    <option value="jazz">Jazz</option>
+                    <option value="holiday">Holiday</option>
+                  </select>
+                  <button class="is-primary" id="producer-build-btn" disabled>Turn into a song</button>
+                </label>
+                <label class="timeline-layer__inline-range lyric-sing-row" title="Browser text-to-speech, pitched toward the chosen note — a rough approximation of singing, not real vocal synthesis">
+                  Lyrics → sung note
+                  <select id="lyric-note-select"></select>
+                  <input type="text" id="lyric-text-input" placeholder="Type a word or short lyric…" maxlength="60" style="width: 12em" />
+                  <button id="lyric-sing-btn">Preview sung lyric</button>
+                  <span id="lyric-status" class="daw-note" style="margin: 0"></span>
+                </label>
+              </div>
+            </div>
+            <div class="timeline-layer timeline-layer--special">
+              <div class="timeline-layer__label"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9v6h3.5l5 4V5l-5 4z"/><path d="M15.3 8.7a5 5 0 0 1 0 6.6"/><path d="M18 6a8.5 8.5 0 0 1 0 12"/></svg> Any Sound</div>
+              <div class="timeline-layer__special-body">
+                <button id="anysound-upload-btn"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v11"/><path d="M8 7l4-4 4 4"/><path d="M4 15v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/></svg> Upload a clip</button>
+                <input type="url" id="anysound-url-input" placeholder="…or paste a direct file link" />
+                <button id="anysound-url-btn">Fetch</button>
+                <button id="anysound-tab-record-btn" title="Capture audio playing in a browser tab, window, or your whole screen — pick 'share tab audio' or 'share system audio' when your browser asks"><svg class="icon-inline" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="13" rx="1.5"/><path d="M8 21h8M12 17v4"/></svg> Record tab/system audio</button>
+                <span id="anysound-status" class="daw-note" style="margin: 0"></span>
+                <label class="timeline-layer__inline-check">
+                  <input type="checkbox" id="fx-reverse" /> Reverse
+                </label>
+                <label class="timeline-layer__inline-range" title="Crop to just this part of the clip before reversing/pitching/adding effects">
+                  Trim
+                  <input type="number" id="fx-trim-start" min="0" step="0.1" value="0" style="width: 4em" /> s
+                  to
+                  <input type="number" id="fx-trim-end" min="0" step="0.1" value="0" style="width: 4em" /> s
+                </label>
+                <label class="timeline-layer__inline-range">
+                  Pitch
+                  <input type="range" id="fx-pitch" min="-24" max="24" value="0" />
+                  <span id="fx-pitch-val">0 st</span>
+                </label>
+                <span class="effect-stack" data-stack-for="fx">
+                  <label class="effect-stack__toggle"><input type="checkbox" id="fx-fx-robotic" /> Robotic</label>
+                  <input type="range" id="fx-robotic-hz" min="30" max="300" value="80" style="display: none" title="Carrier Hz" />
+                  <label class="effect-stack__toggle"><input type="checkbox" id="fx-fx-muffled" /> Muffled</label>
+                  <input type="range" id="fx-muffle-hz" min="100" max="4000" value="600" style="display: none" title="Cutoff Hz" />
+                  <label class="effect-stack__toggle"><input type="checkbox" id="fx-fx-distortion" /> Distortion</label>
+                  <input type="range" id="fx-distortion" min="0" max="100" value="40" style="display: none" title="Drive" />
+                  <label class="effect-stack__toggle"><input type="checkbox" id="fx-fx-reverb" /> Reverb</label>
+                  <input type="range" id="fx-reverb" min="0" max="100" value="35" style="display: none" title="Wet %" />
+                  <label class="effect-stack__toggle"><input type="checkbox" id="fx-fx-delay" /> Delay</label>
+                  <input type="range" id="fx-delay" min="0" max="100" value="30" style="display: none" title="Wet %" />
+                  <label class="effect-stack__toggle"><input type="checkbox" id="fx-fx-compress" /> Compression</label>
+                  <label class="effect-stack__toggle" title="A stock presence-boost EQ"><input type="checkbox" id="fx-fx-eq" /> EQ</label>
+                  <label class="effect-stack__toggle" title="Daft Punk/house-style rhythmic volume pumping, synced to the current BPM"><input type="checkbox" id="fx-fx-sidechain" /> Sidechain Pump</label>
+                  <input type="range" id="fx-sidechain" min="0" max="100" value="60" style="display: none" title="Pump amount" />
+                  <label class="effect-stack__toggle" title="A slow-moving resonant filter sweep — the 'One More Time'/'Da Funk' evolving-tone technique"><input type="checkbox" id="fx-fx-filtersweep" /> Filter Sweep</label>
+                  <input type="range" id="fx-filtersweep" min="0" max="100" value="60" style="display: none" title="Sweep range" />
+                  <label class="effect-stack__toggle" title="A Roland Juno-60-style analog chorus — the lush, shimmering synth sound behind 'Last Christmas'"><input type="checkbox" id="fx-fx-chorus" /> Chorus</label>
+                  <input type="range" id="fx-chorus" min="0" max="100" value="50" style="display: none" title="Wet %" />
+                </span>
+                <button class="is-primary" id="fx-apply-btn" disabled>Apply &amp; add to timeline</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="dj-mixer" id="dj-mixer">
+          <div class="daw-sidebar__section-title" style="margin-top: 0">DJ Mixer</div>
+          <p class="daw-note" style="margin: 0 0 0.7rem">
+            Load any two of your own tracks from "Your Layers" into Deck A/B, then play, scratch the
+            jog wheels, drop hot cues, and crossfade between them live — a just-for-fun virtual console,
+            reusing the exact same track audio already in your project.
+          </p>
+          <div class="dj-mixer__decks">
+            <div class="dj-mixer__deck" data-deck="a">
+              <select class="dj-mixer__track-select" data-deck-select="a"><option value="">No track loaded</option></select>
+              <div class="dj-mixer__platter" data-deck-platter="a" title="Drag to scratch/scrub playback position">
+                <div class="dj-mixer__platter-disc"><div class="dj-mixer__platter-dot"></div></div>
+              </div>
+              <div class="dj-mixer__transport">
+                <button type="button" data-deck-play="a">Play</button>
+                <button type="button" data-deck-cue="a" title="Jump to the start">Cue</button>
+                <button type="button" data-deck-sync="a" title="Match this deck's speed to the other deck's BPM">Sync</button>
+              </div>
+              <label class="dj-mixer__bpm" title="Enter this track's BPM manually — Sync matches playback speed using these two numbers, not real tempo detection">
+                BPM <input type="number" data-deck-bpm="a" min="40" max="240" placeholder="120" />
+              </label>
+              <div class="dj-mixer__eq">
+                <label>Hi<input type="range" data-deck-eq="a-high" min="-24" max="12" value="0" /></label>
+                <label>Mid<input type="range" data-deck-eq="a-mid" min="-24" max="12" value="0" /></label>
+                <label>Low<input type="range" data-deck-eq="a-low" min="-24" max="12" value="0" /></label>
+              </div>
+              <label class="dj-mixer__volume">Vol <input type="range" data-deck-volume="a" min="0" max="100" value="100" /></label>
+              <div class="dj-mixer__cues">
+                <button type="button" class="dj-mixer__cuepad" data-deck-cuepad="a-0">1</button>
+                <button type="button" class="dj-mixer__cuepad" data-deck-cuepad="a-1">2</button>
+                <button type="button" class="dj-mixer__cuepad" data-deck-cuepad="a-2">3</button>
+                <button type="button" class="dj-mixer__cuepad" data-deck-cuepad="a-3">4</button>
+              </div>
+            </div>
+
+            <div class="dj-mixer__crossfader-col">
+              <div class="dj-mixer__master-label">Crossfader</div>
+              <input type="range" id="dj-crossfader" min="0" max="100" value="50" />
+              <div class="dj-mixer__crossfader-labels"><span>A</span><span>B</span></div>
+            </div>
+
+            <div class="dj-mixer__deck" data-deck="b">
+              <select class="dj-mixer__track-select" data-deck-select="b"><option value="">No track loaded</option></select>
+              <div class="dj-mixer__platter" data-deck-platter="b" title="Drag to scratch/scrub playback position">
+                <div class="dj-mixer__platter-disc"><div class="dj-mixer__platter-dot"></div></div>
+              </div>
+              <div class="dj-mixer__transport">
+                <button type="button" data-deck-play="b">Play</button>
+                <button type="button" data-deck-cue="b" title="Jump to the start">Cue</button>
+                <button type="button" data-deck-sync="b" title="Match this deck's speed to the other deck's BPM">Sync</button>
+              </div>
+              <label class="dj-mixer__bpm" title="Enter this track's BPM manually — Sync matches playback speed using these two numbers, not real tempo detection">
+                BPM <input type="number" data-deck-bpm="b" min="40" max="240" placeholder="120" />
+              </label>
+              <div class="dj-mixer__eq">
+                <label>Hi<input type="range" data-deck-eq="b-high" min="-24" max="12" value="0" /></label>
+                <label>Mid<input type="range" data-deck-eq="b-mid" min="-24" max="12" value="0" /></label>
+                <label>Low<input type="range" data-deck-eq="b-low" min="-24" max="12" value="0" /></label>
+              </div>
+              <label class="dj-mixer__volume">Vol <input type="range" data-deck-volume="b" min="0" max="100" value="100" /></label>
+              <div class="dj-mixer__cues">
+                <button type="button" class="dj-mixer__cuepad" data-deck-cuepad="b-0">1</button>
+                <button type="button" class="dj-mixer__cuepad" data-deck-cuepad="b-1">2</button>
+                <button type="button" class="dj-mixer__cuepad" data-deck-cuepad="b-2">3</button>
+                <button type="button" class="dj-mixer__cuepad" data-deck-cuepad="b-3">4</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <p class="daw-note daw-note--upsell">
+          This browser DAW plays with original example songs, your own uploaded clips, and built-in
+          effects — all running locally in this tab, for free, forever. Full song analysis (real stem
+          separation, chord/tempo detection) and AI generation need real local compute, so those live
+          in the free desktop app.
+        </p>
+      </main>
+    </div>
+  </div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

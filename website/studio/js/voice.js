@@ -1,11 +1,12 @@
 // Voice engine: mic recording + "voice to instrument" (Dubler-style).
-//  - melody mode: real-time pitch (YIN) -> note on/off with hysteresis,
+//  - melody mode: real-time pitch (McLeod/MPM in the worklet) -> note on/off with hysteresis,
 //    optional scale snapping and octave shift -> plays the keyboard instrument
 //  - beatbox mode: onset detection + timbre features (low/high band
 //    ratios, zero-crossing rate) -> kick / snare / hat pads. You can teach
 //    it your own sounds (nearest-centroid on your examples).
 
 import { getCtx } from "./audio.js";
+import { NoteTracker } from "./pitch.js";
 
 export const SCALES = {
   chromatic: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11],
@@ -31,6 +32,8 @@ export class VoiceEngine {
     this.onBeat = () => {};
     this.onLevel = () => {};
     this.onPitch = () => {};
+    this.onBend = () => {};
+    this.glide = false;
     this.current = null;
     this.cand = null;
     this.candCount = 0;
@@ -145,48 +148,44 @@ export class VoiceEngine {
   }
 
   melody(msg, t) {
-    const voiced = msg.f0 > 60 && msg.f0 < 1200 && msg.conf > 0.8 && msg.rms > this.gate;
-    if (!voiced) {
-      this.onPitch(null);
-      this.unvoiced++;
-      this.cand = null;
-      this.candCount = 0;
-      if (this.current !== null && this.unvoiced >= 3) this.releaseNote(t);
-      return;
-    }
-    this.unvoiced = 0;
-    const mf = 69 + 12 * Math.log2(msg.f0 / 440);
-    const note = this.snap(mf) + this.octave * 12;
-    this.onPitch({ midiFloat: mf, note });
-    if (this.current !== null) {
-      const curRaw = this.current - this.octave * 12;
-      if (note === this.current || Math.abs(mf - curRaw) < 0.7) {
-        this.cand = null;
-        this.candCount = 0;
-        return;
+    if (!this.tracker) this.tracker = new NoteTracker({ snap: (m) => this.snap(m) + this.octave * 12, onFrames: 3, changeFrames: 4, offFrames: 6 });
+    const tr = this.tracker;
+    const evs = tr.push({ f0: msg.f0, clarity: msg.conf, rms: msg.rms }, this.gate, 0.82);
+    for (const ev of evs) {
+      if (ev.type === "off") {
+        if (this.current !== null) this.onNoteOff(this.current, t);
+        this.current = null;
+      } else {
+        if (this.current !== null) this.onNoteOff(this.current, t);
+        this.current = ev.note;
+        this.onNoteOn(ev.note, ev.vel, t, this.bendCents(tr.midiFloat));
       }
     }
-    if (this.cand === note) this.candCount++;
-    else {
-      this.cand = note;
-      this.candCount = 1;
+    const voiced = tr.unvoiced === 0 && msg.f0 > 0;
+    if (!voiced) {
+      this.onPitch(null);
+      return;
     }
-    const need = this.current === null ? 2 : 3;
-    if (this.candCount >= need) {
-      if (this.current !== null) this.onNoteOff(this.current, t);
-      this.current = note;
-      const db = 20 * Math.log10(msg.rms + 1e-9);
-      const vel = Math.round(Math.max(40, Math.min(127, ((db + 45) / 39) * 87 + 40)));
-      this.onNoteOn(note, vel, t);
-      this.cand = null;
-      this.candCount = 0;
-    }
+    const mf = tr.midiFloat;
+    this.onPitch({ midiFloat: mf, note: this.snap(mf) + this.octave * 12 });
+    if (this.current !== null && this.glide) this.onBend(this.current, this.bendCents(mf));
+  }
+
+  // cents between the sung pitch and the note being played (for glide)
+  bendCents(mf) {
+    if (this.current === null || mf == null) return 0;
+    const c = (mf + this.octave * 12 - this.current) * 100;
+    return Math.max(-200, Math.min(200, c));
   }
 
   releaseNote(t) {
     if (this.current !== null) {
       this.onNoteOff(this.current, t ?? getCtx().currentTime);
       this.current = null;
+    }
+    if (this.tracker) {
+      this.tracker.current = null;
+      this.tracker.open = false;
     }
   }
 
@@ -196,7 +195,7 @@ export class VoiceEngine {
     if (this.pendingOnset) {
       const p = this.pendingOnset;
       p.frames.push(msg);
-      if (p.frames.length >= 2) {
+      if (p.frames.length >= 4) {
         this.pendingOnset = null;
         const f = features(p.frames);
         if (this.training) {

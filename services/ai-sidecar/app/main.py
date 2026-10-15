@@ -10,6 +10,7 @@ import json
 import sys
 
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.api import (
     routes_admin,
@@ -18,11 +19,22 @@ from app.api import (
     routes_generate,
     routes_health,
     routes_pitch,
+    routes_stems,
 )
 
 app = FastAPI(title="dawsons-ai-sidecar")
 
+# The browser studio calls this from another origin (the static site).
+# The process still binds to localhost; this only lets that page read it.
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(routes_health.router)
+app.include_router(routes_stems.router)
 app.include_router(routes_analyze.router)
 app.include_router(routes_classify.router)
 app.include_router(routes_generate.router)
