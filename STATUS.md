@@ -1,5 +1,9 @@
 # Status
 
+## Status review — 26 Oct 2026 (Sydney)
+- Git: branch `main`, tip `56c2789 Merge pull request #15 from Astryks/feat/organic-seo-llm-visibility`; working tree clean and pushed after this review.
+- Committed today: removal of services/ai-sidecar/dist/dawsons-sidecar/README.md (build artefact). Open: ACE-Step real generation pending confirmation; iOS Simulator runtime never installed (compile-only verification); 'queued, not yet integrated' models list.
+
 Living progress log for Dawsons. Updated after every merge — check here
 first for what's actually done vs. planned.
 
